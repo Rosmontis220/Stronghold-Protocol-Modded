@@ -30,6 +30,7 @@ import { render } from '../vendor/preact.module.js';
 import { useErrorBoundary } from '../vendor/hooks.module.js';
 import { html, UiHosts, Button, MicroLabel, closeAllDialogs } from './ui/components.js';
 import { ConnectionBanner } from './ui/connBanner.js';
+import { NoticeBanner } from './ui/noticeBanner.js';
 import { ToastHost, toast, toastError, describeError } from './ui/toasts.js';
 import { net, identity, NetError } from './net.js';
 import { store, useStore, emptyMatch, selectRoute, sessionResetNotice } from './store.js';
@@ -225,6 +226,18 @@ function wireNet() {
     const priority = Number.isFinite(msg.priority) ? msg.priority : 0;
     store.set((s) => ({ ticker: [...s.ticker.slice(-(TICKER_KEEP - 1)), { id: ++seq, text: msg.text, at: Date.now(), type, playerId, round: s.match?.public?.round ?? null, priority }] }));
   });
+  // Server-wide announcement (server/notice.js): `text: null` is the "no notice, clear it" frame, and `until` is
+  // absolute server time (the banner compares it against net.serverNow()).
+  net.on('app.notice', (msg) => {
+    const text = typeof msg.text === 'string' && msg.text.trim() ? msg.text.trim() : null;
+    // NB: `until` is null when the notice has no expiry — Number(null) is 0, so do not funnel it through Number().
+    const until = typeof msg.until === 'number' && Number.isFinite(msg.until) ? msg.until : null;
+    const kind = ['info', 'maintenance', 'update', 'emergency'].includes(msg.kind) ? msg.kind : 'info';
+    const prev = store.get().notice;
+    if (!text) { if (prev) store.set({ notice: null }); return; }
+    if (prev && prev.text === text && prev.kind === kind && prev.until === until) return;
+    store.set({ notice: { text, kind, until } });
+  });
   net.on('m.emote', (msg) => {
     store.set((s) => ({ emotes: [...s.emotes.slice(-(EMOTE_KEEP - 1)), { seq: ++seq, playerId: msg.playerId, id: msg.id, at: Date.now() }] }));
   });
@@ -270,6 +283,7 @@ function App() {
   return html`<div class="app-root">
     <div class="app-bg" aria-hidden="true"></div>
     ${error ? html`<${ScreenCrashed} error=${error} reset=${resetError} />` : html`<${Screen} key=${route} />`}
+    <${NoticeBanner} />
     <${ConnectionBanner} />
     <${ToastHost} />
     <${UiHosts} />

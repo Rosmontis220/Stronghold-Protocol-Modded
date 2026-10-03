@@ -38,7 +38,8 @@ import { promisify } from 'node:util';
 import { pipeline } from 'node:stream/promises';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
-import { Network, SessionRegistry, NET_DEFAULTS } from './net.js';
+import { Network, SessionRegistry, NET_DEFAULTS, send } from './net.js';
+import { NoticeBoard, NOTICE_FILE } from './notice.js';
 import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
@@ -542,9 +543,11 @@ function makeLogger(quiet) {
  *   ratePerSec?: number, rateBurst?: number, maxConnections?: number, maxRooms?: number,
  *   maxConnectionsPerAddr?: number, maxRoomsPerAddr?: number, maxMatchesPerAddr?: number, resyncMinGapMs?: number,
  *   heavyPerSec?: number, heavyBurst?: number, trustProxy?: 'auto' | boolean, soloReconnectWindowMs?: number,
+ *   noticeFile?: string, noticePollMs?: number, notice?: false,
  * }} [opts]
  * @returns {Promise<{ port: number, host: string, url: string, server: http.Server, wss: WebSocketServer,
- *                     lobby: Lobby, network: Network, registry: SessionRegistry, close: () => Promise<void> }>}
+ *                     lobby: Lobby, network: Network, registry: SessionRegistry, notice: NoticeBoard,
+ *                     close: () => Promise<void> }>}
  */
 export async function startServer(opts = {}) {
   const port = opts.port ?? (process.env.PORT != null && process.env.PORT !== '' ? Number(process.env.PORT) : 3000);
@@ -569,7 +572,25 @@ export async function startServer(opts = {}) {
     if (opts[k] != null) lobbyOptions[k] = opts[k];
   }
   const lobby = new Lobby({ registry, log, MatchClass: opts.MatchClass, getData: () => data, seedFn: opts.seedFn, options: lobbyOptions });
-  const network = new Network({ registry, handler: lobby, log, options: netOptions });
+  // Server-wide announcements (server/notice.js): a file an operator edits, polled while the server runs, so
+  // "restarting in 5 minutes" can be shown without restarting. SP_NOTICE=off disables it entirely.
+  const noticeBoard = new NoticeBoard({
+    file: opts.noticeFile || (process.env.SP_NOTICE_FILE || path.join(ROOT, NOTICE_FILE)),
+    pollMs: opts.noticePollMs,
+    log,
+    watch: opts.notice !== false && process.env.SP_NOTICE !== 'off',
+  });
+  const network = new Network({
+    registry, handler: lobby, log, options: netOptions,
+    // A brand-new socket gets the current notice at once (it may sit on the title screen for a while before it
+    // says hello, and that is exactly when "restarting soon" should be visible).
+    onConnect: (conn) => noticeBoard.sendTo(conn.ws, send),
+  });
+  noticeBoard.onNotice = (frame) => {
+    const sent = network.broadcast(frame);
+    log.info?.(`[notice] broadcast to ${sent} socket(s)`);
+  };
+  noticeBoard.start();
   const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, log });
   const startedAt = Date.now();
 
@@ -654,6 +675,7 @@ export async function startServer(opts = {}) {
   async function close() {
     if (closing) return closing;
     closing = (async () => {
+      noticeBoard.stop();
       try { lobby.shutdown('shutdown'); } catch (e) { log.error('[shutdown] lobby', e); }
       network.close();
       await new Promise((resolve) => {
@@ -666,7 +688,7 @@ export async function startServer(opts = {}) {
     return closing;
   }
 
-  return { port: actualPort, host, url, server, wss, lobby, network, registry, close };
+  return { port: actualPort, host, url, server, wss, lobby, network, registry, notice: noticeBoard, close };
 }
 
 // ---------------------------------------------------------------------------------------------------

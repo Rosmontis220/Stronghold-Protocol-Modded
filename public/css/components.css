@@ -881,6 +881,73 @@
 .conn-banner .icon { width: .22rem; height: .22rem; color: var(--orange-hi); }
 .conn-banner__sub { color: var(--text-lo); font-family: var(--font-num); font-size: .15rem; }
 
+/* ---- server-wide announcement (js/ui/noticeBanner.js, server/notice.js) ------------------------------------ */
+/* An operator message, so it sits at the top centre (out of the way of the bottom-centred connection banner) and
+   shows on every screen, title included. html.sp-notice moves the toasts and the connection banner down instead of
+   letting them overlap it. */
+.notice-banner {
+  position: fixed;
+  left: 50%;
+  top: calc(.1rem + var(--sa-t, 0px));
+  transform: translateX(-50%);
+  z-index: var(--z-conn);
+  display: flex;
+  align-items: center;
+  gap: .12rem;
+  max-width: min(92vw, 9.2rem);
+  padding: .1rem .12rem .1rem .16rem;
+  background: rgba(10, 16, 14, .95);
+  border: 1px solid var(--mint-500);
+  box-shadow: 0 .08rem .3rem rgba(0, 0, 0, .6), 0 0 .2rem var(--mint-glow);
+  color: var(--text-hi);
+  font-size: .16rem;
+  animation: notice-in var(--t-med) var(--ease-out);
+}
+@keyframes notice-in { from { opacity: 0; transform: translate(-50%, -.12rem); } }
+.notice-banner__tag {
+  flex: none;
+  padding: .02rem .08rem;
+  border-radius: 3px;
+  background: var(--mint-500);
+  color: var(--bg-0);
+  font-size: .12rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+}
+.notice-banner__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.notice-banner .icon { width: .2rem; height: .2rem; flex: none; color: var(--mint-400); }
+.notice-banner__close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: .26rem;
+  height: .26rem;
+  margin-left: .04rem;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+  color: var(--text-lo);
+  cursor: pointer;
+}
+.notice-banner__close:hover { color: var(--text-hi); background: rgba(255, 255, 255, .06); }
+.notice-banner__close .icon { width: .16rem; height: .16rem; }
+/* kinds: the tag carries the colour (info = the default mint above) */
+.notice-banner--maintenance { border-color: var(--amber); box-shadow: 0 .08rem .3rem rgba(0, 0, 0, .6), 0 0 .2rem rgba(232, 178, 26, .2); }
+.notice-banner--maintenance .notice-banner__tag { background: var(--amber); }
+.notice-banner--maintenance .icon { color: var(--amber); }
+.notice-banner--update { border-color: var(--mint-400); }
+.notice-banner--update .notice-banner__tag { background: var(--mint-400); }
+.notice-banner--emergency { border-color: var(--red-premium); box-shadow: 0 .08rem .3rem rgba(0, 0, 0, .6), 0 0 .2rem rgba(232, 26, 26, .2); }
+.notice-banner--emergency .notice-banner__tag { background: var(--red-premium); }
+.notice-banner--emergency .icon { color: var(--red-premium); }
+/* the announcement moves the other transient chrome down (classes, no :has()) */
+.sp-notice .toast-host { top: calc(.62rem + var(--sa-t, 0px)); }
+.sp-notice .conn-banner { bottom: .24rem; }
+.sp-in-match.sp-notice .conn-banner { top: calc(1.9rem + var(--sa-t, 0px)); }
+.sp-in-match.sp-notice .toast-host { top: calc(2.56rem + var(--sa-t, 0px)); }
+.sp-in-match.sp-notice.sp-conn .toast-host { top: calc(3.22rem + var(--sa-t, 0px)); }
+
 /* ---- misc shared bits ------------------------------------------------------------------------------ */
 .kv { display: flex; align-items: baseline; gap: .08rem; }
 .kv__k { color: var(--text-lo); font-size: .14rem; }

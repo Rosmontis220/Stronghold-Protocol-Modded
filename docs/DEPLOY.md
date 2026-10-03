@@ -240,3 +240,42 @@ services:
 | 本地提取失败 | 不影响游戏。确认客户端已下载全部资源；Python 版本太新导致依赖安装失败时，安装 Python 3.12 后删除 `.venv-extract` 再运行 `node tools/setup.mjs --local` |
 | 3D 棋盘没出现 | 需要本地提取的棋盘贴图（`node tools/doctor.mjs` 会显示「3D 棋盘可用」），以及支持 WebGL2 的浏览器 |
 | 断线 | 同盟模拟 10 分钟内、独立模拟 24 小时内（`config.constants.singleReconnectTime`）用同一浏览器重新打开页面，自动回到原座位。同盟掉线期间按原阵容自动作战、到时自动准备（不会代为购买；想让 AI 代打请用「离开模拟 → 暂离（AI 托管）」）；独立模拟不计时，等你回来 |
+| 公告没出现 | 见第 6 节：`node scripts/notice.mjs --show` 看文件是否有效，`journalctl -u stronghold \| grep '\[notice\]'` 看服务器有没有读到；**已装的 exe/apk 要重新打包**才能显示 |
+
+## 6. 服务器公告（游戏内）
+
+服务端有一个**公告板**（`server/notice.js`）：每 10 秒检查一个文件，文件一变就把公告广播给所有在线 socket。客户端（`public/js/ui/noticeBanner.js`）在**任何界面**顶部显示一条胶囊，**标题页也显示**——玩家还没进大厅就能看到"服务器要维护了"。撤回时广播 `text: null`，横幅消失。玩家可以点掉（只对他这个浏览器隐藏，记的是**文本**：改动文本 = 新公告，会重新显示）。
+
+**发公告不需要重启**，这正是它存在的意义（要重启就得先能通知玩家）。重启会结束正在进行的对局（第 0 节），所以维护前请这样用：
+
+```bash
+cd ~/webUI/Stronghold-Protocol
+
+node scripts/notice.mjs "服务器将于 23:30 维护重启，预计 5 分钟"          # info（青绿色）
+node scripts/notice.mjs --kind maintenance "23:30 维护重启，约 5 分钟"    # 维护（琥珀色 + ⏳）
+node scripts/notice.mjs --kind update "已更新到 v0.1.1"                  # 更新
+node scripts/notice.mjs --kind emergency "服务器异常，正在抢修"           # 紧急（红色）
+node scripts/notice.mjs --for 30m "30 分钟后维护重启"                     # 到点自动撤回
+node scripts/notice.mjs --show                                          # 现在播的是什么
+node scripts/notice.mjs --clear                                         # 手动撤回
+```
+
+默认写 `<仓库>/.deploy/notice.json`（`SP_NOTICE_FILE` 可改；该文件在仓库外，`git pull` 不会和它冲突）：
+
+```json
+{ "text": "服务器将于 23:30 维护重启，预计 5 分钟", "kind": "maintenance", "until": "2026-10-03T15:40:00Z" }
+```
+
+直接写纯文本也行（当成 `info`），`echo 维护 > .deploy/notice.json` 就可以。文本会压成一行、超过 200 字截断。
+
+| 环境变量 | 默认 | 说明 |
+|---|---|---|
+| `SP_NOTICE_FILE` | `<仓库>/.deploy/notice.json` | 公告文件路径 |
+| `SP_NOTICE_POLL_SEC` | `10` | 轮询间隔（秒） |
+| `SP_NOTICE` | 未设 | `off` 完全关闭公告（不读文件、不发送） |
+
+注意：**已装的 exe / apk 需要重新打包**才会显示公告（客户端把 `public/**` 打进安装包；未知的 S2C 类型会被安静忽略）。网页端由服务器直接提供，改完刷新即生效。平台（www.starst.site）另有一套房间聊天公告（`POST /api/admin/system-messages`），与游戏内公告互不影响。
+
+维护前建议这样用（这条公告会一直留着，直到 `--clear` 或 `--for` 到期）：挑空窗、发公告、等一下、再重启。重启会结束正在进行的对局（第 0 节）：客户端会自动重连，但那是**新会话**，正在打的那一局就没了。
+
+自动发版（自己服务器上装 git 钩子或 systemd 定时器）可以用同一套：重启前自动发一条 `maintenance` 公告并等一会儿，重启校验通过后再自动撤下——那些脚本属于部署环境，不放在本仓库里。

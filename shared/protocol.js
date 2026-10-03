@@ -300,6 +300,10 @@ export const S2C = [
   'welcome', 'ok', 'error', 'pong',
   'room.state', 'room.closed',
   'm.public', 'm.private', 'm.field', 'm.toast', 'm.ticker', 'm.emote', 'm.result',
+  // app.notice { text, kind, until } — a server-wide announcement (server/notice.js). Sent to every socket when the
+  // notice file changes and to each player right after `welcome`; `text: null` means "no notice, clear it". Older
+  // clients ignore the unknown type (net.js emits by `t`), so this needs no PROTOCOL_VERSION bump.
+  'app.notice',
   // m.unitStats { seq, round, units: [unitStatsEntry] } — the answer to g.unitStats (the requester only)
   'm.unitStats',
   // client-side combat (DESIGN §14): b.start { battleId, fieldId, kind, spec, authoritative, startAt, serverNow, elapsed,

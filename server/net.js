@@ -500,14 +500,17 @@ export class Network {
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   now?: () => number,
    *   options?: Partial<typeof NET_DEFAULTS>,
+   *   onConnect?: (conn: Connection) => void,
    * }} opts
    */
-  constructor({ registry, handler, log = noopLog, now = Date.now, options = {} }) {
+  constructor({ registry, handler, log = noopLog, now = Date.now, options = {}, onConnect = null }) {
     this.registry = registry;
     this.handler = handler;
     this.log = log;
     this.now = now;
     this.opts = { ...NET_DEFAULTS, ...options };
+    /** Called for every socket right after the upgrade (server-wide notices are sent here). */
+    this.onConnect = typeof onConnect === 'function' ? onConnect : null;
     /** @type {Map<import('ws').WebSocket, Connection>} */
     this.conns = new Map();
     /** @type {Map<string, number>} open sockets per client network key */
@@ -553,6 +556,15 @@ export class Network {
     ws.on('pong', () => { conn.alive = true; if (conn.session && conn.session.ws === ws) conn.session.lastSeen = this.now(); });
     ws.on('error', (e) => { this.log.debug?.('[net] socket error', e?.code || e?.message); });
     ws.on('close', () => { try { this.onClose(conn); } catch (e) { this.log.error('[net] close handler crashed', e); } });
+    // A socket is ready to receive the moment it is upgraded: send whatever the player should see before saying
+    // anything (server-wide notices, server/index.js). Deliberately not tied to `hello`: a client sitting on the
+    // title screen has not entered a name yet, so it never says hello — and that is exactly when a notice about an
+    // upcoming restart matters most.
+    try {
+      this.onConnect?.(conn);
+    } catch (e) {
+      this.log.error('[net] onConnect crashed', e);
+    }
   }
 
   /** @param {Connection} conn @param {object} msg */
@@ -660,6 +672,22 @@ export class Network {
     } catch (e) {
       this.log.error('[net] onHello crashed', e);
     }
+  }
+
+  /**
+   * Send one frame to every open socket (server-wide notices). Sockets that have not said hello yet get it too: the
+   * notice is for the title screen just as much as for a match. Never throws.
+   * @param {object} msg
+   * @returns {number} sockets the frame was written to
+   */
+  broadcast(msg) {
+    let sent = 0;
+    for (const conn of this.conns.values()) {
+      try {
+        if (send(conn.ws, msg)) sent++;
+      } catch { /* a dying socket must not stop the broadcast */ }
+    }
+    return sent;
   }
 
   /** The session moved to a new socket: unbind and close the old one without firing a disconnect. */

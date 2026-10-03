@@ -82,6 +82,8 @@ export const initialState = Object.freeze({
   ticker: [],
   emotes: [],
   clock: { offset: 0, rtt: null, synced: false },
+  /** Server-wide announcement (server/notice.js): { text, kind, until } | null. */
+  notice: null,
   ui: { pendingJoin: null, restoring: false },
 });
 
