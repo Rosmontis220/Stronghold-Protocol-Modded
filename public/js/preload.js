@@ -65,10 +65,22 @@ function quickHash(value) {
   return (hash >>> 0).toString(16);
 }
 
-export function cacheVersion(assetManifest, localManifest = null) {
+export function cacheVersion(assetManifest, localManifest = null, dataSignature = 'none') {
   const base = String(assetManifest?.hash || 'unknown').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'unknown';
   const localSignature = localManifest ? quickHash(JSON.stringify(localManifest)) : 'none';
-  return `${base}-${localSignature}`;
+  return `${base}-${localSignature}-${dataSignature}`;
+}
+
+async function dataSignature(urls) {
+  const validators = await Promise.all(urls.map(async (url) => {
+    try {
+      const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
+      return `${url}:${res.status}:${res.headers.get('etag') || res.headers.get('last-modified') || ''}`;
+    } catch {
+      return `${url}:network-error`;
+    }
+  }));
+  return quickHash(validators.join('\n'));
 }
 
 async function readJson(url, optional = false) {
@@ -165,7 +177,8 @@ export async function prepareAssets({ onProgress } = {}) {
   const manifest = await readJson(ASSET_MANIFEST_URL);
   const localManifest = await readJson(LOCAL_MANIFEST_URL, true);
   const urls = buildPreloadPlan(manifest, localManifest);
-  const version = cacheVersion(manifest, localManifest);
+  const signatureUrls = urls.filter((url) => url.startsWith('/data/'));
+  const version = cacheVersion(manifest, localManifest, await dataSignature(signatureUrls));
   const progress = { done: 0, total: urls.length, cached: 0, failed: 0, url: '' };
   progressText(progress, onProgress);
 
