@@ -3,6 +3,9 @@ const META_CACHE = 'sp-resource-meta-v2';
 const OBJECT_CACHE = 'sp-resource-objects-v2';
 const ACTIVE_KEY = '/__sp_active__';
 const CLIENT_PREFIX = '/__sp_client__/';
+const PENDING_PREFIX = '/__sp_pending__/';
+const BATCH_FILES = 96;
+const BATCH_BYTES = 8 * 1024 * 1024;
 const ORIGIN = self.location.origin;
 let preloadQueue = Promise.resolve();
 const metadata = new Map();
@@ -85,10 +88,12 @@ async function prune(index) {
   const keep = new Set(index.files.map(objectKey));
   for (const request of await meta.keys()) {
     const pathname = new URL(request.url).pathname;
-    if (!pathname.startsWith(CLIENT_PREFIX)) continue;
-    const id = decodeURIComponent(pathname.slice(CLIENT_PREFIX.length));
+    const prefix = [CLIENT_PREFIX, PENDING_PREFIX].find((value) => pathname.startsWith(value));
+    if (!prefix) continue;
+    const id = decodeURIComponent(pathname.slice(prefix.length));
     if (!live.has(id)) { await meta.delete(request); metadata.delete(request.url); continue; }
-    const snapshot = await readMeta(request.url);
+    const record = await readMeta(request.url);
+    const snapshot = prefix === PENDING_PREFIX ? record?.index : record;
     for (const file of snapshot?.files || []) keep.add(objectKey(file));
   }
   const objects = await caches.open(OBJECT_CACHE);
@@ -97,9 +102,27 @@ async function prune(index) {
   for (const name of await caches.keys()) if (name.startsWith('sp-preload-')) await caches.delete(name);
 }
 
-async function preloadBatch(index, files, offset, port, clientId, final) {
-  if (index?.version !== 2 || !Array.isArray(index.files) || !index.files.length || !Array.isArray(files)) throw new Error('资源清单无效');
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset + files.length > index.files.length) throw new Error('资源批次无效');
+async function preloadBatch(index, offset, port, clientId) {
+  if (index?.version !== 2 || !Array.isArray(index.files) || !index.files.length || !clientId) throw new Error('资源清单无效');
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= index.files.length) throw new Error('资源批次无效');
+  const pendingKey = `${PENDING_PREFIX}${encodeURIComponent(clientId)}`;
+  let session = await readMeta(pendingKey);
+  if (offset === 0) {
+    session = { index, next: 0 };
+    await writeMeta(pendingKey, session);
+  } else if (session?.index.hash !== index.hash || session.next !== offset) {
+    throw new Error('资源批次顺序失效，请刷新重试');
+  }
+  // Bound both file count and bytes; stop starting new files after 15 seconds.
+  const files = [];
+  let plannedBytes = 0;
+  for (let i = offset; i < index.files.length && files.length < BATCH_FILES; i++) {
+    const file = index.files[i];
+    if (files.length && plannedBytes + file.bytes > BATCH_BYTES) break;
+    files.push(file);
+    plannedBytes += file.bytes;
+  }
+  const started = Date.now();
   const objects = await caches.open(OBJECT_CACHE);
   const legacy = await Promise.all((await caches.keys())
     .filter((name) => name.startsWith('sp-preload-') && name !== 'sp-preload-meta-v1')
@@ -116,7 +139,7 @@ async function preloadBatch(index, files, offset, port, clientId, final) {
     downloadedBytes, checkedBytes, totalBytes: index.bytes, failed: failed.length, url: file.url });
 
   await Promise.all(Array.from({ length: Math.min(6, files.length) }, async () => {
-    while (cursor < files.length) {
+    while (cursor < files.length && Date.now() - started < 15000) {
       const file = files[cursor++];
       try {
         const key = objectKey(file);
@@ -151,14 +174,21 @@ async function preloadBatch(index, files, offset, port, clientId, final) {
   }));
   if (failed.length) throw new Error(`资源校对失败 ${failed.length} 项：${failed.slice(0, 2).join('；')}`);
 
-  // Only the final batch commits the active manifest. Earlier batches are resumable objects.
+  const next = offset + cursor;
+  const final = next === index.files.length;
+  session.next = next;
+  await writeMeta(pendingKey, session);
+  // Only sequentially verified, complete snapshots become active.
   if (final) {
-    if (clientId) await writeMeta(clientKey(clientId), index);
+    await writeMeta(clientKey(clientId), index);
     await writeMeta(ACTIVE_KEY, index);
+    const meta = await caches.open(META_CACHE);
+    await meta.delete(pendingKey);
+    metadata.delete(new URL(pendingKey, ORIGIN).href);
     await prune(index).catch((err) => console.warn('[resources] cleanup failed', err));
   }
-  post({ type: 'BATCH_DONE', version: index.hash, done: offset + files.length, total: index.files.length,
-    cached, downloaded, downloadedBytes, final: !!final });
+  post({ type: 'BATCH_DONE', version: index.hash, done: next, total: index.files.length,
+    cached, downloaded, downloadedBytes, checkedBytes, final });
 }
 
 self.addEventListener('message', (event) => {
@@ -166,7 +196,7 @@ self.addEventListener('message', (event) => {
   if (data.type === 'SKIP_WAITING') { event.waitUntil(self.skipWaiting()); return; }
   const port = event.ports?.[0];
   if (!port || data.type !== 'PRELOAD_BATCH') return;
-  const task = preloadQueue.then(() => preloadBatch(data.index, data.files, data.offset, port, event.source?.id, data.final));
+  const task = preloadQueue.then(() => preloadBatch(data.index, data.offset, port, event.source?.id));
   preloadQueue = task.catch(() => {});
   event.waitUntil(task.catch((err) => {
     try { port.postMessage({ type: 'ERROR', message: String(err?.message || err) }); } catch { /* tab closed */ }

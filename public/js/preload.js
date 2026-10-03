@@ -67,7 +67,7 @@ async function activeWorker() {
   return worker;
 }
 
-function sendBatch(worker, index, files, offset, final, onProgress) {
+function sendBatch(worker, index, offset, onProgress) {
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     let settled = false;
@@ -85,20 +85,25 @@ function sendBatch(worker, index, files, offset, final, onProgress) {
       else if (data.type === 'BATCH_DONE') finish(resolve, data);
       else if (data.type === 'ERROR') finish(reject, new Error(data.message || '资源预下载失败'));
     };
-    try { worker.postMessage({ type: 'PRELOAD_BATCH', index, files, offset, final }, [channel.port2]); }
+    try { worker.postMessage({ type: 'PRELOAD_BATCH', index, offset }, [channel.port2]); }
     catch (err) { finish(reject, err); }
   });
 }
 
 async function sendBatches(worker, index, onProgress) {
-  const batchSize = 96;
-  const totals = { cached: 0, downloaded: 0, downloadedBytes: 0 };
-  for (let offset = 0; offset < index.files.length; offset += batchSize) {
-    const files = index.files.slice(offset, offset + batchSize);
-    const result = await sendBatch(worker, index, files, offset, offset + files.length === index.files.length, onProgress);
-    totals.cached += result.cached || 0;
-    totals.downloaded += result.downloaded || 0;
-    totals.downloadedBytes += result.downloadedBytes || 0;
+  const totals = { cached: 0, downloaded: 0, downloadedBytes: 0, checkedBytes: 0 };
+  let offset = 0;
+  while (offset < index.files.length) {
+    const result = await sendBatch(worker, index, offset, (progress) => progressText({ ...progress,
+      cached: totals.cached + (progress.cached || 0), downloaded: totals.downloaded + (progress.downloaded || 0),
+      downloadedBytes: totals.downloadedBytes + (progress.downloadedBytes || 0),
+      checkedBytes: totals.checkedBytes + (progress.checkedBytes || 0) }, onProgress));
+    if (!Number.isSafeInteger(result.done) || result.done <= offset || result.done > index.files.length
+      || result.version !== index.hash || result.final !== (result.done === index.files.length)) {
+      throw new Error('资源批次结果无效，请刷新重试');
+    }
+    for (const key of Object.keys(totals)) totals[key] += result[key] || 0;
+    offset = result.done;
   }
   return { type: 'DONE', version: index.hash, total: index.files.length, ...totals };
 }
