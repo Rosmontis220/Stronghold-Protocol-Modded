@@ -24,8 +24,8 @@
 }
 @keyframes guide-pop { from { opacity: 0; transform: translateY(.12rem) scale(.985); } }
 
-/* header: title | chapter tabs | close */
-.guide__head { display: flex; align-items: center; gap: .3rem; min-height: .62rem; }
+/* header: title | chapter tabs (the close button is pinned to the box's top-right corner) */
+.guide__head { display: flex; align-items: center; gap: .3rem; min-height: .62rem; padding-right: .66rem; }
 .guide__titles { display: flex; flex-direction: column; gap: .02rem; min-width: 2.4rem; }
 .guide__title { margin: 0; font-size: .3rem; font-weight: 900; letter-spacing: .12em; color: var(--text-hi); line-height: 1.1; }
 .guide__chapters { display: flex; gap: .06rem; margin: 0 auto; }
@@ -40,12 +40,15 @@
 .guide__chapter.is-on { color: var(--text-on-mint); background: var(--mint-500); border-color: var(--mint-500); }
 .guide__chname { font-size: .19rem; font-weight: 700; letter-spacing: .1em; }
 .guide__chmicro { font-family: var(--font-display); font-size: .1rem; letter-spacing: .24em; opacity: .75; }
+/* the close button sits in the box's top-right corner in every variant (with the chapter tabs and without, i.e. the
+   tips fallback): the header reserves its width with padding-right, and it stays out of the page/tab flow */
 .guide__close {
-  width: .56rem; height: .56rem; display: grid; place-items: center; flex: none;
+  position: absolute; top: .1rem; right: .1rem; z-index: 3;
+  width: .5rem; height: .5rem; display: grid; place-items: center;
   background: rgba(0, 0, 0, .35); border: 1px solid var(--line-2); color: var(--text-md);
   transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
 }
-.guide__close .icon { width: .3rem; height: .3rem; }
+.guide__close .icon { width: .28rem; height: .28rem; }
 .guide__close:hover { color: var(--text-hi); border-color: var(--red-premium); background: var(--red-a20); }
 
 /* page stage (16:9) with edge buttons */
@@ -104,7 +107,9 @@
 
 @media (max-height: 560px) {
   .guide__box { padding: .08rem .12rem; gap: .06rem; }
-  .guide__head { min-height: .5rem; }
+  .guide__head { min-height: .5rem; padding-right: .56rem; }
+  .guide__close { top: .06rem; right: .06rem; width: .42rem; height: .42rem; }
+  .guide__close .icon { width: .24rem; height: .24rem; }
   .guide__titles { display: none; }
   .guide__page { width: min(calc(96vw - .3rem), calc((100vh - 1.5rem) * 16 / 9)); }
 }
