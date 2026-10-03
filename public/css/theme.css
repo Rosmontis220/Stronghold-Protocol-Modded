@@ -312,6 +312,7 @@ h1, h2, h3, h4, p { margin: 0; }
 .boot__status { min-height: .22rem; color: var(--text-lo); font-size: .15rem; text-align: center; }
 .boot__progress { width: min(5.2rem, 70vw); height: .06rem; overflow: hidden; background: rgba(78, 216, 175, .12); border: 1px solid var(--line); }
 .boot__progress span { display: block; width: 100%; height: 100%; transform: scaleX(0); transform-origin: left; background: var(--mint-500); box-shadow: 0 0 .14rem rgba(23, 249, 183, .5); transition: transform 160ms ease-out; }
+.boot__detail { max-width: min(6.5rem, 88vw); color: var(--text-lo); font-size: .12rem; text-align: center; line-height: 1.6; }
 .boot__retry { padding: .1rem .22rem; border: 1px solid var(--mint-700); background: rgba(78, 216, 175, .08); color: var(--mint-400); font: inherit; cursor: pointer; }
 .boot__retry:hover { background: rgba(78, 216, 175, .16); }
 .boot__err { max-width: 6rem; text-align: center; color: var(--text-lo); font-size: .16rem; }

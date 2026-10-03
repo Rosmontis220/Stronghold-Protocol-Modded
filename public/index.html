@@ -56,12 +56,13 @@
 <body>
   <div id="app"></div>
 
-  <div id="boot" class="boot" aria-hidden="true">
+  <div id="boot" class="boot" role="status" aria-live="polite">
     <div class="boot__inner">
       <div class="boot__hex"></div>
       <div class="boot__text">STRONGHOLD PROTOCOL</div>
       <div id="boot-status" class="boot__status">正在校对本地资源…</div>
       <div id="boot-progress" class="boot__progress" aria-hidden="true"><span></span></div>
+      <div id="boot-detail" class="boot__detail">首次启动会下载约 250 MB 素材，之后校对并复用本地资源。</div>
       <button id="boot-retry" class="boot__retry" type="button" hidden>重新校对并进入游戏</button>
       <div id="boot-err" class="boot__err"></div>
     </div>
@@ -78,7 +79,7 @@
   <script>
     // Boot diagnostics (plain ES5: runs everywhere). A browser too old for the app says so instead of spinning forever:
     // no ES modules (nomodule below), a module graph that cannot load (e.g. import maps: Safari / iOS < 16.4), or no
-    // boot after 9 s.
+    // a module graph that fails to link.
     window.__spBootFail = function (why) {
       var e = document.getElementById('boot-err');
       if (!e || e.getAttribute('data-final')) return;
@@ -103,7 +104,7 @@
     // while the boot module owns the final error/retry state.
     setTimeout(function () {
       var b = document.getElementById('boot'), e = document.getElementById('boot-err'), s = document.getElementById('boot-status');
-      if (b && !b.classList.contains('is-done') && e && !e.textContent && s) s.textContent = '首次启动会校对并下载本地资源，请保持页面打开…';
+      if (b && !b.classList.contains('is-done') && e && !e.textContent && s && s.textContent === '正在校对本地资源…') s.textContent = '首次启动会校对并下载本地资源，请保持页面打开…';
     }, 30000);
   </script>
 </body>

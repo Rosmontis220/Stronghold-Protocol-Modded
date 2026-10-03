@@ -44,6 +44,8 @@ import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
+import { createResourceIndex, EMPTY_LOCAL_MANIFEST } from './resource-index.js';
+import { RESOURCE_INDEX_URL } from '../shared/resource-plan.js';
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -288,7 +290,7 @@ function splitUrl(url) {
  */
 /** Optional per-machine art manifest (tools/local-extract) and the empty stand-in served when it is absent. */
 const LOCAL_ART_MANIFEST = 'local-assets.json';
-const EMPTY_LOCAL_ART = Buffer.from(JSON.stringify({ version: 1, source: 'none', count: 0, groups: {} }));
+const EMPTY_LOCAL_ART = Buffer.from(EMPTY_LOCAL_MANIFEST);
 
 export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), log = noopLog }) {
   const mounts = [
@@ -301,12 +303,21 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
   const shimBody = Buffer.from(DATA_SHIM_JS);
   const shimTag = `"shim-${shimBody.length.toString(16)}"`;
   const gzipCache = new GzipCache();
+  const resourceIndex = createResourceIndex({ publicDir, dataDir });
 
   return async function serveStatic(req, res, rawPath, query) {
     let decoded;
     try { decoded = decodeURIComponent(rawPath); } catch { sendError(req, res, 400, '请求地址无效 · Bad request'); return; }
     if (!decoded.startsWith('/') || decoded.includes('\0') || decoded.includes('\\')) {
       sendError(req, res, 400, '请求地址无效 · Bad request');
+      return;
+    }
+    if (decoded === RESOURCE_INDEX_URL) {
+      try { sendJson(req, res, 200, await resourceIndex()); }
+      catch (err) {
+        log.error('[http] resource index failed', err);
+        sendJson(req, res, 503, { error: '服务器资源清单未就绪，请稍后重试' });
+      }
       return;
     }
     if (decoded === '/data.js') {

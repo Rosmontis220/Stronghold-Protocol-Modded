@@ -187,7 +187,7 @@ docker run -d --name stronghold -p 3000:3000 --restart unless-stopped \
   -v "$PWD/public/assets:/app/public/assets:ro" stronghold-protocol
 ```
 
-镜像基于 `node:22-alpine`，多阶段构建，只含生产依赖；`public/vendor` 在构建时生成。`.dockerignore` 排除了 `public/assets`（不会把宿主机素材打进构建上下文）；`public/fonts`、`data/assets.json` 和 `data/local-assets.json` 若存在会被复制进去。浏览器首次打开时，`/js/boot.js` 会先读取云端 `data/assets.json`，通过 Service Worker 建立版本化 Cache Storage 快照：素材、字体和游戏数据缺失或清单版本变化时只下载需要的文件，全部成功后才加载游戏主程序；下载失败会保留上一份可用快照并停在启动页。环境变量同 README（`-e SP_VERIFY=sample` 等）。健康检查：`GET /healthz`。
+镜像基于 `node:22-alpine`，多阶段构建，只含生产依赖；`public/vendor` 在构建时生成。`.dockerignore` 排除了 `public/assets`（不会把宿主机素材打进构建上下文）；`public/fonts`、`data/assets.json` 和 `data/local-assets.json` 若存在会被复制进去。浏览器启动时，`/js/boot.js` 先读取 `/resource-manifest.json`。服务器按实际文件内容生成 SHA-256、字节数和资源版本；浏览器逐项验证本地 Cache Storage，只下载缺失、变化或校验不符的图片、Spine、音频、字体及游戏数据，全部成功后才加载游戏主程序。未变化的文件跨版本共用，下载失败保留旧快照并显示重试；已进入游戏的其他标签页继续使用自己的快照。清单和校验在每次启动执行，游戏里的资源请求使用已校验的本地内容。此功能需要 HTTPS 或 localhost、Service Worker 和足够的浏览器存储空间；HTTP 局域网地址需通过 HTTPS 代理访问。首次约 250 MB，浏览器清除或回收站点存储后会重新补下。本地缓存用于资源加载，联机和完整离线启动仍需网络。环境变量同 README（`-e SP_VERIFY=sample` 等）。健康检查：`GET /healthz`。
 
 docker compose 示例：
 
