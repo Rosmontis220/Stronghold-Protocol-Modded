@@ -19,6 +19,18 @@ export function validateResourceIndex(index) {
     bytes += file.bytes;
   }
   if (index.bytes !== bytes) throw new Error('云端资源清单大小不一致');
+  const startup = index.startup;
+  if (startup) {
+    const bgm = startup.bgm;
+    if (bgm && (!paths.has(bgm.loop) || !bgm.loop.startsWith('/assets/audio/')
+      || (bgm.intro && (!paths.has(bgm.intro) || !bgm.intro.startsWith('/assets/audio/'))))) {
+      throw new Error('云端启动音乐无效');
+    }
+    if (!Array.isArray(startup.fonts) || startup.fonts.some((face) => !paths.has(face?.url)
+      || !face.url.startsWith('/fonts/') || typeof face.family !== 'string' || !Number.isFinite(face.weight))) {
+      throw new Error('云端启动字体无效');
+    }
+  }
   return index;
 }
 
@@ -67,7 +79,7 @@ async function activeWorker() {
   return worker;
 }
 
-function sendBatch(worker, index, offset, onProgress) {
+function sendBatch(worker, index, offset, onProgress, onReady) {
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     let settled = false;
@@ -81,7 +93,9 @@ function sendBatch(worker, index, offset, onProgress) {
     };
     channel.port1.onmessage = (event) => {
       const data = event.data || {};
-      if (data.type === 'PROGRESS') progressText(data, onProgress);
+      if (data.type === 'RESOURCE_READY') {
+        try { onReady?.(data.url); } catch { /* optional consumers cannot block validation */ }
+      } else if (data.type === 'PROGRESS') progressText(data, onProgress);
       else if (data.type === 'BATCH_DONE') finish(resolve, data);
       else if (data.type === 'ERROR') finish(reject, new Error(data.message || '资源预下载失败'));
     };
@@ -90,14 +104,14 @@ function sendBatch(worker, index, offset, onProgress) {
   });
 }
 
-async function sendBatches(worker, index, onProgress) {
+async function sendBatches(worker, index, onProgress, onReady) {
   const totals = { cached: 0, downloaded: 0, downloadedBytes: 0, checkedBytes: 0 };
   let offset = 0;
   while (offset < index.files.length) {
     const result = await sendBatch(worker, index, offset, (progress) => progressText({ ...progress,
       cached: totals.cached + (progress.cached || 0), downloaded: totals.downloaded + (progress.downloaded || 0),
       downloadedBytes: totals.downloadedBytes + (progress.downloadedBytes || 0),
-      checkedBytes: totals.checkedBytes + (progress.checkedBytes || 0) }, onProgress));
+      checkedBytes: totals.checkedBytes + (progress.checkedBytes || 0) }, onProgress), onReady);
     if (!Number.isSafeInteger(result.done) || result.done <= offset || result.done > index.files.length
       || result.version !== index.hash || result.final !== (result.done === index.files.length)) {
       throw new Error('资源批次结果无效，请刷新重试');
@@ -108,7 +122,7 @@ async function sendBatches(worker, index, onProgress) {
   return { type: 'DONE', version: index.hash, total: index.files.length, ...totals };
 }
 
-export async function prepareAssets({ onProgress } = {}) {
+export async function prepareAssets({ onProgress, onIndex, onResourceReady } = {}) {
   if (!('serviceWorker' in navigator) || !('MessageChannel' in window) || !('caches' in window) || !window.crypto?.subtle) {
     throw new Error('当前浏览器无法保存本地资源，请通过 HTTPS 或 localhost 使用最新版浏览器');
   }
@@ -123,6 +137,23 @@ export async function prepareAssets({ onProgress } = {}) {
   } finally { clearTimeout(timer); }
   progressText({ phase: 'verify', done: 0, total: index.files.length, totalBytes: index.bytes }, onProgress);
   const worker = await activeWorker();
-  const result = await sendBatches(worker, index, onProgress);
+  const files = new Map(index.files.map((file) => [file.url, file]));
+  const ready = new Set();
+  // Read only objects verified during this boot, keyed by this cloud digest. Never fetch another copy.
+  const readResource = async (url) => {
+    if (!ready.has(url)) throw new Error('本地资源尚未校验完成');
+    const file = files.get(url);
+    const cache = await caches.open('sp-resource-objects-v2');
+    const response = await cache.match(`${location.origin}/__sp_object__/${file.sha256}${encodeURI(file.url)}`);
+    if (!response) throw new Error('本地资源已被回收，请重新校验');
+    return response;
+  };
+  try { onIndex?.(index, readResource); } catch { /* optional startup presentation */ }
+  const notifyReady = (url) => {
+    if (!files.has(url)) return;
+    ready.add(url);
+    try { Promise.resolve(onResourceReady?.(files.get(url), readResource)).catch(() => {}); } catch { /* optional consumer */ }
+  };
+  const result = await sendBatches(worker, index, onProgress, notifyReady);
   return { ...result, mode: 'verified-cache', urls: index.files.map((file) => file.url) };
 }

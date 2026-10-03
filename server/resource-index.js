@@ -63,13 +63,26 @@ export function createResourceIndex({ publicDir, dataDir }) {
       const tiles = board.replace(/\/[^/]+$/, '/tiles.json');
       try { await fsp.access(filePath(tiles)); if (!urls.includes(tiles)) urls.push(tiles); } catch (err) { if (err.code !== 'ENOENT') throw err; }
     }
-    urls.sort();
+    const available = new Set(urls);
+    const lobby = manifest?.audio?.bgm?.lobby;
+    const bgm = typeof lobby?.loop === 'string' && available.has(lobby.loop)
+      ? { loop: lobby.loop, ...(typeof lobby.intro === 'string' && available.has(lobby.intro) ? { intro: lobby.intro } : {}) } : null;
+    const fonts = Object.values(manifest?.fonts?.faces || {}).flatMap((face) => {
+      const url = [face?.woff2, face?.original].find((value) => available.has(value));
+      return url && typeof face.family === 'string' && Number.isFinite(face.weight)
+        ? [{ url, family: face.family, weight: face.weight }] : [];
+    });
+    // Make startup music and fonts usable while the remaining art is still downloading.
+    const priority = new Map(['/data/assets.json', bgm?.intro, bgm?.loop, ...fonts.map((face) => face.url)]
+      .filter(Boolean).map((url, i) => [url, i]));
+    urls.sort((a, b) => (priority.get(a) ?? 999) - (priority.get(b) ?? 999) || (a < b ? -1 : a > b ? 1 : 0));
     const files = new Array(urls.length);
     let cursor = 0;
     await Promise.all(Array.from({ length: Math.min(8, urls.length) }, async () => {
       while (cursor < urls.length) { const i = cursor++; files[i] = await fileRecord(urls[i]); }
     }));
-    return { version: 2, hash: hash(JSON.stringify(files)), bytes: files.reduce((sum, item) => sum + item.bytes, 0), files };
+    return { version: 2, hash: hash(JSON.stringify(files)), bytes: files.reduce((sum, item) => sum + item.bytes, 0),
+      files, startup: { bgm, fonts } };
   }
 
   // Share concurrent requests, but stat again on the next request so in-place edits are detected.

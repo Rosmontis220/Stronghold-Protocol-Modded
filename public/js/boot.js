@@ -1,5 +1,6 @@
 // Do not execute the game shell until its local resource snapshot is complete and verified.
 import { prepareAssets } from './preload.js';
+import { createPreloadEffects } from './preload-effects.js';
 
 const status = document.getElementById('boot-status');
 const detail = document.getElementById('boot-detail');
@@ -8,6 +9,27 @@ const bar = progress?.querySelector('span');
 const error = document.getElementById('boot-err');
 const retry = document.getElementById('boot-retry');
 const mb = (bytes) => `${((bytes || 0) / (1024 * 1024)).toFixed(1)} MB`;
+const ready = document.getElementById('boot-ready');
+const music = document.getElementById('boot-music');
+const mute = document.getElementById('boot-mute');
+const effects = createPreloadEffects({ onState(state) {
+  const labels = { loading: '音乐优先下载中', ready: '音乐已就绪，点击开启', playing: '正在播放本地音乐',
+    muted: '音乐已静音', unavailable: '音乐不可用，继续下载素材' };
+  if (ready) ready.textContent = `${labels[state.music]}${state.fonts ? ` · ${state.fonts} 款字体已应用` : ''}`;
+  if (music) {
+    music.dataset.state = state.music;
+    music.disabled = state.music === 'unavailable';
+    music.textContent = state.music === 'playing' ? '音乐已开启' : state.music === 'loading' ? '开启下载期间音乐' : '开启音乐';
+    music.setAttribute('aria-pressed', String(state.music === 'playing'));
+  }
+  if (mute) {
+    mute.disabled = state.music === 'unavailable';
+    mute.setAttribute('aria-pressed', String(state.music === 'muted'));
+  }
+} });
+// Explicit actions stay correct even if focus/pointerdown unlocks autoplay before click.
+if (music) music.onclick = () => effects.setMusicEnabled(true);
+if (mute) mute.onclick = () => effects.setMusicEnabled(false);
 
 function setProgress(p) {
   if (p.phase === 'manifest') {
@@ -24,12 +46,18 @@ function setProgress(p) {
 
 async function start() {
   try {
-    const result = await prepareAssets({ onProgress: setProgress });
+    const result = await prepareAssets({ onProgress: setProgress,
+      onIndex: (index, read) => effects.configure(index, read),
+      onResourceReady: (file) => effects.resourceReady(file) });
     if (status) status.textContent = '本地资源已就绪，正在进入游戏…';
     if (bar) bar.style.transform = 'scaleX(1)';
     window.__spPreloadResult = result;
     await import('./main.js');
+    effects.finish();
   } catch (err) {
+    effects.finish({ failed: true });
+    if (music) music.disabled = true;
+    if (mute) mute.disabled = true;
     console.error('[boot] asset predownload failed', err);
     if (error) {
       error.textContent = `资源下载或校对失败：${String(err?.message || err).slice(0, 220)}。请检查网络或本地存储空间后重试。`;

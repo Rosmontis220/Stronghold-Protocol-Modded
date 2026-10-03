@@ -166,6 +166,7 @@ async function preloadBatch(index, offset, port, clientId) {
           }
         }
         checkedBytes += file.bytes;
+        post({ type: 'RESOURCE_READY', url: file.url });
       } catch (err) {
         const message = err?.name === 'QuotaExceededError' ? '本地存储空间不足，请释放空间后重试' : String(err?.message || err);
         failed.push(`${file.url}: ${message}`);

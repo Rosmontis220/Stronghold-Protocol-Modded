@@ -315,6 +315,11 @@ h1, h2, h3, h4, p { margin: 0; }
 .boot__detail { max-width: min(6.5rem, 88vw); color: var(--text-lo); font-size: .12rem; text-align: center; line-height: 1.6; }
 .boot__retry { padding: .1rem .22rem; border: 1px solid var(--mint-700); background: rgba(78, 216, 175, .08); color: var(--mint-400); font: inherit; cursor: pointer; }
 .boot__retry:hover { background: rgba(78, 216, 175, .16); }
+.boot__ready { color: var(--mint-700); font-size: .12rem; text-align: center; min-height: .2rem; }
+.boot__audio { display: flex; gap: .12rem; }
+.boot__music { padding: .08rem .18rem; border: 1px solid var(--line); background: transparent; color: var(--mint-400); font: inherit; font-size: .13rem; cursor: pointer; }
+.boot__music:hover, .boot__music:focus-visible { border-color: var(--mint-500); background: rgba(78, 216, 175, .08); }
+.boot__music:disabled { opacity: .45; cursor: default; }
 .boot__err { max-width: 6rem; text-align: center; color: var(--text-lo); font-size: .16rem; }
 @keyframes boot-spin { to { transform: rotate(360deg); } }
 

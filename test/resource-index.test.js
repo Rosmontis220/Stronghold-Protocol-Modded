@@ -21,7 +21,7 @@ async function fixture(t) {
   await fsp.writeFile(path.join(publicDir, 'assets', 'a.png'), 'alpha');
   await fsp.writeFile(path.join(publicDir, 'assets', 'audio', 'bgm', 'a.mp3'), 'audio');
   await fsp.writeFile(path.join(dataDir, 'assets.json'), JSON.stringify({ hash: 'unchanged-manifest',
-    ui: { a: '/assets/a.png' }, audio: { bgm: '/assets/audio/bgm/a.mp3' } }));
+    ui: { a: '/assets/a.png' }, audio: { bgm: { lobby: { loop: '/assets/audio/bgm/a.mp3' } } } }));
   return { publicDir, dataDir, sharedDir: path.join(root, 'shared') };
 }
 
@@ -32,6 +32,8 @@ test('content index includes raw-byte SHA-256, stable empty local manifest, and 
   const audio = index.files.find((file) => file.url.endsWith('a.mp3'));
   assert.equal(audio.runtime, '/media/bgm/a');
   assert.equal(audio.sha256, sha('audio'));
+  assert.deepEqual(index.startup.bgm, { loop: audio.url });
+  assert.deepEqual(index.files.slice(0, 2).map((file) => file.url), ['/data/assets.json', audio.url]);
   const local = index.files.find((file) => file.url === '/data/local-assets.json');
   assert.equal(local.sha256, sha(EMPTY_LOCAL_MANIFEST));
   assert.equal(index.bytes, index.files.reduce((sum, file) => sum + file.bytes, 0));

@@ -23,7 +23,7 @@
   <link rel="stylesheet" media="print" onload="this.media='all'"
         href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Oxanium:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap" />
   <!-- Self-hosted Bender / Novecento (provided by the assets pipeline). -->
-  <link rel="stylesheet" href="/fonts/fonts.css" />
+  <!-- Local font faces are added from verified bytes as soon as each font is ready. -->
 
   <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/css/components.css" />
@@ -63,6 +63,11 @@
       <div id="boot-status" class="boot__status">正在校对本地资源…</div>
       <div id="boot-progress" class="boot__progress" aria-hidden="true"><span></span></div>
       <div id="boot-detail" class="boot__detail">首次启动会下载约 250 MB 素材，之后校对并复用本地资源。</div>
+      <div id="boot-ready" class="boot__ready">音乐与字体就绪后即可使用，其他素材继续下载。</div>
+      <div class="boot__audio">
+        <button id="boot-music" class="boot__music" type="button" aria-pressed="false">开启下载期间音乐</button>
+        <button id="boot-mute" class="boot__music" type="button" aria-pressed="false">静音</button>
+      </div>
       <button id="boot-retry" class="boot__retry" type="button" hidden>重新校对并进入游戏</button>
       <div id="boot-err" class="boot__err"></div>
     </div>

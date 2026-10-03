@@ -25,7 +25,16 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
     await fsp.writeFile(path.join(publicDir, 'assets/a.png'), 'alpha');
     await fsp.writeFile(path.join(publicDir, 'assets/b.png'), 'second');
     await fsp.writeFile(path.join(publicDir, 'assets/model.atlas'), 'page.png\nsize: 512,512\n'.repeat(100));
-    await fsp.writeFile(path.join(publicDir, 'assets/audio/bgm/a.mp3'), 'sound');
+    // Actual PCM wave: the browser must decode and start a real source, not just update a label.
+    const sampleRate = 8000;
+    const wave = Buffer.alloc(44 + sampleRate * 2);
+    wave.write('RIFF', 0); wave.writeUInt32LE(wave.length - 8, 4); wave.write('WAVEfmt ', 8);
+    wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(1, 22);
+    wave.writeUInt32LE(sampleRate, 24); wave.writeUInt32LE(sampleRate * 2, 28);
+    wave.writeUInt16LE(2, 32); wave.writeUInt16LE(16, 34); wave.write('data', 36); wave.writeUInt32LE(sampleRate * 2, 40);
+    for (let i = 0; i < sampleRate; i++) wave.writeInt16LE(Math.round(Math.sin(i * 2 * Math.PI * 220 / sampleRate) * 1500), 44 + i * 2);
+    await fsp.writeFile(path.join(publicDir, 'assets/audio/bgm/a.wav'), wave);
+    await fsp.copyFile(process.env.TEST_FONT || 'C:\\Windows\\Fonts\\segoeui.ttf', path.join(publicDir, 'fonts/fixture.ttf'));
     await fsp.writeFile(path.join(publicDir, 'fonts/fonts.css'), '/* fonts */');
     const extraArt = {};
     for (let i = 0; i < 110; i++) {
@@ -34,7 +43,8 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
       extraArt[`fixture${i}`] = url;
     }
     const manifest = { hash: 'same-structure', ui: { a: '/assets/a.png', b: '/assets/b.png', atlas: '/assets/model.atlas', ...extraArt },
-      audio: { bgm: '/assets/audio/bgm/a.mp3' }, fonts: { css: '/fonts/fonts.css' } };
+      audio: { bgm: { lobby: { loop: '/assets/audio/bgm/a.wav' } } },
+      fonts: { css: '/fonts/fonts.css', faces: { fixture: { family: 'Fixture Font', weight: 400, original: '/fonts/fixture.ttf' } } } };
     await fsp.writeFile(path.join(dataDir, 'assets.json'), JSON.stringify(manifest));
     const fixtureHandler = createStaticHandler({ publicDir, dataDir, sharedDir: path.join(ROOT, 'shared') });
     const codeHandler = createStaticHandler({ publicDir: path.join(ROOT, 'public'), dataDir, sharedDir: path.join(ROOT, 'shared') });
@@ -43,6 +53,10 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
     let corrupt = '';
     let workerSuffix = '';
     let transientFailures = 0;
+    let releaseArt;
+    const artGate = new Promise((resolve) => { releaseArt = resolve; });
+    let holdArt = true;
+    let artWaiting = false;
     const server = http.createServer(async (req, res) => {
       const url = req.url.split('?')[0];
       if (url === '/probe.html') {
@@ -50,7 +64,11 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
       }
       if (url === '/js/main.js') {
         res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
-        res.end("window.__gameStarted=true;document.getElementById('boot').classList.add('is-done');");
+        res.end(`import { audio, installAudio } from '/js/audio.js';
+          window.__bgmBeforeGame = audio.bgm;
+          installAudio({ getManifest: () => null, getState: () => ({}), subscribe: () => () => {}, selectRoute: () => 'title' });
+          window.__bgmContinued = audio.bgm === window.__bgmBeforeGame;
+          window.__gameStarted=true;document.getElementById('boot').classList.add('is-done');`);
         return;
       }
       if (url === '/sw.js') {
@@ -59,6 +77,7 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
         return;
       }
       if (/^\/(?:data|assets|media|fonts)\//.test(url)) downloads.push(url);
+      if (url === '/assets/a.png' && holdArt) { artWaiting = true; await artGate; }
       if (url === '/assets/a.png' && transientFailures > 0) {
         transientFailures--;
         res.writeHead(503); res.end('transient failure'); return;
@@ -78,7 +97,8 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
       await fsp.rm(root, { recursive: true, force: true });
     });
     browser = await puppeteer.launch({ executablePath: BROWSER, headless: true, pipe: true,
-      args: ['--no-first-run', '--disable-background-networking'] });
+      args: ['--no-first-run', '--disable-background-networking',
+        `--autoplay-policy=${process.env.PRELOAD_AUTOPLAY === '1' ? 'no-user-gesture-required' : 'document-user-activation-required'}`] });
     const page = await browser.newPage();
     page.on('pageerror', (err) => t.diagnostic(`page error: ${err.message}`));
     page.on('console', (message) => { if (message.type() === 'error') t.diagnostic(`console: ${message.text()}`); });
@@ -113,7 +133,50 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
           .observe(document.getElementById('boot-detail'), { childList: true });
       });
     });
-    const first = await boot();
+    const firstBoot = boot();
+    await page.waitForFunction(() => ['ready', 'playing'].includes(document.getElementById('boot-music')?.dataset.state));
+    if (process.env.PRELOAD_AUTOPLAY === '1') {
+      await page.waitForFunction(() => document.getElementById('boot-music')?.dataset.state === 'playing');
+    }
+    assert.equal(artWaiting, true, 'art download must still be pending when music becomes ready');
+    assert.equal(await page.evaluate(() => !!window.__gameStarted), false);
+    await page.evaluate(() => {
+      window.__musicEvents = [];
+      for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'focus']) document.getElementById('boot-music').addEventListener(type,
+        () => window.__musicEvents.push({ type, state: document.getElementById('boot-music').dataset.state }), true);
+    });
+    await page.click('#boot-music');
+    try {
+      await page.waitForFunction(() => document.getElementById('boot-music')?.dataset.state === 'playing', { timeout: 5000 });
+    } catch (error) {
+      t.diagnostic(JSON.stringify(await page.evaluate(async () => {
+        const { audio } = await import('/js/audio.js');
+        return { state: audio.ctx?.state, volumes: audio.volumes, want: audio.wantBgm, bgm: audio.bgm?.loopUrl,
+          button: document.getElementById('boot-music')?.outerHTML, ready: document.getElementById('boot-ready')?.textContent,
+          buffers: [...audio.buffers.keys()], hidden: document.hidden, userActive: navigator.userActivation.hasBeenActive, events: window.__musicEvents };
+      })));
+      throw error;
+    }
+    const early = await page.evaluate(async () => {
+      const { audio } = await import('/js/audio.js');
+      window.__earlyBgm = audio.bgm;
+      return { state: audio.ctx.state, loop: audio.bgm?.loopUrl, fontReady: document.fonts.check('16px "Fixture Font"') };
+    });
+    assert.equal(early.state, 'running');
+    assert.equal(early.loop, '/assets/audio/bgm/a.wav');
+    await page.waitForFunction(() => [...document.fonts].some((face) => face.family === 'Fixture Font' && face.status === 'loaded'));
+    assert.equal(downloads.filter((url) => url === '/media/bgm/a').length, 1, 'playing music must not download it again');
+    await page.click('#boot-mute');
+    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).muted), true);
+    assert.equal(await page.evaluate(async () => (await import('/js/audio.js')).audio.volumes.muted), true);
+    await page.click('#boot-music');
+    await page.waitForFunction(() => document.getElementById('boot-music')?.dataset.state === 'playing');
+    assert.equal(await page.evaluate(async () => (await import('/js/audio.js')).audio.bgm === window.__earlyBgm), true,
+      'mute and resume must keep the current source');
+    holdArt = false; releaseArt();
+    const first = await firstBoot;
+    assert.equal(await page.evaluate(() => window.__bgmContinued && window.__bgmBeforeGame === window.__earlyBgm), true,
+      'game must keep the existing context/source rather than restart the track');
     assert.equal(first.started, true, first.error);
     assert.equal(first.controlled, true);
     assert.equal(first.result.downloaded, first.result.total);
@@ -128,9 +191,12 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
 
     downloads.length = 0;
     progress.length = 0;
+    await page.evaluate(() => localStorage.setItem('sp.pref.settings', JSON.stringify({ muted: true, bgm: 0.25, sfx: 0.4 })));
     const second = await boot();
     assert.equal(second.started, true, second.error);
     assert.equal(second.result.downloaded, 0);
+    const savedAudio = await page.evaluate(async () => (await import('/js/audio.js')).audio.volumes);
+    assert.deepEqual(savedAudio, { muted: true, bgm: 0.25, sfx: 0.4 });
     assert.equal(second.result.cached, second.result.total);
     const reuseCounts = progress.map((value) => +(value.match(/本地复用 (\d+)/)?.[1] || 0));
     assert.ok(reuseCounts.every((value, i) => i === 0 || value >= reuseCounts[i - 1]), 'cache reuse count must not reset between batches');
@@ -140,8 +206,11 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
     // Direct and extensionless audio requests use the same local bytes, including when offline.
     await page.setOfflineMode(true);
     const offline = await page.evaluate(async () => Promise.all(['/assets/a.png', '/data/config.json',
-      '/assets/audio/bgm/a.mp3', '/media/bgm/a'].map(async (url) => (await fetch(url)).text())));
-    assert.deepEqual(offline, ['alpha', '{}', 'sound', 'sound']);
+      '/assets/audio/bgm/a.wav', '/media/bgm/a'].map(async (url) => {
+        const response = await fetch(url);
+        return url.includes('bgm/') ? (await response.arrayBuffer()).byteLength : response.text();
+      })));
+    assert.deepEqual(offline, ['alpha', '{}', wave.length, wave.length]);
     await page.setOfflineMode(false);
 
     // Repair a same-size corrupted local entry; all the other cached entries remain usable.

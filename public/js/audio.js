@@ -236,6 +236,7 @@ export class AudioManager {
    */
   constructor(opts = {}) {
     this.getManifest = typeof opts.getManifest === 'function' ? opts.getManifest : () => null;
+    this.loadResponse = null; // startup-only: read an already verified local object
     this.win = opts.win ?? (typeof window !== 'undefined' ? window : null);
     this.ctx = null;
     this.master = null;
@@ -272,6 +273,9 @@ export class AudioManager {
   }
 
   get unlocked() { return !!this.ctx; }
+
+  /** Try autoplay when allowed, or resume synchronously from a startup-page gesture. */
+  unlock() { this._unlock(); }
 
   /**
    * First user gesture: create the context. The gesture listeners stay until the context actually runs — iOS Safari
@@ -400,8 +404,9 @@ export class AudioManager {
       try {
         // Extension-less URL first so download managers leave the BGM alone; a host without /media/ still works.
         const media = mediaUrl(url);
-        let res = await fetch(media);
-        if (media !== url && !isAudioResponse(res)) {
+        const localLoader = this.loadResponse;
+        let res = localLoader ? await localLoader(url) : await fetch(media);
+        if (!localLoader && media !== url && !isAudioResponse(res)) {
           // Drop the unusable response (404, or a 200 that is really index.html) before trying the original URL.
           try { await res.body?.cancel?.(); } catch { /* the fallback request matters more than draining this one */ }
           res = await fetch(url);
@@ -667,6 +672,19 @@ let manifestGetter = () => null;
 /** App-wide audio manager. */
 export const audio = new AudioManager({ getManifest: () => manifestGetter() });
 
+/** Share the same context, decoded buffers and loop with the game after the download screen. */
+export function installPreloadAudio({ track, readResource, settings } = {}) {
+  manifestGetter = () => ({ audio: { bgm: { lobby: track } } });
+  audio.loadResponse = readResource;
+  audio.setVolumes(settings);
+  audio.install();
+}
+
+export function stopPreloadAudio() {
+  audio.playBgm(null);
+  audio.loadResponse = null;
+}
+
 /**
  * Wire the singleton to the app (called once by main.js): manifest source, settings and store-driven BGM.
  * @param {{ getManifest: () => any, subscribe: (fn: (s:any, prev:any) => void) => () => void, getState: () => any,
@@ -674,7 +692,9 @@ export const audio = new AudioManager({ getManifest: () => manifestGetter() });
  */
 export function installAudio(deps) {
   try {
-    manifestGetter = typeof deps?.getManifest === 'function' ? deps.getManifest : manifestGetter;
+    const previousManifest = manifestGetter;
+    manifestGetter = typeof deps?.getManifest === 'function' ? () => deps.getManifest() || previousManifest() : previousManifest;
+    audio.loadResponse = null;
     audio.install();
     if (deps?.settings) audio.setVolumes(deps.settings);
     if (typeof deps?.subscribe === 'function' && typeof deps?.getState === 'function') {

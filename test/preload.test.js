@@ -42,4 +42,6 @@ test('cloud index validates sizes, paths, hashes and duplicate entries', () => {
   }
   assert.throws(() => validateResourceIndex({ ...index, bytes: 99 }));
   assert.throws(() => validateResourceIndex({ ...index, bytes: 6, files: [...index.files, ...index.files] }));
+  assert.throws(() => validateResourceIndex({ ...index, startup: { bgm: { loop: '/assets/missing.mp3' }, fonts: [] } }));
+  assert.throws(() => validateResourceIndex({ ...index, startup: { fonts: [{ url: '/assets/a.png', family: 'Fake', weight: 400 }] } }));
 });

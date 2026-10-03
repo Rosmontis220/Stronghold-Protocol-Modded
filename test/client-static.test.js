@@ -199,7 +199,8 @@ describe('HTML pages reference existing files', () => {
     assert.match(src, /id="boot-progress"/);
     assert.match(src, /class="rotate-hint"/);
     assert.match(src, /fonts\.googleapis\.com\/css2\?family=Noto\+Sans\+SC/);
-    assert.match(src, /href="\/fonts\/fonts\.css"/);
+    assert.match(src, /id="boot-music"/);
+    assert.match(src, /id="boot-ready"/);
   });
 });
 
