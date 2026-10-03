@@ -147,6 +147,10 @@ describe('shared modules', () => {
 const JS_FILES = walk(path.join(PUBLIC, 'js'), '.js');
 
 describe('client modules parse as ES modules', () => {
+  test('service worker parses as JavaScript', () => {
+    const err = checkModuleSyntax(readFileSync(path.join(PUBLIC, 'sw.js'), 'utf8'));
+    assert.equal(err, null, err || '');
+  });
   test('found client modules', () => {
     for (const f of ['main.js', 'net.js', 'store.js', 'data.js', 'ui/components.js', 'ui/toasts.js',
       'screens/title.js', 'screens/lobby.js', 'screens/room.js', 'screens/game.js']) {
@@ -188,9 +192,11 @@ describe('HTML pages reference existing files', () => {
       }
     });
   }
-  test('index.html boots main.js as a module and has the rotate hint', () => {
+  test('index.html boots the preloader module and has the rotate hint', () => {
     const src = readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
-    assert.match(src, /<script type="module" src="\/js\/main\.js"[^>]*><\/script>/);
+    assert.match(src, /<script type="module" src="\/js\/boot\.js"[^>]*><\/script>/);
+    assert.match(src, /id="boot-status"/);
+    assert.match(src, /id="boot-progress"/);
     assert.match(src, /class="rotate-hint"/);
     assert.match(src, /fonts\.googleapis\.com\/css2\?family=Noto\+Sans\+SC/);
     assert.match(src, /href="\/fonts\/fonts\.css"/);
