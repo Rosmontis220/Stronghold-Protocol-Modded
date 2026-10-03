@@ -67,11 +67,11 @@ async function activeWorker() {
   return worker;
 }
 
-function sendToWorker(worker, index, onProgress) {
+function sendBatch(worker, index, files, offset, final, onProgress) {
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     let settled = false;
-    let timer;
+    const timer = setTimeout(() => finish(reject, new Error('资源批次校对超时，请刷新重试')), 120000);
     const finish = (fn, value) => {
       if (settled) return;
       settled = true;
@@ -79,21 +79,28 @@ function sendToWorker(worker, index, onProgress) {
       channel.port1.close();
       fn(value);
     };
-    const resetTimeout = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => finish(reject, new Error('资源校对长时间无响应，请刷新重试')), 180000);
-    };
     channel.port1.onmessage = (event) => {
       const data = event.data || {};
-      resetTimeout();
       if (data.type === 'PROGRESS') progressText(data, onProgress);
-      else if (data.type === 'DONE') finish(resolve, data);
+      else if (data.type === 'BATCH_DONE') finish(resolve, data);
       else if (data.type === 'ERROR') finish(reject, new Error(data.message || '资源预下载失败'));
     };
-    resetTimeout();
-    try { worker.postMessage({ type: 'PRELOAD', index }, [channel.port2]); }
+    try { worker.postMessage({ type: 'PRELOAD_BATCH', index, files, offset, final }, [channel.port2]); }
     catch (err) { finish(reject, err); }
   });
+}
+
+async function sendBatches(worker, index, onProgress) {
+  const batchSize = 96;
+  const totals = { cached: 0, downloaded: 0, downloadedBytes: 0 };
+  for (let offset = 0; offset < index.files.length; offset += batchSize) {
+    const files = index.files.slice(offset, offset + batchSize);
+    const result = await sendBatch(worker, index, files, offset, offset + files.length === index.files.length, onProgress);
+    totals.cached += result.cached || 0;
+    totals.downloaded += result.downloaded || 0;
+    totals.downloadedBytes += result.downloadedBytes || 0;
+  }
+  return { type: 'DONE', version: index.hash, total: index.files.length, ...totals };
 }
 
 export async function prepareAssets({ onProgress } = {}) {
@@ -111,6 +118,6 @@ export async function prepareAssets({ onProgress } = {}) {
   } finally { clearTimeout(timer); }
   progressText({ phase: 'verify', done: 0, total: index.files.length, totalBytes: index.bytes }, onProgress);
   const worker = await activeWorker();
-  const result = await sendToWorker(worker, index, onProgress);
+  const result = await sendBatches(worker, index, onProgress);
   return { ...result, mode: 'verified-cache', urls: index.files.map((file) => file.url) };
 }

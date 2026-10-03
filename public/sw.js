@@ -97,8 +97,9 @@ async function prune(index) {
   for (const name of await caches.keys()) if (name.startsWith('sp-preload-')) await caches.delete(name);
 }
 
-async function preload(index, port, clientId) {
-  if (index?.version !== 2 || !Array.isArray(index.files) || !index.files.length) throw new Error('资源清单无效');
+async function preloadBatch(index, files, offset, port, clientId, final) {
+  if (index?.version !== 2 || !Array.isArray(index.files) || !index.files.length || !Array.isArray(files)) throw new Error('资源清单无效');
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset + files.length > index.files.length) throw new Error('资源批次无效');
   const objects = await caches.open(OBJECT_CACHE);
   const legacy = await Promise.all((await caches.keys())
     .filter((name) => name.startsWith('sp-preload-') && name !== 'sp-preload-meta-v1')
@@ -111,12 +112,12 @@ async function preload(index, port, clientId) {
   let checkedBytes = 0;
   const failed = [];
   const post = (message) => { try { port.postMessage(message); } catch { /* tab closed */ } };
-  const report = (file) => post({ type: 'PROGRESS', done, total: index.files.length, cached, downloaded,
+  const report = (file) => post({ type: 'PROGRESS', done: offset + done, total: index.files.length, cached, downloaded,
     downloadedBytes, checkedBytes, totalBytes: index.bytes, failed: failed.length, url: file.url });
 
-  await Promise.all(Array.from({ length: Math.min(6, index.files.length) }, async () => {
-    while (cursor < index.files.length) {
-      const file = index.files[cursor++];
+  await Promise.all(Array.from({ length: Math.min(6, files.length) }, async () => {
+    while (cursor < files.length) {
+      const file = files[cursor++];
       try {
         const key = objectKey(file);
         const hit = await objects.match(key);
@@ -150,20 +151,22 @@ async function preload(index, port, clientId) {
   }));
   if (failed.length) throw new Error(`资源校对失败 ${failed.length} 项：${failed.slice(0, 2).join('；')}`);
 
-  // The active manifest is committed only when every object exists and has been verified.
-  if (clientId) await writeMeta(clientKey(clientId), index);
-  await writeMeta(ACTIVE_KEY, index);
-  // Cleanup failure cannot invalidate a successfully committed snapshot.
-  await prune(index).catch((err) => console.warn('[resources] cleanup failed', err));
-  post({ type: 'DONE', version: index.hash, total: index.files.length, cached, downloaded, downloadedBytes });
+  // Only the final batch commits the active manifest. Earlier batches are resumable objects.
+  if (final) {
+    if (clientId) await writeMeta(clientKey(clientId), index);
+    await writeMeta(ACTIVE_KEY, index);
+    await prune(index).catch((err) => console.warn('[resources] cleanup failed', err));
+  }
+  post({ type: 'BATCH_DONE', version: index.hash, done: offset + files.length, total: index.files.length,
+    cached, downloaded, downloadedBytes, final: !!final });
 }
 
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type === 'SKIP_WAITING') { event.waitUntil(self.skipWaiting()); return; }
   const port = event.ports?.[0];
-  if (!port || data.type !== 'PRELOAD') return;
-  const task = preloadQueue.then(() => preload(data.index, port, event.source?.id));
+  if (!port || data.type !== 'PRELOAD_BATCH') return;
+  const task = preloadQueue.then(() => preloadBatch(data.index, data.files, data.offset, port, event.source?.id, data.final));
   preloadQueue = task.catch(() => {});
   event.waitUntil(task.catch((err) => {
     try { port.postMessage({ type: 'ERROR', message: String(err?.message || err) }); } catch { /* tab closed */ }
