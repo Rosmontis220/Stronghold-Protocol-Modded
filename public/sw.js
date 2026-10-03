@@ -50,9 +50,9 @@ async function verifiedBody(response, file) {
   return bytes;
 }
 
-async function download(file) {
+async function downloadOnce(file) {
   const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), 120000);
+  const timer = setTimeout(() => abort.abort(), 30000);
   try {
     const response = await fetch(file.runtime || file.url, { cache: 'no-store', signal: abort.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -65,6 +65,18 @@ async function download(file) {
     headers.delete('content-range');
     return new Response(bytes, { status: 200, headers });
   } finally { clearTimeout(timer); }
+}
+
+async function download(file) {
+  let last;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await downloadOnce(file); }
+    catch (err) {
+      last = err;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+    }
+  }
+  throw last;
 }
 
 async function prune(index) {
