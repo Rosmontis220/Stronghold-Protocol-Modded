@@ -72,6 +72,12 @@
           <label class="boot__dl-opt"><input type="checkbox" id="boot-dl-guide" /> <span id="boot-dl-guide-label">玩法说明教程页</span></label>
         </div>
         <p class="boot__dl-note" id="boot-dl-note"></p>
+        <div class="boot__dl-local">
+          <button type="button" class="boot__retry" id="boot-import">选择本地素材文件夹</button>
+          <button type="button" class="boot__retry" id="boot-import-resume" hidden>继续使用上次的文件夹</button>
+          <input type="file" id="boot-import-input" webkitdirectory directory multiple hidden />
+          <span class="boot__dl-note" id="boot-import-note"></span>
+        </div>
         <div class="boot__dl-btns">
           <button type="button" class="boot__retry" id="boot-dl-all">完整</button>
           <button type="button" class="boot__retry" id="boot-dl-lean">精简</button>

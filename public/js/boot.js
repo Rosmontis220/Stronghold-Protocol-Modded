@@ -1,7 +1,9 @@
 // Do not execute the game shell until its local resource snapshot is complete and verified.
 import { prepareAssets, validateResourceIndex } from './preload.js';
 import { createPreloadEffects } from './preload-effects.js';
-import { RESOURCE_INDEX_URL, OPTIONAL_RESOURCE_GROUPS, classifyResourceFiles } from '../../shared/resource-plan.js';
+import { RESOURCE_INDEX_URL, OPTIONAL_RESOURCE_GROUPS, classifyResourceFiles, selectResourceFiles } from '../../shared/resource-plan.js';
+import { pickResourceDirectory, recallDirectory, permissionOf, requestPermission, importDirectory,
+  importFileList, cachedSample, supportsDirectoryPicker } from './local-import.js';
 
 const PREF_DOWNLOAD = 'sp.pref.download';
 const status = document.getElementById('boot-status');
@@ -19,6 +21,11 @@ const dlToggle = document.getElementById('boot-dl-toggle');
 const dlTotal = document.getElementById('boot-dl-total');
 const dlNote = document.getElementById('boot-dl-note');
 const dlBoxes = { audio: document.getElementById('boot-dl-audio'), guide: document.getElementById('boot-dl-guide') };
+const importNote = document.getElementById('boot-import-note');
+const importInput = document.getElementById('boot-import-input');
+const importResume = document.getElementById('boot-import-resume');
+/** The player is picking/importing a local folder: never let the auto-start race the import. */
+let autoStartHeld = false;
 
 /** Which optional groups to download (shared/resource-plan.js); audio and the tutorial pages are the only ones. */
 let selection = { audio: true, guide: true };
@@ -73,6 +80,102 @@ function renderChoices(index) {
   }
 }
 const readChoice = () => ({ audio: dlBoxes.audio ? dlBoxes.audio.checked : true, guide: dlBoxes.guide ? dlBoxes.guide.checked : true });
+
+/** The files this choice actually downloads — what a local folder import should cover. */
+const wantedFor = (index) => (selection ? selectResourceFiles(index.files, selection).map((f) => f.url) : null);
+
+/** Report one import pass into the boot status lines. */
+function importProgress(index) {
+  return (stats) => {
+    const ratio = stats.total ? stats.done / stats.total : 1;
+    if (status) status.textContent = `正在从本地文件夹校验素材… ${Math.round(ratio * 100)}%`;
+    if (detail) detail.textContent = `${stats.done}/${stats.total} 项 · 已导入 ${stats.imported} 项 (${mb(stats.importedBytes)}) · 文件夹里没有 ${stats.missing} 项 · 校验不符 ${stats.rejected} 项`;
+  };
+}
+
+/** After an import (or a cancel), continue with the normal verified download: imported files count as cache hits. */
+function afterImport(index, stats) {
+  const summary = stats
+    ? `本地导入完成：${stats.imported} 项（${mb(stats.importedBytes)}）已进本地缓存；文件夹缺少 ${stats.missing} 项、校验不符 ${stats.rejected} 项将改为下载。`
+    : '未从本地导入，改为全部下载。';
+  if (importNote) importNote.textContent = summary;
+  effects.stop?.();
+  begin();
+}
+
+/**
+ * The local-folder row: pick a folder (Chromium remembers it), import a `webkitdirectory` pick elsewhere, and offer
+ * the remembered folder on the next visit. An empty cache with a remembered folder imports by itself.
+ * Listeners attach immediately — the index may still be in flight, so every handler awaits it.
+ * @param {Promise<any>} indexPromise
+ */
+async function wireImport(indexPromise) {
+  if (!dl) return;
+  const runDirectory = async (handle, index) => {
+    autoStartHeld = true;
+    try {
+      const stats = await importDirectory(handle, index, { wanted: wantedFor(index), onProgress: importProgress(index) });
+      afterImport(index, stats);
+    } catch (err) {
+      console.error('[boot] local resource import failed', err);
+      if (importNote) importNote.textContent = `本地导入失败：${String(err?.message || err).slice(0, 160)}`;
+      afterImport(index, null);
+    }
+  };
+  document.getElementById('boot-import')?.addEventListener('click', async () => {
+    autoStartHeld = true;
+    if (importNote) importNote.textContent = '正在读取文件夹…';
+    let index;
+    try { index = await indexPromise; } catch { autoStartHeld = false; if (importNote) importNote.textContent = '云端资源清单不可用，无法导入。'; return; }
+    if (supportsDirectoryPicker()) {
+      const handle = await pickResourceDirectory();
+      if (!handle) { autoStartHeld = false; if (importNote) importNote.textContent = '已取消选择文件夹。'; return; }
+      await runDirectory(handle, index);
+      return;
+    }
+    importInput?.click(); // Firefox/Safari: no handle, no memory
+  });
+  importInput?.addEventListener('change', async () => {
+    autoStartHeld = true;
+    const files = importInput.files;
+    if (!files || !files.length) { autoStartHeld = false; return; }
+    try {
+      const index = await indexPromise;
+      const stats = await importFileList(files, index, { wanted: wantedFor(index), onProgress: importProgress(index) });
+      afterImport(index, stats);
+    } catch (err) {
+      console.error('[boot] local resource import failed', err);
+      if (importNote) importNote.textContent = `本地导入失败：${String(err?.message || err).slice(0, 160)}`;
+      try { afterImport(await indexPromise, null); } catch { /* no download possible either */ }
+    }
+  });
+  let index;
+  try { index = await indexPromise; } catch { return; }
+  const remembered = await recallDirectory();
+  if (!remembered?.handle) return;
+  const state = await permissionOf(remembered.handle);
+  const when = remembered.at ? new Date(remembered.at).toLocaleDateString() : '';
+  if (state === 'granted' || state === 'prompt') {
+    if (importResume) {
+      importResume.hidden = false;
+      importResume.textContent = `继续使用上次的文件夹（${remembered.name}${when ? ` · ${when}` : ''}）`;
+      importResume.addEventListener('click', async () => {
+        if (state === 'prompt' && !(await requestPermission(remembered.handle))) {
+          if (importNote) importNote.textContent = '浏览器未授予读取权限，请重新选择文件夹。';
+          return;
+        }
+        await runDirectory(remembered.handle);
+      });
+    }
+    // Nothing in the verified cache yet and the folder is still readable: import it without asking.
+    if (state === 'granted' && !(await cachedSample(index, ['/data/assets.json', '/data/chess.json']))) {
+      if (status) status.textContent = `正在从上次的本地文件夹（${remembered.name}）导入素材…`;
+      await runDirectory(remembered.handle);
+    }
+  } else if (importNote) {
+    importNote.textContent = `上次的文件夹（${remembered.name}）需要重新授权，点击「选择本地素材文件夹」重新选择即可。`;
+  }
+}
 
 function begin() {
   if (preloadStarted) return;
@@ -157,20 +260,22 @@ async function start() {
 }
 
 wireChoices();
+wireImport(fetchIndex()).catch(() => {});
 const saved = loadSelection();
+if (saved) selection = saved;
+// The choice panel needs the real sizes; the local-folder row awaits the same single fetch.
+fetchIndex().then(renderChoices).catch((err) => { if (importNote) importNote.textContent = `无法获取云端资源清单：${String(err?.message || err).slice(0, 120)}`; });
 if (saved) {
   // A remembered choice starts right away; 「下载内容」 reopens the panel.
-  selection = saved;
   begin();
-  fetchIndex().then(renderChoices).catch(() => {});
 } else {
   // First visit: show the picker, but do not block the boot — the default (everything) starts on its own.
-  fetchIndex().then(renderChoices).catch(() => {});
   let left = 8;
   const tick = setInterval(() => {
     if (preloadStarted) { clearInterval(tick); return; }
+    if (autoStartHeld) return; // the player is importing a folder; do not start the download underneath
     left -= 1;
-    if (status) status.textContent = left > 0 ? `可先选择下载内容，${left} 秒后自动开始…` : '正在开始下载…';
+    if (status) status.textContent = left > 0 ? `可先选择下载内容或导入本地素材，${left} 秒后自动开始…` : '正在开始下载…';
     if (left <= 0) { clearInterval(tick); begin(); }
   }, 1000);
 }

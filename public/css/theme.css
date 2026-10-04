@@ -329,6 +329,9 @@ h1, h2, h3, h4, p { margin: 0; }
 .boot__dl-note { margin: 0; color: var(--text-lo); font-size: .12rem; line-height: 1.6; }
 .boot__dl-btns { display: flex; gap: .08rem; }
 .boot__dl-btns .boot__retry { padding: .06rem .14rem; font-size: .13rem; }
+.boot__dl-local { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; }
+.boot__dl-local .boot__retry { padding: .06rem .14rem; font-size: .13rem; }
+.boot__dl-local .boot__dl-note { flex: 1 1 100%; }
 .boot__music:disabled { opacity: .45; cursor: default; }
 .boot__err { max-width: 6rem; text-align: center; color: var(--text-lo); font-size: .16rem; }
 @keyframes boot-spin { to { transform: rotate(360deg); } }

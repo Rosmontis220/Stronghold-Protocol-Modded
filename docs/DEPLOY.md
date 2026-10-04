@@ -311,3 +311,9 @@ node scripts/notice.mjs --clear                                         # 手动
 
 安全边界：`/api/admin/*` 全部要求 token（除 `login`），请求体上限 64 KB；`admin.html` 同样带 `noindex`，且 `robots.txt` 全站 `Disallow`（第 4 节）。操作台**只是调用同一套公告文件与只读视图**，不改变游戏协议。
 
+## 9. 预下载：选择下载内容与本地素材导入
+
+浏览器第一次进站会先经 `/data/resource-manifest.json` 校对本地素材（第 6 节）。启动页上还能决定**下载哪些**：按 `shared/resource-plan.js` 的分类，**音频**（`/assets/audio/**`，约 27 MB）与**玩法说明教程页**（`/assets/ui/guide/**`，约 21 MB）是可选项，其余（游戏数据、字体、敌人与干员模型、立绘、头像、界面美术、各类图标）都是必需项，不给关。面板显示每组真实文件数与体积，`完整` / `精简` 两个预设按钮，选择存 `localStorage`（`sp.pref.download`）下次沿用；首次访问不会卡住——8 秒后按当前选择自动开始，期间点「保存并下载」可立即按新选择开始（改选后重载，已下好的文件照旧复用）。跳过的文件就是缓存里没有对象：版本校验仍按**完整**清单，下次进站可以再补下。
+
+**本地素材导入**（`public/js/local-import.js`）：没有网络或想省流量时，可用「选择本地素材文件夹」指向自己那份发布目录（项目根，含 `public/` 与 `data/`；指向 `public/`、`public/assets` 或资源树的任意一层也能识别）。页面逐个文件按**大小 + SHA-256** 校验后写进 Worker 用的同一份 `sp-resource-objects-v2` 缓存，因此运行时读取路径不变，剩下的缺失项才走网络。Chromium 会把目录句柄记在 IndexedDB：下次进站权限仍在就自动导入（缓存为空时尤其有用），权限失效时给一键「继续使用上次的文件夹」（浏览器要求一次点击授权）；Firefox/Safari 无 File System Access，退化为 `<input type="file" webkitdirectory>`（同样校验入缓存，但不能记忆目录）。关掉音频时启动音乐不再尝试播放，启动页显示「音乐未选择下载」；关掉教程页时「玩法说明」走文字要点回退。
+

@@ -329,6 +329,33 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
     assert.equal(completedPartial.downloaded, 0);
     assert.equal(completedPartial.text, 'final');
     await partialPage.close();
+    // --- a narrowed download: the switched-off optional groups are never requested --------------------------
+    const leanStart = downloads.length;
+    const leanPage = await browser.newPage();
+    await leanPage.evaluateOnNewDocument(() => localStorage.setItem('sp.pref.download', JSON.stringify({ audio: false, guide: false })));
+    await leanPage.goto(`${origin}/`);
+    await leanPage.waitForFunction(() => window.__spPreloadResult, { timeout: 90000 });
+    const lean = await leanPage.evaluate(() => window.__spPreloadResult);
+    assert.equal(lean.total, first.result.total - 1, 'the audio file is not part of the batch list');
+    assert.ok(!downloads.slice(leanStart).some((url) => url.includes('/assets/audio/')), 'no audio was requested');
+    await leanPage.close();
+    // --- a local folder import: verified bytes enter the cache, so the download has nothing left to fetch ----
+    const importStart = downloads.length;
+    const context = browser.createBrowserContext ? await browser.createBrowserContext() : null;
+    const importPage = context ? await context.newPage() : await browser.newPage();
+    await importPage.goto(`${origin}/`);
+    // The import row wires itself up after the index arrives: wait for the panel to be painted, then hand it the folder.
+    await importPage.waitForFunction(() => (document.getElementById('boot-dl-note')?.textContent || '').length > 0, { timeout: 30000 });
+    const input = await importPage.waitForSelector('#boot-import-input', { state: 'attached' });
+    await input.uploadFile(root); // the release root (public/ + data/), what a player would point at
+    await importPage.waitForFunction(() => window.__spPreloadResult, { timeout: 120000 });
+    const note = await importPage.$eval('#boot-import-note', (el) => el.textContent);
+    assert.match(note, /本地导入完成：\d+ 项/, `import note: ${note}`);
+    const after = await importPage.evaluate(() => window.__spPreloadResult);
+    const fetched = downloads.slice(importStart).filter((url) => !url.startsWith('/js/') && !url.startsWith('/css/') && !url.startsWith('/shared/'));
+    assert.ok(fetched.length <= 4, `the folder covered the resources, only ${fetched.length} fetched: ${fetched.slice(0, 4).join(', ')}`);
+    assert.ok(after.cached >= first.result.total - 4, `imported bytes were reused (${after.cached}/${first.result.total})`);
+    if (context) await context.close(); else await importPage.close();
     t.diagnostic(JSON.stringify({ first: { downloaded: first.result.downloaded, total: first.result.total },
       second: { downloaded: second.result.downloaded, cached: second.result.cached }, changed: changed.result.downloaded,
       repaired: repaired.result.downloaded, retry: retry.downloaded, migrated: migrated.result.downloaded,
