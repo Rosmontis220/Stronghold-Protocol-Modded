@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
+  <title>操作台 · OPERATOR CONSOLE</title>
+  <link rel="preload" href="/fonts/bender-regular.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/css/admin.css" />
+</head>
+<body>
+  <div class="grid-bg" aria-hidden="true"></div>
+  <div class="scan" aria-hidden="true"></div>
+
+  <main class="console" id="console" hidden>
+    <header class="head">
+      <div class="head__brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <p class="micro">STRONGHOLD PROTOCOL // OPERATOR CONSOLE</p>
+          <h1>操作台</h1>
+        </div>
+      </div>
+      <div class="head__chips">
+        <span class="chip" id="chip-link"><i></i>链路</span>
+        <span class="chip" id="chip-matches">对局 <b class="num" id="stat-matches">0</b></span>
+        <span class="chip">房间 <b class="num" id="stat-rooms">0</b></span>
+        <span class="chip">在线 <b class="num" id="stat-humans">0</b></span>
+        <span class="chip" id="chip-app">—</span>
+        <button class="btn btn--ghost" id="sign-out" type="button">退出</button>
+      </div>
+    </header>
+
+    <div class="cols">
+      <section class="panel panel--notice">
+        <div class="panel__bar"><p class="micro">ANNOUNCEMENT // 服务器公告</p><span class="stripes" aria-hidden="true"></span></div>
+        <div class="panel__body">
+          <label class="field">
+            <span class="field__k">内容</span>
+            <textarea id="notice-text" rows="3" maxlength="200" placeholder="例如：服务器将于 23:30 维护重启，预计 5 分钟"></textarea>
+          </label>
+          <div class="row">
+            <label class="field field--sm">
+              <span class="field__k">类型</span>
+              <select id="notice-kind">
+                <option value="info">info 提示</option>
+                <option value="maintenance" selected>maintenance 维护</option>
+                <option value="update">update 更新</option>
+                <option value="emergency">emergency 紧急</option>
+              </select>
+            </label>
+            <label class="field field--sm">
+              <span class="field__k">时长</span>
+              <select id="notice-for">
+                <option value="0">直到手动撤回</option>
+                <option value="900000">15 分钟</option>
+                <option value="1800000">30 分钟</option>
+                <option value="3600000">1 小时</option>
+              </select>
+            </label>
+          </div>
+          <div class="row row--btns">
+            <button class="btn btn--primary" id="notice-send" type="button">发布公告</button>
+            <button class="btn" id="notice-clear" type="button">撤回</button>
+          </div>
+          <div class="now" id="notice-now">当前没有公告</div>
+        </div>
+      </section>
+
+      <section class="panel panel--rooms">
+        <div class="panel__bar"><p class="micro">MATCHES // 对局</p><span class="stripes" aria-hidden="true"></span></div>
+        <div class="panel__body" id="rooms">
+          <p class="empty">暂无房间</p>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel panel--state">
+      <div class="panel__bar"><p class="micro">SIGNAL // 数据</p><span class="stripes" aria-hidden="true"></span></div>
+      <div class="panel__body">
+        <div class="row">
+          <label class="field field--sm"><span class="field__k">房间</span><select id="state-room"></select></label>
+          <label class="field field--sm"><span class="field__k">玩家</span><select id="state-player"></select></label>
+          <label class="field field--sm"><span class="field__k">项目</span>
+            <select id="state-action">
+              <option value="funds">资金</option>
+              <option value="lp">生命值</option>
+              <option value="shopLevel">调度中心等级</option>
+              <option value="layers">盟约层数</option>
+            </select>
+          </label>
+          <label class="field field--sm" id="state-bond-wrap" hidden><span class="field__k">盟约 ID</span><input id="state-bond" type="text" placeholder="yanShip" /></label>
+          <label class="field field--xs"><span class="field__k">增减</span><input id="state-value" type="number" value="1" step="1" /></label>
+          <button class="btn btn--primary" id="state-apply" type="button">应用</button>
+        </div>
+        <div class="now" id="state-out">—</div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span class="micro">本页与 <code>node scripts/notice.mjs</code> 写同一个 <code>.deploy/notice.json</code>，服务器 10 秒内广播</span>
+    </footer>
+  </main>
+
+  <div class="gate" id="gate">
+    <form class="gate__card" id="gate-form">
+      <p class="micro">STRONGHOLD PROTOCOL // OPERATOR CONSOLE</p>
+      <h1>操作台</h1>
+      <p class="gate__sub" id="gate-sub">请输入操作口令</p>
+      <input id="gate-pass" type="password" autocomplete="current-password" placeholder="口令" autofocus />
+      <button class="btn btn--primary btn--wide" type="submit" id="gate-go">进入</button>
+      <p class="gate__err" id="gate-err" role="alert"></p>
+    </form>
+  </div>
+
+  <aside class="drawer" id="drawer" hidden>
+    <header class="drawer__head">
+      <div><p class="micro">LIVE // 旁观</p><h2 id="drawer-title">房间</h2></div>
+      <button class="btn btn--ghost" id="drawer-close" type="button">关闭</button>
+    </header>
+    <div class="drawer__body" id="drawer-body"></div>
+  </aside>
+
+  <script type="module" src="/js/admin.js"></script>
+</body>
+</html>

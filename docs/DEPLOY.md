@@ -296,3 +296,18 @@ node scripts/notice.mjs --clear                                         # 手动
 维护前建议这样用（这条公告会一直留着，直到 `--clear` 或 `--for` 到期）：挑空窗、发公告、等一下、再重启。重启会结束正在进行的对局（第 0 节）：客户端会自动重连，但那是**新会话**，正在打的那一局就没了。
 
 自动发版（自己服务器上装 git 钩子或 systemd 定时器）可以用同一套：重启前自动发一条 `maintenance` 公告并等一会儿，重启校验通过后再自动撤下——那些脚本属于部署环境，不放在本仓库里。
+
+## 8. 操作台（网页）
+
+不想 SSH 的时候用网页操作台：**`https://<域名>/admin.html`**（`public/admin.html` + `public/js/admin.js` + `public/css/admin.css`，与游戏客户端彼此独立，不加载游戏外壳）。入口口令用 **SHA-256 摘要**校验：页面用 WebCrypto 把输入算成摘要再发出去，**明文既不离开浏览器也不在仓库里**；摘要写在 `server/admin.js` 的 `PASSWORD_SHA256`，换口令就换这一行的值（`node -e "console.log(require('crypto').createHash('sha256').update('新口令').digest('hex'))"`）。登录成功后拿一个内存里的 bearer token（`x-admin-token` 头，12 小时有效，**重启服务器即全部失效**）；同一 IP 十分钟内错 8 次会被拒（`429`）。
+
+界面提供：
+
+| 功能 | 接口 | 说明 |
+|---|---|---|
+| 发布 / 撤回公告 | `POST /api/admin/notice` | 写的就是 `.deploy/notice.json`（第 7 节），写完立即让运行中的公告板刷新，玩家 10 秒内看到 |
+| 服务器状态 | `GET /api/admin/overview` | 进行中的对局数、房间数、在线人数、当前公告 |
+| 旁观对局 | `GET /api/admin/room?code=XXXX` | 每个房间的实时视图：阶段 / 回合 / 每位博士的生命值、资金、就绪与掉线状态；面板每 2 秒刷新（只读，不加入房间） |
+
+安全边界：`/api/admin/*` 全部要求 token（除 `login`），请求体上限 64 KB；`admin.html` 同样带 `noindex`，且 `robots.txt` 全站 `Disallow`（第 4 节）。操作台**只是调用同一套公告文件与只读视图**，不改变游戏协议。
+

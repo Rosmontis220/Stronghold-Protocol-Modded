@@ -40,6 +40,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { Network, SessionRegistry, NET_DEFAULTS, send } from './net.js';
 import { NoticeBoard, NOTICE_FILE } from './notice.js';
+import { createAdminApi } from './admin.js';
 import { Lobby } from './lobby.js';
 import { getData, loadData } from './data.js';
 import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
@@ -602,6 +603,8 @@ export async function startServer(opts = {}) {
     log.info?.(`[notice] broadcast to ${sent} socket(s)`);
   };
   noticeBoard.start();
+  // Operator console API (server/admin.js + public/admin.html).
+  const admin = createAdminApi({ lobby, noticeBoard, noticeFile: noticeBoard.file, log });
   const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, log });
   const startedAt = Date.now();
 
@@ -623,9 +626,16 @@ export async function startServer(opts = {}) {
     const parts = splitUrl(url);
     if (!parts) { sendError(req, res, 400, '请求地址无效 · Bad request'); return; }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
+      // The operator console (public/admin.html) is the one API surface: JSON in, JSON out.
+      const adminResult = await admin.handle(req, res, parts.rawPath, parts.query);
+      if (adminResult !== false) { sendJson(req, res, adminResult.status, adminResult.body); return; }
       res.setHeader('Allow', 'GET, HEAD');
       sendError(req, res, 405, '不支持的请求方法 · Method not allowed');
       return;
+    }
+    if (parts.rawPath.startsWith('/api/admin/')) {
+      const adminResult = await admin.handle(req, res, parts.rawPath, parts.query);
+      if (adminResult !== false) { sendJson(req, res, adminResult.status, adminResult.body); return; }
     }
     if (parts.rawPath === '/healthz') {
       sendJson(req, res, 200, {
