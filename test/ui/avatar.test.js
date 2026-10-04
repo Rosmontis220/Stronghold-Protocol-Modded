@@ -44,6 +44,26 @@ describe('custom avatar', () => {
     } finally { identity.saveAvatar = save; net.resendHello = resend; }
   });
 
+  test('the picker body lists the operators, marks the current one and offers 跟随默认', async () => {
+    const { AvatarPickerBody, avatarRecord } = await import('../../public/js/ui/avatarPicker.js');
+    const assets = { chars: { c1: { avatar: '/a/c1.png' } } };
+    const list = [
+      { chessId: 'char_a', name: '甲', tier: 1, charId: 'c1' },
+      { chessId: 'char_b', name: '乙', tier: 2, charId: 'c1' },
+    ];
+    const vnode = AvatarPickerBody({ assets, list, mine: 'char_b', mineRec: list[1] });
+    const json = JSON.stringify(vnode);
+    assert.match(json, /char_a/);
+    assert.match(json, /char_b/);
+    assert.match(json, /is-on/, 'the current choice is marked');
+    assert.match(json, /跟随默认/, 'and can be dropped again');
+    assert.match(json, /搜索干员名字/, 'searchable');
+    const empty = JSON.stringify(AvatarPickerBody({ assets, list, mine: null, mineRec: null, query: 'zzz' }));
+    assert.match(empty, /没有匹配的干员/);
+    assert.equal(avatarRecord(list, 'char_a')?.name, '甲');
+    assert.equal(avatarRecord(list, null), null);
+  });
+
   test('the seat card draws the portrait, the avatar + ID row, DOCTOR #… and the state; your own avatar opens the picker', () => {
     const room = readFileSync(path.join(ROOT, 'public/js/screens/room.js'), 'utf8');
     assert.match(room, /chessPortraitUrl\(assets, rec\)/, 'the picked operator gives the 半身像');
@@ -57,6 +77,9 @@ describe('custom avatar', () => {
     assert.match(picker, /identity\.saveAvatar\(id \|\| null\)/, 'the choice is remembered locally');
     assert.match(picker, /net\.resendHello\(\)/, 'and announced so teammates see it');
     assert.match(picker, /搜索干员名字/, 'the list is searchable');
+    // the room screen crashed in the browser when the picker subscribed with useStore(store) — the custom-store form
+    // is useStore(selector, isEqual, store) (ui/guide.js does the same); keep it pinned
+    assert.match(picker, /useStore\(\(s\) => s, Object\.is, avatarStore\)/);
   });
 
   test('the server keeps the avatar per session and the client only sends a valid chess id', () => {
