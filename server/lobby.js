@@ -376,7 +376,7 @@ export class Lobby {
     return OK;
   }
 
-  join(session, { code, spectate }) {
+  join(session, { code, spectate, hidden }) {
     const norm = String(code).trim().toUpperCase();
     const room = norm.length === ROOM_CODE_LEN ? this.rooms.get(norm) : undefined;
     if (!room) return fail(ERR.ROOM_NOT_FOUND);
@@ -390,7 +390,7 @@ export class Lobby {
     // watches, holds no board. A running match or a full house never seats a newcomer.
     if (spectate === true) {
       if (cur) this.removeMember(cur, session.playerId);
-      return this.joinAsSpectator(room, session, { hidden: false });
+      return this.joinAsSpectator(room, session, { hidden: hidden === true });
     }
     const canPlay = idx >= 0 && !room.match && !(room.mode === 'solo' && room.seats.some(Boolean));
     if (!canPlay) return fail(room.match ? ERR.ROOM_STARTED : ERR.ROOM_FULL);

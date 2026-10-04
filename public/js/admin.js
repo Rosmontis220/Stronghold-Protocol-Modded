@@ -109,12 +109,20 @@ function renderRooms(list) {
 
     const acts = document.createElement('div');
     acts.className = 'card__acts';
+    // 旁观 opens the game client in a new tab as a hidden audience member (no seat, not on the roster)
     const watch = document.createElement('button');
-    watch.className = 'btn';
+    watch.className = 'btn btn--primary';
     watch.type = 'button';
-    watch.textContent = '旁观';
-    watch.addEventListener('click', () => openLive(room.code));
-    acts.append(watch);
+    watch.textContent = '旁观（新标签页）';
+    watch.title = '以隐身旁观身份打开游戏客户端';
+    watch.addEventListener('click', () => window.open(`/?room=${encodeURIComponent(room.code)}&spectate=1`, '_blank', 'noopener'));
+    const peek = document.createElement('button');
+    peek.className = 'btn';
+    peek.type = 'button';
+    peek.textContent = '概览';
+    peek.title = '只读的战况摘要（不进入对局）';
+    peek.addEventListener('click', () => openLive(room.code));
+    acts.append(watch, peek);
 
     card.append(top, players, acts);
     host.append(card);

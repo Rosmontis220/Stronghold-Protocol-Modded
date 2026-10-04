@@ -133,6 +133,20 @@ export function parseRoomParam(search) {
   }
 }
 
+/**
+ * Does this link ask to watch rather than play (`?room=CODE&spectate=1`, what the operator console opens)?
+ * Such a tab joins as an audience member when the room is full or already running, and stays off the roster.
+ * @param {string} search e.g. location.search
+ */
+export function parseSpectateParam(search) {
+  try {
+    const params = new URLSearchParams(search || '');
+    return params.get('spectate') === '1' || params.get('spectate') === 'true';
+  } catch {
+    return false;
+  }
+}
+
 /** Recently joined/created co-op room codes (most recent first). */
 export function recentRooms() {
   const list = loadPref('recentRooms', []);

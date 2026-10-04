@@ -37,7 +37,7 @@ import { store, useStore, emptyMatch, selectRoute, sessionResetNotice } from './
 import { data } from './data.js';
 import { GAME_FILES } from './ui/gameComponents.js';
 import { TitleScreen, sanitizeName } from './screens/title.js';
-import { LobbyScreen, rememberRoom, parseRoomParam } from './screens/lobby.js';
+import { LobbyScreen, rememberRoom, parseRoomParam, parseSpectateParam } from './screens/lobby.js';
 import { RoomScreen } from './screens/room.js';
 import { GameScreen } from './screens/game.js';
 import { installAudio } from './audio.js';
@@ -100,7 +100,15 @@ function schedulePendingJoin() {
     try {
       await net.request('room.join', { code });
     } catch (err) {
-      toastError(err);
+      // A `?room=CODE&spectate=1` link (the operator console's 旁观) watches instead of playing: a full house or a
+      // running match would refuse the plain join, so retry once as a hidden audience member.
+      if (spectateLink && (err?.code === 'ROOM_FULL' || err?.code === 'ROOM_STARTED')) {
+        try {
+          await net.request('room.join', { code, spectate: true, hidden: true });
+        } catch (again) { toastError(again); }
+      } else {
+        toastError(err);
+      }
     } finally {
       joinInFlight = false;
       clearPendingJoin();
@@ -332,6 +340,7 @@ async function boot() {
   const identityReady = identity.init();
 
   const pendingJoin = parseRoomParam(location.search);
+  const spectateLink = parseSpectateParam(location.search);
   const savedName = sanitizeName(identity.loadName());
   const entered = identity.wasEntered() && !!savedName;
   store.set((s) => ({

@@ -239,7 +239,7 @@ export const C2S = {
   hello: { name: (v) => isStr(v, NAME_MAX_LEN) && v.trim().length > 0, token: (v) => v == null || isStr(v, 64), version: (v) => v == null || isInt(v, 0, 1e6), avatar: (v) => v == null || (typeof v === 'string' && /^char_[a-z0-9_]{1,24}$/.test(v)), $optional: ['token', 'version', 'avatar'] },
   ping: { c: (v) => typeof v === 'number' && Number.isFinite(v) },
   'room.create': { mode: (v) => v === 'solo' || v === 'coop', difficulty: (v) => DIFFICULTIES.includes(v) },
-  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v), spectate: (v) => v == null || v === true, $optional: ['spectate'] },
+  'room.join': { code: (v) => isStr(v, ROOM_CODE_LEN + 2) && /^[A-Za-z0-9]+$/.test(v), spectate: (v) => v == null || v === true, hidden: (v) => v == null || v === true, $optional: ['spectate', 'hidden'] },
   'room.leave': {},
   // host control over who plays: move a member between a seat and the audience (room.spectators)
   'room.seat': { playerId: isId, seated: isBool },
