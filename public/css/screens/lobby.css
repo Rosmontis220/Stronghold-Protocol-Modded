@@ -1,6 +1,22 @@
 /* ==========================================================================================
-   screens/lobby.css — mode cards (独立/同盟), difficulty cards, create button, join panel.
+   screens/lobby.css — mode cards (独立/同盟), difficulty cards, create button, join panel,
+   and the 自定义头像 picker (ui/avatarPicker.js), opened from the top-right 博士 chip.
    ========================================================================================== */
+
+/* avatar picker (ui/avatarPicker.js) */
+.avpick__hint { margin: 0 0 .1rem; color: var(--text-lo); font-size: .15rem; }
+.avpick__head { display: flex; align-items: center; gap: .12rem; padding: .1rem; border: 1px solid var(--line); background: rgba(255, 255, 255, .02); }
+.avpick__cur { display: flex; flex-direction: column; gap: .02rem; margin-right: auto; min-width: 0; }
+.avpick__cur b { font-size: .2rem; color: var(--text-hi); }
+.avpick__cur span { font-size: .14rem; color: var(--text-lo); }
+.avpick__search { width: 100%; margin: .12rem 0; padding: .1rem .14rem; background: rgba(0, 0, 0, .35); border: 1px solid var(--line-2); color: var(--text-hi); font: inherit; font-size: .18rem; }
+.avpick__search::placeholder { color: var(--text-dim); }
+.avpick__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(1.06rem, 1fr)); gap: .08rem; max-height: min(52vh, 5.2rem); overflow: auto; padding-right: .04rem; }
+.avpick__one { display: flex; flex-direction: column; align-items: center; gap: .04rem; padding: .08rem .04rem; background: rgba(255, 255, 255, .02); border: 1px solid var(--line); color: var(--text-md); cursor: pointer; }
+.avpick__one:hover { border-color: var(--mint-700); background: rgba(78, 216, 175, .08); }
+.avpick__one.is-on { border-color: var(--mint-500); background: rgba(78, 216, 175, .14); color: var(--text-hi); }
+.avpick__name { font-size: .14rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.avpick__empty { grid-column: 1 / -1; color: var(--text-lo); font-size: .16rem; }
 
 .lobby-body {
   display: grid;

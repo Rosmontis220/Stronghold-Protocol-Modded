@@ -14,10 +14,10 @@ import {
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
-import { AvatarPicker, openAvatarPicker, avatarRecord } from '../ui/avatarPicker.js';
+import { avatarRecord } from '../ui/avatarPicker.js';
 import { LoadoutButton } from './loadout.js';
-import { data, useData } from '../data.js';
-import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
+import { data } from '../data.js';
+import { chessAvatarUrl } from '../ui/assetUrls.js';
 import { net } from '../net.js';
 import { store, useStore, shallowEqual, emptyMatch } from '../store.js';
 import { difficultyInfo } from './lobby.js';
@@ -122,12 +122,10 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot 
   const isMe = seat.playerId === myId;
   const isHostSeat = seat.playerId === room.hostId;
   const offline = seat.connected === false && !seat.isBot;
-  // A picked avatar (players[].avatar = a character id, e.g. char_4040_rockr) gives the seat the operator's 头像 and
-  // 半身像; without one the card keeps the seat-coloured frame and the striped backdrop.
+  // A picked avatar (players[].avatar = a character id, e.g. char_4040_rockr) replaces the seat's default glyph frame;
+  // it is chosen in the protocol-selection screen (screens/lobby.js), not here.
   const rec = avatarRecord(data.list('chess'), seat.avatar);
-  const assets = data.get('assets');
-  const avatarSrc = rec ? chessAvatarUrl(assets, rec) : null;
-  const portrait = rec ? chessPortraitUrl(assets, rec) : null;
+  const avatarSrc = rec ? chessAvatarUrl(data.get('assets'), rec) : null;
   // The host never needs to toggle ready: starting the match readies them (server rule).
   const state = offline ? 'offline' : seat.ready || seat.isBot ? 'ready' : isHostSeat ? 'host' : 'waiting';
   return html`<article class=${`seat brackets${isMe ? ' is-me' : ''}${isHostSeat ? ' is-host' : ''}${seat.isBot ? ' is-bot' : ''} is-${state}`}
@@ -137,22 +135,14 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot 
       <${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//>
       ${isHostSeat ? html`<span class="seat__host"><${Icon} name="crown" />创建者</span>` : null}
     </header>
-    <div class=${`seat__art${portrait ? ' seat__art--portrait' : ''}`}>
-      ${portrait
-        ? html`<span class="seat__portrait" style=${`--portrait:url("${portrait}")`} aria-hidden="true"></span>`
-        : html`<div class="seat__stripes" aria-hidden="true"></div>`}
-      <div class="seat__idrow">
-        ${isMe
-          ? html`<button type="button" class="seat__avatar-btn" title="自定义头像" aria-label="自定义头像" onClick=${() => openAvatarPicker()}>
-              <${AvatarFrame} size="xl" name=${seat.name} src=${avatarSrc} seat=${index} bot=${seat.isBot} self=${true} ready=${state === 'ready'} offline=${offline} />
-            </button>`
-          : html`<${AvatarFrame} size="xl" name=${seat.name} src=${avatarSrc} seat=${index} bot=${seat.isBot} ready=${state === 'ready'} offline=${offline} />`}
-        <div class="seat__who">
-          <span class="seat__name">${seat.name || '博士'}</span>
-          ${isMe ? html`<span class="seat__you">你</span>` : null}
-        </div>
-      </div>
+    <div class="seat__art">
+      <div class="seat__stripes" aria-hidden="true"></div>
+      <${AvatarFrame} size="xl" name=${seat.name} src=${avatarSrc} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} />
       ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />AI 队友</span>` : null}
+    </div>
+    <div class="seat__who">
+      <span class="seat__name">${seat.name || '博士'}</span>
+      ${isMe ? html`<span class="seat__you">你</span>` : null}
     </div>
     <${MicroLabel}>${seat.isBot ? 'AUTONOMOUS UNIT' : `DOCTOR #${doctorNo(seat.playerId)}`}<//>
     <footer class="seat__foot">
@@ -328,6 +318,5 @@ export function RoomScreen() {
               loading=${busy === 'ready'} disabled=${!online || !facts.mine} onClick=${toggleReady}>${myReady ? '已就绪' : '准备就绪'}<//>`}
       </div>
     </footer>
-    <${AvatarPicker} />
   </div>`;
 }

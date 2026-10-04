@@ -12,10 +12,12 @@ import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_S
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
+import { AvatarPicker, openAvatarPicker, avatarStore } from '../ui/avatarPicker.js';
+import { chessAvatarUrl } from '../ui/assetUrls.js';
 import { LoadoutButton } from './loadout.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
-import { getConfig, getMode, getStage, useData } from '../data.js';
+import { getConfig, getMode, getStage, useData, data } from '../data.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
 export const MODE_TEXT = {
@@ -231,6 +233,13 @@ export function LobbyScreen() {
   const online = conn.status === 'online';
   const codeOk = CODE_RE.test(code);
 
+  // 自定义头像: the trigger is this screen's top-right corner (点击头像 → 从干员里选择). Subscribing to the picker store
+  // re-renders when it closes, so the chip shows the new operator at once.
+  const { open: avatarOpen } = useStore((s) => s, Object.is, avatarStore);
+  useData('chess', 'assets');
+  const myAvatar = identity.loadAvatar();
+  const avatarAssets = data.get('assets');
+
   const pickMode = (m) => { setRoomMode(m); savePref('lobby.mode', m); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
 
@@ -268,13 +277,15 @@ export function LobbyScreen() {
       <div class="topbar__right">
         <${GuideButton} class="lobby-guide" variant="secondary" />
         <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" />
-        <div class="me-chip">
-          <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />
+        <button type="button" class="me-chip me-chip--pick" data-picker=${avatarOpen ? 'open' : null} title="点击更换头像（从干员里选择）"
+          aria-label="自定义头像" onClick=${() => openAvatarPicker()}>
+          <${AvatarFrame} size="sm" name=${me.name} src=${myAvatar ? chessAvatarUrl(avatarAssets, { charId: myAvatar }) : null} seat=${0} self=${true} />
           <div class="me-chip__text">
             <span class="me-chip__name">${me.name || '博士'}</span>
             <${MicroLabel}>${me.playerId != null ? `DOCTOR #${doctorNo(me.playerId)}` : 'DOCTOR'}<//>
+            <span class="me-chip__avatar">${myAvatar ? '点击更换头像' : '设置头像'}</span>
           </div>
-        </div>
+        </button>
       </div>
     </header>
 
@@ -320,5 +331,6 @@ export function LobbyScreen() {
         </div>
       </section>
     </div>
+    <${AvatarPicker} />
   </div>`;
 }

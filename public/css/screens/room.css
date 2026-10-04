@@ -162,44 +162,6 @@
 .seat.is-host .seat__no { border-left-color: var(--gold); }
 .seat.is-me { box-shadow: 0 0 0 1px rgba(78, 216, 175, .28), 0 0 .44rem rgba(23, 249, 183, .12), 0 .14rem .34rem rgba(0, 0, 0, .4); }
 .seat.is-me .seat__no { color: var(--mint-400); }
-
-/* 干员半身像 (custom avatar): a picked operator turns the seat's upper block into its 半身像 — bleeding to the card's
-   top edge and fading into it — with the 头像 + ID row pinned at the bottom, then DOCTOR #… and 待命/就绪 below. */
-.seat__portrait {
-  position: absolute;
-  inset: 0;
-  background-image: var(--portrait);
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: top center;
-}
-.seat__portrait::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(8, 11, 10, .08) 14%, rgba(8, 11, 10, .5) 58%, rgba(8, 11, 10, .96) 100%);
-}
-.seat__art--portrait { justify-content: flex-end; }
-.seat__idrow { position: relative; z-index: 1; display: flex; align-items: center; gap: .1rem; max-width: 100%; }
-.seat__art--portrait .seat__idrow { padding-bottom: .02rem; }
-.seat__avatar-btn { display: block; padding: 0; border: 0; background: none; cursor: pointer; }
-.seat__avatar-btn .avatar { transition: box-shadow var(--t-fast); }
-.seat__avatar-btn:hover .avatar, .seat__avatar-btn:focus-visible .avatar { box-shadow: 0 0 0 2px var(--mint-500), 0 0 .3rem rgba(23, 249, 183, .35); }
-
-/* avatar picker (ui/avatarPicker.js): opened by tapping your own seat avatar */
-.avpick__hint { margin: 0 0 .1rem; color: var(--text-lo); font-size: .15rem; }
-.avpick__head { display: flex; align-items: center; gap: .12rem; padding: .1rem; border: 1px solid var(--line); background: rgba(255, 255, 255, .02); }
-.avpick__cur { display: flex; flex-direction: column; gap: .02rem; margin-right: auto; min-width: 0; }
-.avpick__cur b { font-size: .2rem; color: var(--text-hi); }
-.avpick__cur span { font-size: .14rem; color: var(--text-lo); }
-.avpick__search { width: 100%; margin: .12rem 0; padding: .1rem .14rem; background: rgba(0, 0, 0, .35); border: 1px solid var(--line-2); color: var(--text-hi); font: inherit; font-size: .18rem; }
-.avpick__search::placeholder { color: var(--text-dim); }
-.avpick__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(1.06rem, 1fr)); gap: .08rem; max-height: min(52vh, 5.2rem); overflow: auto; padding-right: .04rem; }
-.avpick__one { display: flex; flex-direction: column; align-items: center; gap: .04rem; padding: .08rem .04rem; background: rgba(255, 255, 255, .02); border: 1px solid var(--line); color: var(--text-md); cursor: pointer; }
-.avpick__one:hover { border-color: var(--mint-700); background: rgba(78, 216, 175, .08); }
-.avpick__one.is-on { border-color: var(--mint-500); background: rgba(78, 216, 175, .14); color: var(--text-hi); }
-.avpick__name { font-size: .14rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.avpick__empty { grid-column: 1 / -1; color: var(--text-lo); font-size: .16rem; }
 .seat.is-offline::before { background: var(--orange); }
 .seat.is-bot .seat__art { background:
     radial-gradient(circle at 50% 42%, rgba(159, 212, 255, .08), transparent 62%),
