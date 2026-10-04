@@ -87,8 +87,6 @@ export class Session {
     this.token = token;
     /** @type {string} sanitized nickname */
     this.name = name;
-    /** @type {string|null} operator avatar the player picked (a character id like char_4040_rockr, shape-checked on hello) */
-    this.avatar = null;
     /** @type {import('ws').WebSocket | null} currently bound socket */
     this.ws = null;
     /** @type {boolean} */
@@ -662,15 +660,11 @@ export class Network {
       session.disconnectedAt = null;
     }
     session.name = name;
-    // A picked operator avatar (a character id like char_4040_rockr): shape only — anything else (junk, a missing
-    // field) means the default look. The lobby re-broadcasts room.state when it changes, so teammates see it at once.
-    session.avatar = typeof msg.avatar === 'string' && /^char_[a-z0-9_]{1,24}$/.test(msg.avatar) ? msg.avatar : null;
     session.lastSeen = now;
     session.addr = conn.ip;
     session.limitKey = conn.key;
 
-    const welcome = { t: 'welcome', playerId: session.playerId, token: session.token, name: session.name,
-      avatar: session.avatar, serverNow: now, version: PROTOCOL_VERSION, resumed };
+    const welcome = { t: 'welcome', playerId: session.playerId, token: session.token, name: session.name, serverNow: now, version: PROTOCOL_VERSION, resumed };
     if (validRid(rid)) welcome.rid = rid;
     this.reply(conn, welcome);
     try {

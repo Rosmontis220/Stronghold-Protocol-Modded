@@ -121,8 +121,6 @@ export class Net {
     this.url = opts.url || null;
     this.WS = opts.WebSocket || null;
     this.getToken = typeof opts.getToken === 'function' ? opts.getToken : () => null;
-    /** @type {() => (string|null)} picked operator avatar for `hello` (null ⇒ the default look) */
-    this.getAvatar = typeof opts.getAvatar === 'function' ? opts.getAvatar : () => identity.loadAvatar();
     this.now = opts.now || (() => Date.now());
     this.random = opts.random || Math.random;
     this.timers = opts.timers || {
@@ -360,24 +358,10 @@ export class Net {
 
   // ---- handshake -------------------------------------------------------------------------------
 
-  /**
-   * Re-announce this session on the live socket (same player, name and token): the room picks up a changed avatar.
-   * @returns {boolean} whether a hello was sent
-   */
-  resendHello() {
-    if (this.status !== 'online' || !this.ws) return false;
-    try { this._sendHello(); return true; } catch { return false; }
-  }
-
   _sendHello() {
     if (!this.name) return;
     const rid = this._nextRid();
     const msg = { t: 'hello', rid, name: this.name, version: PROTOCOL_VERSION };
-    // A picked operator avatar rides along only when there is one (like `token`): a player on the default look sends
-    // the exact frame of 0.1.2, and the server treats a missing field as "no avatar". `getAvatar` is injectable like
-    // `getToken` (tests, and any host that keeps the choice elsewhere).
-    const avatar = typeof this.getAvatar === 'function' ? this.getAvatar() : identity.loadAvatar();
-    if (typeof avatar === 'string' && AVATAR_ID.test(avatar)) msg.avatar = avatar;
     let token = null;
     try { token = this.getToken(); } catch { token = null; }
     if (typeof token === 'string' && token.length > 0 && token.length <= 64) msg.token = token;
@@ -673,8 +657,6 @@ export class Net {
 // its own token (never another tab's), so it can't steal a live session either.
 
 const K_NAME = 'sp.name';
-const K_AVATAR = 'sp.avatar';    // localStorage: the picked operator avatar (a chess id)
-const AVATAR_ID = /^char_[a-z0-9_]{1,24}$/; // what `hello.avatar` accepts (the server re-validates against its own data)
 const K_TOKEN = 'sp.token';      // sessionStorage: this tab's token
 const K_RECENT = 'sp.tokens';    // localStorage: this browser's recent tokens, most recent first
 const K_ENTERED = 'sp.entered';  // sessionStorage: this tab passed the title screen
@@ -818,10 +800,6 @@ export function createIdentity(deps = {}) {
     loadName: () => (sget(local, K_NAME) || '').slice(0, 64),
     /** @param {string} name */
     saveName: (name) => sset(local, K_NAME, String(name)),
-    /** @returns {string|null} the picked operator avatar (a chess id) or null for the default look */
-    loadAvatar: () => { const v = sget(local, K_AVATAR); return typeof v === 'string' && AVATAR_ID.test(v) ? v : null; },
-    /** @param {string|null} id chess id, or null/'' to go back to the default look */
-    saveAvatar: (id) => sset(local, K_AVATAR, typeof id === 'string' && AVATAR_ID.test(id) ? id : ''),
     /** Token for `hello` (null ⇒ new session). Before init() only this tab's own token is used. */
     getToken() {
       if (current) return current;
