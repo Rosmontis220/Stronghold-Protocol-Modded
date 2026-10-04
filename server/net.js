@@ -664,7 +664,8 @@ export class Network {
     session.addr = conn.ip;
     session.limitKey = conn.key;
 
-    const welcome = { t: 'welcome', playerId: session.playerId, token: session.token, name: session.name, serverNow: now, version: PROTOCOL_VERSION, resumed };
+    const welcome = { t: 'welcome', playerId: session.playerId, token: session.token, name: session.name,
+      avatar: session.avatar, serverNow: now, version: PROTOCOL_VERSION, resumed };
     if (validRid(rid)) welcome.rid = rid;
     this.reply(conn, welcome);
     try {

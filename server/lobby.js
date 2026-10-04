@@ -733,7 +733,7 @@ export class Lobby {
   /** @returns {Seat} */
   humanSeat(idx, session) {
     return {
-      seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
+      seat: idx, playerId: session.playerId, name: session.name, avatar: session.avatar ?? null, isBot: false, ready: false, connected: session.connected, left: false,
       loadout: session.loadout || null,
     };
   }
