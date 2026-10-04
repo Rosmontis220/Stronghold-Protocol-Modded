@@ -1,9 +1,10 @@
 // public/js/ui/avatarPicker.js — 自定义头像 (custom avatar): pick an operator as your avatar.
 //
-// Opened by tapping your own seat avatar in the room (screens/room.js). The choice is remembered in this browser
-// (net.js identity.loadAvatar/saveAvatar) and announced with a fresh `hello`, so the server re-broadcasts room.state
-// and every teammate sees the operator avatar (m.public players[].avatar = a chess id) and its 半身像 right away.
-// A player who never picks one keeps the seat-coloured glyph, and the frame sent on hello stays the 0.1.2 shape.
+// Opened from the protocol-selection screen's top-right 博士 chip (screens/lobby.js). The choice is remembered in this
+// browser (net.js identity.loadAvatar/saveAvatar) and announced with a fresh `hello`, so the server re-broadcasts
+// room.state and every teammate sees the operator avatar (m.public players[].avatar = a character id, e.g.
+// char_4040_rockr) in that player's seat chip right away. A player who never picks one keeps the seat-coloured glyph,
+// and the frame sent on hello stays the 0.1.2 shape.
 
 import { useMemo, useState } from '../../vendor/hooks.module.js';
 import { html, Button, AvatarFrame, Modal } from './components.js';
@@ -59,7 +60,7 @@ export function avatarRecord(list, id) {
 export function AvatarPickerBody({ assets, list, mine, mineRec, query = '', onQuery = () => {}, onPick = () => {} }) {
   const q = String(query).trim().toLowerCase();
   const shown = q ? list.filter((c) => `${c.name || ''}${avatarId(c) || ''}`.toLowerCase().includes(q)) : list;
-  return html`<p class="avpick__hint">选择一名干员作为头像：准备大厅里其他博士会看到该干员的头像与半身像。</p>
+  return html`<p class="avpick__hint">选择一名干员作为头像：准备大厅里其他博士会在你的座位卡上看到该干员的头像。</p>
     <div class="avpick__head">
       <${AvatarFrame} size="md" name=${mineRec?.name || ''} src=${mineRec ? chessAvatarUrl(assets, mineRec) : null} self=${true} />
       <div class="avpick__cur">

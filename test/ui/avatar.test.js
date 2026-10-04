@@ -77,7 +77,7 @@ describe('custom avatar', () => {
     assert.match(picker, /useStore\(\(s\) => s, Object\.is, avatarStore\)/);
   });
 
-  test('the protocol-selection screen is the only place to change it; the room only displays it (no 半身像)', () => {
+  test('the protocol-selection screen is the only place to change it; the room only displays it (no half-body portrait)', () => {
     const lobby = readFileSync(path.join(ROOT, 'public/js/screens/lobby.js'), 'utf8');
     assert.match(lobby, /class="me-chip me-chip--pick"[\s\S]{0,220}openAvatarPicker\(\)/, 'the top-right 博士 chip is the trigger');
     assert.match(lobby, /src=\$\{myAvatar \? chessAvatarUrl\(avatarAssets, \{ charId: myAvatar \}\) : null\}/, 'the chip shows the picked operator');
@@ -86,7 +86,7 @@ describe('custom avatar', () => {
     assert.match(room, /avatarRecord\(data\.list\('chess'\), seat\.avatar\)/, 'the seat resolves the operator for its 头像');
     assert.match(room, /src=\$\{avatarSrc\}/, 'and draws it in the seat frame');
     assert.doesNotMatch(room, /openAvatarPicker|<\$\{AvatarPicker\}/, 'the room neither opens nor mounts the picker');
-    assert.doesNotMatch(room, /seat__portrait|chessPortraitUrl|seat__idrow/, 'no 半身像: one avatar is enough');
+    assert.doesNotMatch(room, /seat__portrait|chessPortraitUrl|seat__idrow/, 'no half-body portrait: one avatar is enough');
     assert.match(readFileSync(path.join(ROOT, 'public/css/screens/lobby.css'), 'utf8'), /\.avpick__grid/, 'the picker styles live with their screen');
     assert.doesNotMatch(readFileSync(path.join(ROOT, 'public/css/screens/room.css'), 'utf8'), /seat__portrait|avpick__/);
     assert.match(readFileSync(path.join(ROOT, 'public/css/components.css'), 'utf8'), /button\.me-chip--pick/, 'the chip is styled as a button');
