@@ -152,7 +152,7 @@ export class Room {
       difficulty: this.difficulty,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, avatar: s.avatar ?? null, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
     };
   }
@@ -236,6 +236,9 @@ export class Lobby {
     let changed = !seat.connected;
     seat.connected = true;
     if (!room.match && seat.name !== session.name) { seat.name = session.name; changed = true; }
+    // A changed avatar is a visible change too (the player re-hellos after picking one); normalized so a seat built
+    // without the field never counts as a change (a repeated hello must not broadcast room-wide).
+    if (!room.match && (seat.avatar ?? null) !== (session.avatar ?? null)) { seat.avatar = session.avatar ?? null; changed = true; }
     if (!room.hostId) { this.migrateHost(room); changed = true; }
     if (changed) this.broadcastState(room);
     else this.sendState(room, session);

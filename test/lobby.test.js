@@ -453,10 +453,31 @@ describe('websocket lobby', () => {
     await expectError(c, { t: 'hello', name: '   ' }, ERR.BAD_MSG);
     await expectError(c, { t: 'hello', name: 'x', version: 999 }, ERR.BAD_MSG);
     await expectError(c, { t: 'hello', name: 'x'.repeat(13) }, ERR.BAD_MSG);
+    await expectError(c, { t: 'hello', name: 'x', avatar: 'not-a-chess-id' }, ERR.BAD_MSG);
+    await expectError(c, { t: 'hello', name: 'x', avatar: 42 }, ERR.BAD_MSG);
     // repeated hello updates the name, keeps identity
     const again = await c.hello('Renamed');
     assert.equal(again.playerId, w.playerId);
     assert.equal(again.name, 'Renamed');
+  });
+
+  test('a picked operator avatar: kept per session, shown to the room, updated by a re-hello', async () => {
+    const host = await pool.player('Avatar Host');
+    await host.hello('Avatar Host', null, { avatar: 'char_2_10_a' });
+    const st = await createRoom(host);
+    assert.equal(st.seats[0].avatar, 'char_2_10_a', 'the seat carries the operator id');
+    const guest = await pool.player('Avatar Guest');
+    const joined = await joinRoom(guest, st.code);
+    assert.equal(seatOf(joined, host.id).avatar, 'char_2_10_a', 'a teammate sees the picked operator');
+    // the picker's path: remember another operator and re-announce (net.resendHello) → visible update
+    await host.hello('Avatar Host', null, { avatar: 'char_5_12_a' });
+    const updated = await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.avatar === 'char_5_12_a');
+    assert.equal(seatOf(updated, host.id).avatar, 'char_5_12_a');
+    // and back to the default look
+    await host.hello('Avatar Host');
+    const plain = await guest.waitFor('room.state', (s) => seatOf(s, host.id)?.avatar === null);
+    assert.equal(seatOf(plain, host.id).avatar, null);
+    await pool.closeAll();
   });
 
   test('bad messages → BAD_MSG and the connection stays alive', async () => {
@@ -543,7 +564,7 @@ describe('websocket lobby', () => {
     assert.equal(st.difficulty, 'HARD');
     assert.equal(st.inMatch, false);
     assert.equal(st.seats.length, MAX_SEATS);
-    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', isBot: false, ready: false, connected: true });
+    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', avatar: null, isBot: false, ready: false, connected: true });
     assert.deepEqual(st.seats.slice(1), [null, null, null]);
 
     const guest = await pool.player('Guest');
@@ -762,7 +783,7 @@ describe('websocket lobby', () => {
     assert.equal(w.token, guest.token);
     const restored = await back.waitFor('room.state');
     assert.equal(restored.code, st.code);
-    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', isBot: false, ready: true, connected: true });
+    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', avatar: null, isBot: false, ready: true, connected: true });
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.connected === true);
 
     // an unknown token just creates a new identity

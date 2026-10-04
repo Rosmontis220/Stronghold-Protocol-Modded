@@ -454,6 +454,21 @@ describe('net.js', () => {
     assert.equal(ws().last('hello').name, '阿米娅', 'rename re-sends hello on the live socket');
   });
 
+  test('a picked operator avatar rides on hello; a junk id is never sent', async () => {
+    const { net, ws } = await makeNet({ getAvatar: () => 'char_2_10_a' });
+    net.setName('凯尔希');
+    ws().open();
+    assert.equal(ws().last('hello').avatar, 'char_2_10_a', 'the chosen operator is announced with the name');
+    const junk = await makeNet({ getAvatar: () => 'not-a-chess-id' });
+    junk.net.setName('凯尔希');
+    junk.ws().open();
+    assert.equal(junk.ws().last('hello').avatar, undefined, 'junk never reaches the wire');
+    const plain = await makeNet();
+    plain.net.setName('凯尔希');
+    plain.ws().open();
+    assert.equal(plain.ws().last('hello').avatar, undefined, 'default look: the 0.1.2 frame, no avatar field');
+  });
+
   test('token longer than the protocol limit is not sent', async () => {
     const { net, ws } = await makeNet({ getToken: () => 'x'.repeat(65) });
     net.setName('A');
