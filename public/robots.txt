@@ -1,0 +1,37 @@
+# 私有同人游戏服务器：不允许任何搜索引擎抓取或收录（server/index.js 同时发送 X-Robots-Tag）
+User-agent: *
+Disallow: /
+
+# 常见抓取机器人单独列出（部分爬虫不读通配符段）
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: Sogou web spider
+Disallow: /
+
+User-agent: 360Spider
+Disallow: /
+
+User-agent: YisouSpider
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: Applebot
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /

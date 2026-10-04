@@ -615,6 +615,9 @@ export async function startServer(opts = {}) {
   });
 
   async function handleRequest(req, res) {
+    // This is a private fan game server: keep search engines and their archives out of every response
+    // (public/robots.txt asks for the same; the header also covers non-HTML files and survives a missing robots.txt).
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
     const url = req.url || '/';
     if (url.length > MAX_URL_LENGTH) { sendError(req, res, 414, '请求地址过长 · URI too long'); return; }
     const parts = splitUrl(url);
