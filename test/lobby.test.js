@@ -617,14 +617,53 @@ describe('websocket lobby', () => {
     await expectOk(host, { t: 'room.addBot' });
     await host.waitFor('room.state', (s) => s.seats.every(Boolean));
     const late = await pool.player('Late');
+    // A full room still refuses a plain join (the old answer), but a client that asks to watch gets in as audience.
     await expectError(late, { t: 'room.join', code: st.code }, ERR.ROOM_FULL);
+    await expectOk(late, { t: 'room.join', code: st.code, spectate: true });
+    const watched = await late.waitFor('room.state', (s) => (s.spectators || []).some((x) => x.playerId === late.id));
+    assert.equal(watched.seats.filter(Boolean).length, 4, 'the four seats stay as they were');
+    await expectError(late, { t: 'room.ready', ready: true }, ERR.NOT_IN_ROOM);
+    await expectError(late, { t: 'g.buy', slot: 0 }, ERR.WRONG_PHASE);
     await expectError(host, { t: 'room.addBot' }, ERR.ROOM_FULL);
 
     const solo = await pool.player('Solo');
     const soloState = await createRoom(solo, 'solo', 'FUNNY');
     assert.equal(soloState.mode, 'solo');
-    await expectError(late, { t: 'room.join', code: soloState.code }, ERR.ROOM_FULL);
+    // A solo room has a single seat: the second human watches it.
+    await expectOk(late, { t: 'room.join', code: soloState.code, spectate: true });
+    const soloWatched = await late.waitFor('room.state', (s) => s.code === soloState.code && (s.spectators || []).some((x) => x.playerId === late.id));
+    assert.equal(soloWatched.seats.filter(Boolean).length, 1);
     await expectError(solo, { t: 'room.addBot' }, ERR.ROOM_FULL);
+  });
+
+  test('the host picks who plays: a seat can be handed to an audience member and taken back', async () => {
+    const host = await pool.player('SeatHost');
+    const st = await createRoom(host);
+    const guest = await pool.player('SeatGuest');
+    await joinRoom(guest, st.code);
+    const extra = await pool.player('SeatExtra');
+    await expectOk(extra, { t: 'room.join', code: st.code, spectate: true });
+    const watching = await extra.waitFor('room.state', (s) => (s.spectators || []).some((x) => x.playerId === extra.id));
+    assert.equal(seatOf(watching, extra.id), null);
+    assert.ok(watching.seats.filter(Boolean).length < MAX_SEATS, 'a seat is free on this roster');
+
+    // only the host moves members between the seats and the audience
+    await expectError(guest, { t: 'room.seat', playerId: extra.id, seated: true }, ERR.NOT_HOST);
+    await expectError(extra, { t: 'room.seat', playerId: extra.id, seated: true }, ERR.NOT_HOST);
+    await expectOk(host, { t: 'room.seat', playerId: extra.id, seated: true });
+    const seated = await host.waitFor('room.state', (s) => !!seatOf(s, extra.id));
+    assert.ok(Number.isInteger(seatOf(seated, extra.id).seat), 'the audience member took a seat');
+    assert.ok(!(seated.spectators || []).some((x) => x.playerId === extra.id), 'and left the audience');
+
+    // hand it back: the member stays in the room, watching
+    await expectOk(host, { t: 'room.seat', playerId: extra.id, seated: false });
+    const back = await host.waitFor('room.state', (s) => !seatOf(s, extra.id) && (s.spectators || []).some((x) => x.playerId === extra.id));
+    assert.ok(back.seats.some(Boolean), 'the freed seat waits for the next pick');
+    assert.equal((await extra.waitFor('room.state', (s) => !seatOf(s, extra.id))).spectators.length, 1);
+
+    // the host keeps a seat so the room always has a starter
+    await expectError(host, { t: 'room.seat', playerId: host.id, seated: false }, ERR.NOT_HOST);
+    await pool.closeAll();
   });
 
   test('host-only commands, difficulty change un-readies guests, host migration on leave', async () => {
@@ -724,9 +763,15 @@ describe('websocket lobby', () => {
     await expectError(host, { t: 'room.addBot' }, ERR.ROOM_STARTED);
     await expectError(host, { t: 'room.setDifficulty', difficulty: 'FUNNY' }, ERR.ROOM_STARTED);
     await expectError(host, { t: 'room.create', mode: 'coop', difficulty: 'FUNNY' }, ERR.ROOM_STARTED);
+    const outdoor = null; // (kept for readability: the two joins below differ only in the spectate flag)
     const outsider = await pool.player('Outsider');
+    // A running match still refuses a plain join, but a client that asks to watch joins as audience.
     await expectError(outsider, { t: 'room.join', code: st.code }, ERR.ROOM_STARTED);
-    await expectError(outsider, { t: 'g.buy', slot: 0 }, ERR.NOT_IN_ROOM);
+    await expectOk(outsider, { t: 'room.join', code: st.code, spectate: true });
+    const spectating = await outsider.waitFor('room.state', (s) => (s.spectators || []).some((x) => x.playerId === outsider.id));
+    assert.ok(spectating.seats.filter(Boolean).every((s) => s.playerId !== outsider.id), 'no seat while the match runs');
+    await expectError(outsider, { t: 'g.buy', slot: 0 }, ERR.WRONG_PHASE);
+    await expectError(outsider, { t: 'room.ready', ready: true }, ERR.NOT_IN_ROOM);
     const other = await createRoom(outsider);
     await expectError(host, { t: 'room.join', code: other.code }, ERR.ROOM_STARTED);
 
@@ -851,7 +896,10 @@ describe('websocket lobby', () => {
     const st2 = await host.waitFor('room.state', (s) => s.inMatch && seatOf(s, guest.id)?.connected === false);
     assert.equal(seatOf(st2, guest.id).seat, 1, 'seat kept during the match');
     await expectError(guest, { t: 'g.infoReady' }, ERR.NOT_IN_ROOM);
-    await expectError(guest, { t: 'room.join', code: st.code }, ERR.ROOM_STARTED);
+    // Re-joining a running match as audience keeps the departed player seatless.
+    await expectOk(guest, { t: 'room.join', code: st.code, spectate: true });
+    const backAsWatcher = await guest.waitFor('room.state', (s) => (s.spectators || []).some((x) => x.playerId === guest.id));
+    assert.equal(seatOf(backAsWatcher, guest.id)?.connected, false, 'the kept seat stays disconnected while watching');
     // the departed player is free to do other things
     await createRoom(guest);
     // host finishes; stub counts departed players as ready
@@ -933,7 +981,10 @@ describe('websocket lobby', () => {
       }
     }
     for (const sess of srv.registry.all()) {
-      if (sess.roomCode) assert.ok(srv.lobby.rooms.get(sess.roomCode)?.seatOf(sess.playerId), 'session points at its seat');
+      if (sess.roomCode) {
+        const room = srv.lobby.rooms.get(sess.roomCode);
+        assert.ok(room && (room.seatOf(sess.playerId) || room.spectatorOf(sess.playerId)), 'session points at its seat or its audience slot');
+      }
     }
     const h = JSON.parse((await httpReq(srv.port, '/healthz')).body.toString());
     assert.equal(h.ok, true);

@@ -350,6 +350,8 @@ export class Match {
     this.runner = null;
     /** playerId → fieldId */
     this.watchers = new Map();
+    /** @type {Set<string>} seatless members watching this match (server/lobby.js room.spectators) */
+    this.spectators = new Set();
     this.lastResults = new Map();
     this.unitePlan = null;
     /** server-run 联防: the leakers' counts last published (_uniteTick) */
@@ -389,7 +391,16 @@ export class Match {
    */
   handle(playerId, msg) {
     const ps = this.players.get(playerId);
-    if (!ps || ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
+    if (!ps) {
+      // an audience member (no seat): they may switch the battlefield they watch and nothing else
+      if (this.spectators.has(playerId)) {
+        if (this.disposed || this.ended) return fail(ERR.WRONG_PHASE);
+        if (!msg || typeof msg !== 'object' || msg.t !== 'g.watch') return fail(ERR.WRONG_PHASE, 'spectator: watch only');
+        try { return this.spectate(playerId, msg.fieldId); } catch (e) { this.reportError('spectate', e); return fail(ERR.INTERNAL); }
+      }
+      return fail(ERR.NOT_IN_ROOM);
+    }
+    if (ps.isBot || ps.left) return fail(ERR.NOT_IN_ROOM);
     if (this.disposed || this.ended) {
       // a battle report that crossed the match end (the last b.progress of a field) is stale: ignored, never an error
       // (DESIGN §14 — an error frame without a rid would surface as a toast in the browser)
@@ -971,6 +982,49 @@ export class Match {
     ps.lastEmoteAt = now;
     this.broadcast({ t: 'm.emote', playerId: ps.playerId, id });
     return OK;
+  }
+
+  /**
+   * A seatless member watching this match (server/lobby.js room.spectators): they receive m.public through the room
+   * broadcast and may switch whose battlefield they watch, but hold no board.
+   * @param {string} playerId
+   */
+  addSpectator(playerId) {
+    if (!playerId || this.players.has(playerId)) return;
+    this.spectators.add(playerId);
+    this.sendTo(playerId, this.publicView());
+    const f = this.fields.find((x) => x && !x.done);
+    if (f) this.spectate(playerId, f.fieldId);
+  }
+
+  /** @param {string} playerId */
+  removeSpectator(playerId) {
+    this.spectators.delete(playerId);
+    this.watchers.delete(playerId);
+  }
+
+  /**
+   * Switch the battlefield an audience member watches (any field: they hold no board, so no own-field rule applies).
+   * @param {string} playerId @param {string} fieldId
+   */
+  spectate(playerId, fieldId) {
+    if (!this.spectators.has(playerId)) return fail(ERR.NOT_IN_ROOM);
+    if (typeof fieldId !== 'string') return fail(ERR.BAD_TARGET);
+    const f = this.fields.find((x) => x.fieldId === fieldId);
+    if (f) {
+      this.watchers.set(playerId, fieldId);
+      this._sendField(playerId, fieldId);
+      return OK;
+    }
+    if (fieldId.startsWith('n:')) {
+      if (this.fields.length) return fail(ERR.BAD_TARGET, 'no such field');
+      const target = this.players.get(fieldId.slice(2));
+      if (!target || !target.alive) return fail(ERR.BAD_TARGET);
+      this.watchers.delete(playerId);
+      this.sendTo(playerId, this.prepFieldMeta(target));
+      return OK;
+    }
+    return this.fields.length ? fail(ERR.BAD_TARGET) : fail(ERR.WRONG_PHASE, 'nothing to watch yet');
   }
 
   watch(ps, fieldId) {
