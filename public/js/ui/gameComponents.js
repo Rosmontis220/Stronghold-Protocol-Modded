@@ -241,9 +241,9 @@ export function RichTip({ text, children, placement = 'top' }) {
  * @param {{ player: any, size?: 'sm'|'md', self?: boolean, class?: string }} props
  */
 export function PlayerAvatar({ player, size = 'md', self = false, class: cls }) {
-  // A picked operator avatar (players[].avatar = a chess id) wins over the strategy icon; the seat-coloured glyph
-  // stays the fallback for players without one (and for bots).
-  const src = player?.avatar ? chessAvatarUrl(data.get('assets'), player.avatar)
+  // A picked operator avatar (players[].avatar = a character id, e.g. char_4040_rockr) wins over the strategy icon;
+  // the seat-coloured glyph stays the fallback for players without one (and for bots).
+  const src = player?.avatar ? chessAvatarUrl(data.get('assets'), { charId: player.avatar })
     : player?.bandId ? bandIconUrl(data.get('assets'), player.bandId) : null;
   const glyph = [...(player?.name || '').trim()][0] || '?';
   const dead = player?.alive === false || player?.status === 'dead';

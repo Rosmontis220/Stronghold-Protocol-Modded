@@ -14,7 +14,7 @@ import {
 } from '../ui/components.js';
 import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
-import { AvatarPicker, openAvatarPicker } from '../ui/avatarPicker.js';
+import { AvatarPicker, openAvatarPicker, avatarRecord } from '../ui/avatarPicker.js';
 import { LoadoutButton } from './loadout.js';
 import { data, useData } from '../data.js';
 import { chessAvatarUrl, chessPortraitUrl } from '../ui/assetUrls.js';
@@ -122,9 +122,9 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot 
   const isMe = seat.playerId === myId;
   const isHostSeat = seat.playerId === room.hostId;
   const offline = seat.connected === false && !seat.isBot;
-  // A picked avatar (m.public players[].avatar = a chess id) gives the seat the operator's 头像 and 半身像; without
-  // one the card keeps the seat-coloured frame and the striped backdrop.
-  const rec = seat.avatar ? data.lookup('chess', seat.avatar) : null;
+  // A picked avatar (players[].avatar = a character id, e.g. char_4040_rockr) gives the seat the operator's 头像 and
+  // 半身像; without one the card keeps the seat-coloured frame and the striped backdrop.
+  const rec = avatarRecord(data.list('chess'), seat.avatar);
   const assets = data.get('assets');
   const avatarSrc = rec ? chessAvatarUrl(assets, rec) : null;
   const portrait = rec ? chessPortraitUrl(assets, rec) : null;

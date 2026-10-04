@@ -19,25 +19,35 @@ export const openAvatarPicker = () => avatarStore.set({ open: true });
 export const closeAvatarPicker = () => avatarStore.set({ open: false });
 
 /**
+ * The id an avatar is stored as: the character id the asset manifest's `chars` group is keyed by (洛洛 →
+ * `char_4040_rockr`), NOT the chess record id (`chess_char_2_10_a`) — the server validates the same shape.
+ * @param {any} chess chess.json record
+ */
+export function avatarId(chess) {
+  const id = chess?.assets?.avatar || chess?.charId;
+  return typeof id === 'string' && id ? id : null;
+}
+
+/**
  * The operators that can be an avatar: visible, normal (精锐 share their base operator's art) and with avatar art in
  * the manifest, in tier order then by name.
  * @param {any[]} list data.list('chess')
  * @param {any} assets the asset manifest (data.get('assets'))
  */
 export function avatarChoices(list, assets) {
-  const name = (c) => String(c?.name || c?.chessId || '');
+  const name = (c) => String(c?.name || avatarId(c) || '');
   return (Array.isArray(list) ? list : [])
-    .filter((c) => c && c.visible && !c.isGolden && !!chessAvatarUrl(assets, c))
+    .filter((c) => c && c.visible && !c.isGolden && !!avatarId(c) && !!chessAvatarUrl(assets, c))
     .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0) || name(a).localeCompare(name(b), 'zh'));
 }
 
 /**
- * The operator shown as an avatar, or null for the default look.
- * @param {any} list data.list('chess') @param {string|null} id
+ * The operator record behind a stored avatar id (character id), or null for the default look.
+ * @param {any[]} list data.list('chess') @param {string|null} id
  */
 export function avatarRecord(list, id) {
   if (!id) return null;
-  return (Array.isArray(list) ? list : []).find((c) => c && c.chessId === id) || null;
+  return (Array.isArray(list) ? list : []).find((c) => c && avatarId(c) === id) || null;
 }
 
 /**
@@ -48,7 +58,7 @@ export function avatarRecord(list, id) {
  */
 export function AvatarPickerBody({ assets, list, mine, mineRec, query = '', onQuery = () => {}, onPick = () => {} }) {
   const q = String(query).trim().toLowerCase();
-  const shown = q ? list.filter((c) => `${c.name || ''}${c.chessId || ''}`.toLowerCase().includes(q)) : list;
+  const shown = q ? list.filter((c) => `${c.name || ''}${avatarId(c) || ''}`.toLowerCase().includes(q)) : list;
   return html`<p class="avpick__hint">选择一名干员作为头像：准备大厅里其他博士会看到该干员的头像与半身像。</p>
     <div class="avpick__head">
       <${AvatarFrame} size="md" name=${mineRec?.name || ''} src=${mineRec ? chessAvatarUrl(assets, mineRec) : null} self=${true} />
@@ -61,11 +71,11 @@ export function AvatarPickerBody({ assets, list, mine, mineRec, query = '', onQu
     <input class="avpick__search" type="search" value=${query} placeholder="搜索干员名字…" aria-label="搜索干员"
       onInput=${(e) => onQuery(e.target.value)} />
     <div class="avpick__grid" role="listbox" aria-label="干员">
-      ${shown.map((c) => html`<button key=${c.chessId} type="button" role="option" aria-selected=${mine === c.chessId ? 'true' : 'false'}
-          class=${`avpick__one${mine === c.chessId ? ' is-on' : ''}`} title=${c.name || c.chessId} onClick=${() => onPick(c.chessId)}>
+      ${shown.map((c) => { const id = avatarId(c); return html`<button key=${id} type="button" role="option" aria-selected=${mine === id ? 'true' : 'false'}
+          class=${`avpick__one${mine === id ? ' is-on' : ''}`} title=${c.name || id} onClick=${() => onPick(id)}>
         <${UnitThumb} kind="chess" id=${c.chessId} size="sm" />
-        <span class="avpick__name">${c.name || c.chessId}</span>
-      </button>`)}
+        <span class="avpick__name">${c.name || id}</span>
+      </button>`; })}
       ${shown.length ? null : html`<p class="avpick__empty">没有匹配的干员</p>`}
     </div>`;
 }

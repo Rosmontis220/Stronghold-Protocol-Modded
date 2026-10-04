@@ -87,7 +87,7 @@ export class Session {
     this.token = token;
     /** @type {string} sanitized nickname */
     this.name = name;
-    /** @type {string|null} operator avatar the player picked (a chess id, validated on every hello) */
+    /** @type {string|null} operator avatar the player picked (a character id like char_4040_rockr, shape-checked on hello) */
     this.avatar = null;
     /** @type {import('ws').WebSocket | null} currently bound socket */
     this.ws = null;
@@ -662,8 +662,8 @@ export class Network {
       session.disconnectedAt = null;
     }
     session.name = name;
-    // A picked operator avatar (a chess id): anything else — junk, an unknown operator, a missing field — means the
-    // default look. The lobby re-broadcasts room.state when it changes, so teammates see the new avatar at once.
+    // A picked operator avatar (a character id like char_4040_rockr): shape only — anything else (junk, a missing
+    // field) means the default look. The lobby re-broadcasts room.state when it changes, so teammates see it at once.
     session.avatar = typeof msg.avatar === 'string' && /^char_[a-z0-9_]{1,24}$/.test(msg.avatar) ? msg.avatar : null;
     session.lastSeen = now;
     session.addr = conn.ip;
