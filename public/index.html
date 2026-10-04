@@ -65,6 +65,20 @@
       <div id="boot-progress" class="boot__progress" aria-hidden="true"><span></span></div>
       <div id="boot-detail" class="boot__detail">首次启动会下载约 250 MB 素材，之后校对并复用本地资源。</div>
       <div id="boot-ready" class="boot__ready">音乐与字体就绪后即可使用，其他素材继续下载。</div>
+      <div id="boot-download" class="boot__dl">
+        <p class="boot__dl-head">下载内容 <span class="num" id="boot-dl-total"></span></p>
+        <div class="boot__dl-row">
+          <label class="boot__dl-opt"><input type="checkbox" id="boot-dl-audio" /> <span id="boot-dl-audio-label">音频</span></label>
+          <label class="boot__dl-opt"><input type="checkbox" id="boot-dl-guide" /> <span id="boot-dl-guide-label">玩法说明教程页</span></label>
+        </div>
+        <p class="boot__dl-note" id="boot-dl-note"></p>
+        <div class="boot__dl-btns">
+          <button type="button" class="boot__retry" id="boot-dl-all">完整</button>
+          <button type="button" class="boot__retry" id="boot-dl-lean">精简</button>
+          <button type="button" class="boot__retry" id="boot-dl-go">保存并下载</button>
+        </div>
+      </div>
+      <button id="boot-dl-toggle" class="boot__music" type="button" hidden>下载内容</button>
       <div class="boot__audio">
         <button id="boot-music" class="boot__music" type="button" aria-pressed="false">开启下载期间音乐</button>
         <button id="boot-mute" class="boot__music" type="button" aria-pressed="false">静音</button>

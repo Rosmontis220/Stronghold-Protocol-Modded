@@ -102,13 +102,20 @@ async function prune(index) {
   for (const name of await caches.keys()) if (name.startsWith('sp-preload-')) await caches.delete(name);
 }
 
-async function preloadBatch(index, offset, port, clientId) {
+async function preloadBatch(index, offset, port, clientId, wanted = null) {
   if (index?.version !== 2 || !Array.isArray(index.files) || !index.files.length || !clientId) throw new Error('资源清单无效');
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= index.files.length) throw new Error('资源批次无效');
+  // `wanted`: the URLs the player chose to download (the page leaves out the optional groups it switched off). The
+  // full index still comes along — the version hash, the object keys and the batch sequence all stay the same; only
+  // the list walked here is shorter.
+  const list = Array.isArray(wanted) && wanted.length
+    ? (() => { const keep = new Set(wanted); return index.files.filter((f) => keep.has(f.url)); })()
+    : index.files;
+  if (!list.length) throw new Error('没有可下载的资源');
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset >= list.length) throw new Error('资源批次无效');
   const pendingKey = `${PENDING_PREFIX}${encodeURIComponent(clientId)}`;
   let session = await readMeta(pendingKey);
   if (offset === 0) {
-    session = { index, next: 0 };
+    session = { index: { ...index, files: list, bytes: list.reduce((n, f) => n + f.bytes, 0) }, next: 0 };
     await writeMeta(pendingKey, session);
   } else if (session?.index.hash !== index.hash || session.next !== offset) {
     throw new Error('资源批次顺序失效，请刷新重试');
@@ -116,12 +123,13 @@ async function preloadBatch(index, offset, port, clientId) {
   // Bound both file count and bytes; stop starting new files after 15 seconds.
   const files = [];
   let plannedBytes = 0;
-  for (let i = offset; i < index.files.length && files.length < BATCH_FILES; i++) {
-    const file = index.files[i];
+  for (let i = offset; i < list.length && files.length < BATCH_FILES; i++) {
+    const file = list[i];
     if (files.length && plannedBytes + file.bytes > BATCH_BYTES) break;
     files.push(file);
     plannedBytes += file.bytes;
   }
+  const wantedBytes = list.reduce((n, f) => n + f.bytes, 0);
   const started = Date.now();
   const objects = await caches.open(OBJECT_CACHE);
   const legacy = await Promise.all((await caches.keys())
@@ -135,8 +143,8 @@ async function preloadBatch(index, offset, port, clientId) {
   let checkedBytes = 0;
   const failed = [];
   const post = (message) => { try { port.postMessage(message); } catch { /* tab closed */ } };
-  const report = (file) => post({ type: 'PROGRESS', done: offset + done, total: index.files.length, cached, downloaded,
-    downloadedBytes, checkedBytes, totalBytes: index.bytes, failed: failed.length, url: file.url });
+  const report = (file) => post({ type: 'PROGRESS', done: offset + done, total: list.length, cached, downloaded,
+    downloadedBytes, checkedBytes, totalBytes: wantedBytes, failed: failed.length, url: file.url });
 
   await Promise.all(Array.from({ length: Math.min(6, files.length) }, async () => {
     while (cursor < files.length && Date.now() - started < 15000) {
@@ -176,10 +184,11 @@ async function preloadBatch(index, offset, port, clientId) {
   if (failed.length) throw new Error(`资源校对失败 ${failed.length} 项：${failed.slice(0, 2).join('；')}`);
 
   const next = offset + cursor;
-  const final = next === index.files.length;
+  const final = next === list.length;
   session.next = next;
   await writeMeta(pendingKey, session);
-  // Only sequentially verified, complete snapshots become active.
+  // Only sequentially verified, complete snapshots become active. The active record keeps the *full* index (the
+  // version the server published); the files this player skipped simply have no object in the cache.
   if (final) {
     await writeMeta(clientKey(clientId), index);
     await writeMeta(ACTIVE_KEY, index);
@@ -188,7 +197,7 @@ async function preloadBatch(index, offset, port, clientId) {
     metadata.delete(new URL(pendingKey, ORIGIN).href);
     await prune(index).catch((err) => console.warn('[resources] cleanup failed', err));
   }
-  post({ type: 'BATCH_DONE', version: index.hash, done: next, total: index.files.length,
+  post({ type: 'BATCH_DONE', version: index.hash, done: next, total: list.length,
     cached, downloaded, downloadedBytes, checkedBytes, final });
 }
 
@@ -197,7 +206,7 @@ self.addEventListener('message', (event) => {
   if (data.type === 'SKIP_WAITING') { event.waitUntil(self.skipWaiting()); return; }
   const port = event.ports?.[0];
   if (!port || data.type !== 'PRELOAD_BATCH') return;
-  const task = preloadQueue.then(() => preloadBatch(data.index, data.offset, port, event.source?.id));
+  const task = preloadQueue.then(() => preloadBatch(data.index, data.offset, port, event.source?.id, data.wanted));
   preloadQueue = task.catch(() => {});
   event.waitUntil(task.catch((err) => {
     try { port.postMessage({ type: 'ERROR', message: String(err?.message || err) }); } catch { /* tab closed */ }

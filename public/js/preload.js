@@ -1,5 +1,5 @@
 // Compare cloud file digests with local Cache Storage before importing the game shell.
-import { RESOURCE_INDEX_URL } from '../../shared/resource-plan.js';
+import { RESOURCE_INDEX_URL, selectResourceFiles } from '../../shared/resource-plan.js';
 export { ASSET_MANIFEST_URL, LOCAL_MANIFEST_URL, DATA_URLS, buildPreloadPlan, collectAssetUrls, collectLocalUrls } from '../../shared/resource-plan.js';
 
 export function validateResourceIndex(index) {
@@ -79,7 +79,7 @@ async function activeWorker() {
   return worker;
 }
 
-function sendBatch(worker, index, offset, onProgress, onReady) {
+function sendBatch(worker, index, offset, onProgress, onReady, wanted = null) {
   return new Promise((resolve, reject) => {
     const channel = new MessageChannel();
     let settled = false;
@@ -99,43 +99,50 @@ function sendBatch(worker, index, offset, onProgress, onReady) {
       else if (data.type === 'BATCH_DONE') finish(resolve, data);
       else if (data.type === 'ERROR') finish(reject, new Error(data.message || '资源预下载失败'));
     };
-    try { worker.postMessage({ type: 'PRELOAD_BATCH', index, offset }, [channel.port2]); }
+    try { worker.postMessage({ type: 'PRELOAD_BATCH', index, offset, wanted }, [channel.port2]); }
     catch (err) { finish(reject, err); }
   });
 }
 
-async function sendBatches(worker, index, onProgress, onReady) {
+async function sendBatches(worker, index, onProgress, onReady, wanted = null) {
   const totals = { cached: 0, downloaded: 0, downloadedBytes: 0, checkedBytes: 0 };
+  const count = wanted ? wanted.length : index.files.length;
   let offset = 0;
-  while (offset < index.files.length) {
+  while (offset < count) {
     const result = await sendBatch(worker, index, offset, (progress) => progressText({ ...progress,
       cached: totals.cached + (progress.cached || 0), downloaded: totals.downloaded + (progress.downloaded || 0),
       downloadedBytes: totals.downloadedBytes + (progress.downloadedBytes || 0),
-      checkedBytes: totals.checkedBytes + (progress.checkedBytes || 0) }, onProgress), onReady);
-    if (!Number.isSafeInteger(result.done) || result.done <= offset || result.done > index.files.length
-      || result.version !== index.hash || result.final !== (result.done === index.files.length)) {
+      checkedBytes: totals.checkedBytes + (progress.checkedBytes || 0) }, onProgress), onReady, wanted);
+    if (!Number.isSafeInteger(result.done) || result.done <= offset || result.done > count
+      || result.version !== index.hash || result.final !== (result.done === count)) {
       throw new Error('资源批次结果无效，请刷新重试');
     }
     for (const key of Object.keys(totals)) totals[key] += result[key] || 0;
     offset = result.done;
   }
-  return { type: 'DONE', version: index.hash, total: index.files.length, ...totals };
+  return { type: 'DONE', version: index.hash, total: count, ...totals };
 }
 
-export async function prepareAssets({ onProgress, onIndex, onResourceReady } = {}) {
+export async function prepareAssets({ onProgress, onIndex, onResourceReady, selection = null, index: given = null } = {}) {
   if (!('serviceWorker' in navigator) || !('MessageChannel' in window) || !('caches' in window) || !window.crypto?.subtle) {
     throw new Error('当前浏览器无法保存本地资源，请通过 HTTPS 或 localhost 使用最新版浏览器');
   }
-  progressText({ phase: 'manifest' }, onProgress);
-  const abort = new AbortController();
-  const timer = setTimeout(() => abort.abort(), 120000);
-  let index;
-  try {
-    const response = await fetch(RESOURCE_INDEX_URL, { cache: 'no-store', signal: abort.signal });
-    if (!response.ok) throw new Error(`云端资源清单 HTTP ${response.status}`);
-    index = validateResourceIndex(await response.json());
-  } finally { clearTimeout(timer); }
-  progressText({ phase: 'verify', done: 0, total: index.files.length, totalBytes: index.bytes }, onProgress);
+  let index = given;
+  if (!index) {
+    progressText({ phase: 'manifest' }, onProgress);
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), 120000);
+    try {
+      const response = await fetch(RESOURCE_INDEX_URL, { cache: 'no-store', signal: abort.signal });
+      if (!response.ok) throw new Error(`云端资源清单 HTTP ${response.status}`);
+      index = validateResourceIndex(await response.json());
+    } finally { clearTimeout(timer); }
+  }
+  // The player's choice (shared/resource-plan.js): the skipped optional groups are simply never downloaded, so the
+  // batch list — and every count shown to the player — is the selected subset while the version stays the full index.
+  const selected = selection ? selectResourceFiles(index.files, selection) : null;
+  const wanted = selected ? selected.map((file) => file.url) : null;
+  progressText({ phase: 'verify', done: 0, total: wanted ? wanted.length : index.files.length, totalBytes: index.bytes }, onProgress);
   const worker = await activeWorker();
   const files = new Map(index.files.map((file) => [file.url, file]));
   const ready = new Set();
@@ -154,6 +161,6 @@ export async function prepareAssets({ onProgress, onIndex, onResourceReady } = {
     ready.add(url);
     try { Promise.resolve(onResourceReady?.(files.get(url), readResource)).catch(() => {}); } catch { /* optional consumer */ }
   };
-  const result = await sendBatches(worker, index, onProgress, notifyReady);
-  return { ...result, mode: 'verified-cache', urls: index.files.map((file) => file.url) };
+  const result = await sendBatches(worker, index, onProgress, notifyReady, wanted);
+  return { ...result, mode: 'verified-cache', urls: (selected || index.files).map((file) => file.url) };
 }

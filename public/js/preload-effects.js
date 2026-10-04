@@ -1,7 +1,7 @@
 // Optional startup presentation: use verified local resources while the full snapshot is downloading.
 import { audio, installPreloadAudio, stopPreloadAudio } from './audio.js';
 
-export function createPreloadEffects({ onState, win = window } = {}) {
+export function createPreloadEffects({ onState, win = window, audioSelected = true } = {}) {
   let settings = {};
   try { settings = JSON.parse(win.localStorage.getItem('sp.pref.settings') || '{}') || {}; } catch { /* defaults */ }
   installPreloadAudio({ settings });
@@ -17,7 +17,8 @@ export function createPreloadEffects({ onState, win = window } = {}) {
   const emit = () => {
     if (disposed) return;
     let music = 'loading';
-    if (unavailable || (startup && !startup.bgm)) music = 'unavailable';
+    if (!audioSelected) music = 'skipped'; // the player chose not to download the audio set
+    else if (unavailable || (startup && !startup.bgm)) music = 'unavailable';
     else if (audio.volumes.muted || audio.volumes.bgm === 0) music = 'muted';
     else if (requested) music = audio.ctx?.state === 'running' && audio.bgm ? 'playing' : 'ready';
     try { onState?.({ music, fonts: fontCount }); } catch { /* optional UI */ }

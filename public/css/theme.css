@@ -319,6 +319,16 @@ h1, h2, h3, h4, p { margin: 0; }
 .boot__audio { display: flex; gap: .12rem; }
 .boot__music { padding: .08rem .18rem; border: 1px solid var(--line); background: transparent; color: var(--mint-400); font: inherit; font-size: .13rem; cursor: pointer; }
 .boot__music:hover, .boot__music:focus-visible { border-color: var(--mint-500); background: rgba(78, 216, 175, .08); }
+/* download picker (boot.js + shared/resource-plan.js): the two optional groups; everything else is required */
+.boot__dl { width: min(5.8rem, 88vw); display: grid; gap: .06rem; padding: .12rem .14rem; border: 1px solid var(--line); background: rgba(0, 0, 0, .3); }
+.boot__dl-head { margin: 0; color: var(--text-lo); font-size: .14rem; }
+.boot__dl-head .num { color: var(--mint-400); }
+.boot__dl-row { display: flex; flex-wrap: wrap; gap: .06rem .18rem; }
+.boot__dl-opt { display: inline-flex; align-items: center; gap: .06rem; color: var(--text-md); font-size: .13rem; cursor: pointer; }
+.boot__dl-opt input { accent-color: var(--mint-500); }
+.boot__dl-note { margin: 0; color: var(--text-lo); font-size: .12rem; line-height: 1.6; }
+.boot__dl-btns { display: flex; gap: .08rem; }
+.boot__dl-btns .boot__retry { padding: .06rem .14rem; font-size: .13rem; }
 .boot__music:disabled { opacity: .45; cursor: default; }
 .boot__err { max-width: 6rem; text-align: center; color: var(--text-lo); font-size: .16rem; }
 @keyframes boot-spin { to { transform: rotate(360deg); } }
