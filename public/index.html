@@ -66,23 +66,8 @@
       <div id="boot-detail" class="boot__detail">正在检查游戏必需的本地资源。</div>
       <div id="boot-ready" class="boot__ready"></div>
       <div id="boot-download" class="boot__dl" hidden>
-        <p class="boot__dl-head">下载内容 <span class="num" id="boot-dl-total"></span></p>
-        <div class="boot__dl-row">
-          <label class="boot__dl-opt"><input type="checkbox" id="boot-dl-audio" /> <span id="boot-dl-audio-label">音频</span></label>
-          <label class="boot__dl-opt"><input type="checkbox" id="boot-dl-guide" /> <span id="boot-dl-guide-label">玩法说明教程页</span></label>
-        </div>
-        <p class="boot__dl-note" id="boot-dl-note"></p>
-        <div class="boot__dl-local">
-          <button type="button" class="boot__retry" id="boot-import">选择本地素材文件夹</button>
-          <button type="button" class="boot__retry" id="boot-import-resume" hidden>继续使用上次的文件夹</button>
-          <input type="file" id="boot-import-input" webkitdirectory directory multiple hidden />
-          <span class="boot__dl-note" id="boot-import-note"></span>
-        </div>
-        <div class="boot__dl-btns">
-          <button type="button" class="boot__retry" id="boot-dl-all">完整</button>
-          <button type="button" class="boot__retry" id="boot-dl-lean">精简</button>
-          <button type="button" class="boot__retry" id="boot-dl-go">保存并下载</button>
-        </div>
+        <p class="boot__dl-head">正在准备完整资源 <span class="num" id="boot-dl-total"></span></p>
+        <p class="boot__dl-note" id="boot-dl-note">缺少必需资源，将自动完整下载并校验。</p>
       </div>
       <button id="boot-dl-toggle" class="boot__music" type="button" hidden>下载内容</button>
       <div id="boot-audio" class="boot__audio" hidden>

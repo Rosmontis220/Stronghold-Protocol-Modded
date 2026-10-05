@@ -37,18 +37,19 @@ test('content index includes raw-byte SHA-256, stable empty local manifest, and 
   const local = index.files.find((file) => file.url === '/data/local-assets.json');
   assert.equal(local.sha256, sha(EMPTY_LOCAL_MANIFEST));
   assert.equal(index.bytes, index.files.reduce((sum, file) => sum + file.bytes, 0));
-  assert.equal(index.required.length + index.optional.length, index.files.length);
-  assert.ok(index.required.every((file) => !file.url.startsWith('/assets/audio/') && !file.url.startsWith('/assets/ui/guide/')));
+  assert.equal(index.required.length, index.files.length);
+  assert.equal(index.optional.length, 0);
   await fsp.unlink(path.join(dirs.publicDir, 'assets', 'audio', 'bgm', 'a.mp3'));
-  const withoutOptional = await build();
-  assert.equal(withoutOptional.files.some((file) => file.url.endsWith('a.mp3')), false);
+  await assert.rejects(build(), /Resource unavailable/);
   // Image rebuilds touch mtimes even when the file content stays identical.
   await fsp.utimes(path.join(dirs.publicDir, 'assets/a.png'), new Date(), new Date(1000000000000));
-  assert.equal((await build()).hash, withoutOptional.hash);
+  await fsp.writeFile(path.join(dirs.publicDir, 'assets', 'audio', 'bgm', 'a.mp3'), 'audio');
+  const restored = await build();
+  assert.equal(restored.hash, index.hash);
   // Same URL, same byte length, same structure hash, different bytes must produce a different version.
   await fsp.writeFile(path.join(dirs.publicDir, 'assets/a.png'), 'bravo');
   const changed = await build();
-  assert.notEqual(changed.hash, index.hash);
+  assert.notEqual(changed.hash, restored.hash);
   assert.equal(changed.files.find((file) => file.url === '/assets/a.png').sha256, sha('bravo'));
 });
 

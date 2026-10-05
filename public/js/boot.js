@@ -1,11 +1,10 @@
 // Do not execute the game shell until its local resource snapshot is complete and verified.
 import { prepareAssets, validateResourceIndex, inspectCachedSnapshot } from './preload.js';
 import { createPreloadEffects } from './preload-effects.js';
-import { RESOURCE_INDEX_URL, OPTIONAL_RESOURCE_GROUPS, classifyResourceFiles, selectResourceFiles } from '../../shared/resource-plan.js';
+import { RESOURCE_INDEX_URL } from '../../shared/resource-plan.js';
 import { pickResourceDirectory, recallDirectory, permissionOf, requestPermission, importDirectory,
   importFileList, cachedSample, supportsDirectoryPicker } from './local-import.js';
 
-const PREF_DOWNLOAD = 'sp.pref.download';
 const status = document.getElementById('boot-status');
 const detail = document.getElementById('boot-detail');
 const progress = document.getElementById('boot-progress');
@@ -21,28 +20,16 @@ const dl = document.getElementById('boot-download');
 const dlToggle = document.getElementById('boot-dl-toggle');
 const dlTotal = document.getElementById('boot-dl-total');
 const dlNote = document.getElementById('boot-dl-note');
-const dlBoxes = { audio: document.getElementById('boot-dl-audio'), guide: document.getElementById('boot-dl-guide') };
 const importNote = document.getElementById('boot-import-note');
 const importInput = document.getElementById('boot-import-input');
 const importResume = document.getElementById('boot-import-resume');
 /** The player is picking/importing a local folder: never let the auto-start race the import. */
 let autoStartHeld = false;
 
-/** Which optional groups to download (shared/resource-plan.js); audio and the tutorial pages are the only ones. */
-let selection = { audio: true, guide: true };
+/** The client always verifies and downloads the complete indexed resource set. */
+const selection = null;
 let preloadStarted = false;
 let indexPromise = null;
-
-function loadSelection() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(PREF_DOWNLOAD) || 'null');
-    if (raw && typeof raw === 'object') return { audio: raw.audio !== false, guide: raw.guide !== false };
-  } catch { /* defaults */ }
-  return null;
-}
-function saveSelection(value) {
-  try { localStorage.setItem(PREF_DOWNLOAD, JSON.stringify(value)); } catch { /* private browsing */ }
-}
 
 /** Fetch + validate the cloud index once: the choice panel needs the real sizes before the download starts. */
 function fetchIndex() {
@@ -60,30 +47,13 @@ function fetchIndex() {
   return indexPromise;
 }
 
-/** Render the choice panel from the index: each optional group with its file count and size, and the running total. */
+/** Render the complete download summary after a valid manifest confirms required resources are missing. */
 function renderChoices(index) {
-  const info = classifyResourceFiles(index.files);
-  const byId = new Map(info.groups.map((g) => [g.id, g]));
   if (dlTotal) dlTotal.textContent = `共 ${index.files.length} 项 · ${mb(index.bytes)}`;
-  for (const group of OPTIONAL_RESOURCE_GROUPS) {
-    const g = byId.get(group.id);
-    const label = document.getElementById(`boot-dl-${group.id}-label`);
-    if (label && g) label.textContent = `${group.label}（${g.files} 项 · ${mb(g.bytes)}）`;
-    if (dlBoxes[group.id]) dlBoxes[group.id].checked = selection[group.id] !== false;
-  }
-  if (dlNote) {
-    const off = OPTIONAL_RESOURCE_GROUPS.filter((group) => selection[group.id] === false);
-    const files = info.required + info.groups.reduce((n, g) => n + (selection[g.id] === false ? 0 : g.files), 0);
-    const bytes = info.requiredBytes + info.groups.reduce((n, g) => n + (selection[g.id] === false ? 0 : g.bytes), 0);
-    dlNote.textContent = off.length
-      ? `将下载 ${files} 项 · ${mb(bytes)}；跳过：${off.map((g) => g.label).join('、')}。其余素材为必需项。`
-      : `将下载全部 ${index.files.length} 项 · ${mb(index.bytes)}。音频与教程页可跳过，其余为必需项。`;
-  }
+  if (dlNote) dlNote.textContent = '缺少必需资源，将自动完整下载并校验。';
 }
-const readChoice = () => ({ audio: dlBoxes.audio ? dlBoxes.audio.checked : true, guide: dlBoxes.guide ? dlBoxes.guide.checked : true });
 
-/** The files this choice actually downloads — what a local folder import should cover. */
-const wantedFor = (index) => (selection ? selectResourceFiles(index.files, selection).map((f) => f.url) : null);
+const wantedFor = () => null;
 
 /** Report one import pass into the boot status lines. */
 function importProgress(index) {
@@ -111,7 +81,7 @@ function afterImport(index, stats) {
  * @param {Promise<any>} indexPromise
  */
 async function wireImport(indexPromise) {
-  if (!dl) return;
+  return;
   const runDirectory = async (handle, index) => {
     autoStartHeld = true;
     try {
@@ -201,22 +171,10 @@ async function detectRequiredLocalSnapshot(index) {
 }
 
 function wireChoices() {
-  if (!dl) return;
-  const repaint = () => { fetchIndex().then(renderChoices).catch(() => {}); };
-  const setBoth = (value) => { selection = { audio: value, guide: value }; repaint(); };
-  document.getElementById('boot-dl-all')?.addEventListener('click', () => setBoth(true));
-  document.getElementById('boot-dl-lean')?.addEventListener('click', () => setBoth(false));
-  for (const box of Object.values(dlBoxes)) box?.addEventListener('change', () => { selection = readChoice(); repaint(); });
-  document.getElementById('boot-dl-go')?.addEventListener('click', () => {
-    selection = readChoice();
-    saveSelection(selection);
-    if (preloadStarted) location.reload();
-    else begin();
-  });
-  if (dlToggle) dlToggle.addEventListener('click', () => { if (dl) dl.hidden = !dl.hidden; });
+  if (dlToggle) dlToggle.hidden = true;
 }
 
-const effects = createPreloadEffects({ audioSelected: selection.audio, onState(state) {
+const effects = createPreloadEffects({ audioSelected: true, onState(state) {
   const labels = { loading: '音乐准备中', ready: '音乐已就绪', playing: '正在播放本地音乐',
     muted: '音乐已静音', unavailable: '音乐不可用', skipped: '音乐未选择' };
   if (ready) ready.textContent = `${labels[state.music]}${state.fonts ? ` · ${state.fonts} 款字体已应用` : ''}`;
@@ -276,8 +234,6 @@ async function start() {
 
 wireChoices();
 wireImport(fetchIndex()).catch(() => {});
-const saved = loadSelection();
-if (saved) selection = saved;
 if (dl) dl.hidden = true;
 
 async function bootFromLocalOrShowPicker() {
@@ -291,7 +247,7 @@ async function bootFromLocalOrShowPicker() {
       return;
     }
     if (dl) dl.hidden = false;
-    if (status) status.textContent = '本地必需资源不完整，请选择下载方案…';
+    if (status) status.textContent = '本地资源不完整，正在准备完整下载…';
     renderChoices(index);
     startDownloadCountdown();
   } catch (err) {

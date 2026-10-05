@@ -57,7 +57,8 @@ function waitForActivation(worker) {
 }
 
 export async function inspectCachedSnapshot(index, selection = null) {
-  const selected = selection ? selectResourceFiles(index.files, selection) : index.files;
+  // Complete-download mode ignores legacy partial selections; the indexed list is always authoritative.
+  const selected = index.files;
   const worker = await activeWorker();
   const channel = new MessageChannel();
   const result = await new Promise((resolve, reject) => {
@@ -154,10 +155,9 @@ export async function prepareAssets({ onProgress, onIndex, onResourceReady, sele
       index = validateResourceIndex(await response.json());
     } finally { clearTimeout(timer); }
   }
-  // The player's choice (shared/resource-plan.js): the skipped optional groups are simply never downloaded, so the
-  // batch list — and every count shown to the player — is the selected subset while the version stays the full index.
-  const selected = selection ? selectResourceFiles(index.files, selection) : null;
-  const wanted = selected ? selected.map((file) => file.url) : null;
+  // Complete-download mode always processes the full indexed list, including audio and tutorial resources.
+  const selected = null;
+  const wanted = null;
   progressText({ phase: 'verify', done: 0, total: wanted ? wanted.length : index.files.length, totalBytes: index.bytes }, onProgress);
   const worker = await activeWorker();
   const files = new Map(index.files.map((file) => [file.url, file]));

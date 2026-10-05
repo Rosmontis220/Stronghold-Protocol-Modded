@@ -46,27 +46,14 @@ export function runtimeResourceUrl(url) {
   return url.replace(/^\/assets\/audio\/(.+)\.(?:mp3|m4a|aac|ogg|oga|opus|wav)$/i, '/media/$1');
 }
 
-// ---- what you may skip ---------------------------------------------------------------------------------
+// ---- complete resource set -----------------------------------------------------------------------------
 //
-// Two groups are optional: the audio set (music + effects — the game runs silent) and the 玩法说明 tutorial
-// pages (the viewer falls back to the official text tips). Everything else — the game data, the fonts, the enemy
-// and operator models, the art, the icons — is required: skipping it breaks the match or the readable board, so the
-// download picker only offers these two.
+// Every resource is part of the complete client payload. The startup verifier and downloader intentionally use
+// one identical list so a partial download can never be mistaken for a playable local snapshot.
+export const OPTIONAL_RESOURCE_GROUPS = Object.freeze([]);
 
-/** Optional groups the preload picker offers, heaviest first, with the reason shown to the player. */
-export const OPTIONAL_RESOURCE_GROUPS = Object.freeze([
-  Object.freeze({ id: 'audio', label: '音频（背景音乐与音效）', note: '关闭后游戏静音，启动页也不再播放音乐', bytes: 27.1 * 1048576 }),
-  Object.freeze({ id: 'guide', label: '玩法说明教程页', note: '关闭后「玩法说明」只显示文字要点', bytes: 20.6 * 1048576 }),
-]);
-
-/**
- * The optional group a URL belongs to, or null when the file is required.
- * @param {string} url @returns {'audio'|'guide'|null}
- */
+/** There are no skippable groups: every indexed URL is required for the complete client. */
 export function optionalGroupOf(url) {
-  if (typeof url !== 'string') return null;
-  if (url.startsWith('/assets/audio/')) return 'audio';
-  if (url.startsWith('/assets/ui/guide/')) return 'guide';
   return null;
 }
 
