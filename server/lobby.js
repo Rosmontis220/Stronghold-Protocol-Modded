@@ -177,7 +177,7 @@ export class Room {
       difficulty: this.difficulty,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, avatar: s.avatar ?? null, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected })),
     };
@@ -264,7 +264,11 @@ export class Lobby {
     // live socket) answers the requester alone, so hello spam cannot amplify into room-wide traffic.
     let changed = !seat.connected;
     seat.connected = true;
-    if (!room.match && seat.name !== session.name) { seat.name = session.name; changed = true; }
+    if (!room.match && (seat.name !== session.name || (seat.avatar ?? null) !== (session.avatar ?? null))) {
+      seat.name = session.name;
+      seat.avatar = session.avatar ?? null;
+      changed = true;
+    }
     if (!room.hostId) { this.migrateHost(room); changed = true; }
     if (changed) this.broadcastState(room);
     else this.sendState(room, session);
@@ -845,6 +849,7 @@ export class Lobby {
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
       loadout: session.loadout || null,
+      avatar: session.avatar ?? null,
     };
   }
 
