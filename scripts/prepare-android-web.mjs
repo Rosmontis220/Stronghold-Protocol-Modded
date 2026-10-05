@@ -34,7 +34,7 @@ let html = await fs.readFile(mobileIndex, 'utf8');
 html = html.replace('</head>', `<script>globalThis.__SP_DESKTOP_SERVER='https://wsxy.rosmontis220.top';</script></head>`);
 await fs.writeFile(mobileIndex, html);
 const files = [];
-for (const root of ['public/assets', 'public/fonts', 'public/vendor', 'data', 'shared']) {
+for (const root of ['public/assets', 'public/fonts', 'data']) {
   for (const [abs, rel] of await walk(path.join(ROOT, root), root.replaceAll('\\', '/'))) {
     const url = `/${rel.replace(/^public\//, '')}`;
     files.push({ url, bytes: (await fs.stat(abs)).size, sha256: await digest(abs) });
