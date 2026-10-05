@@ -21,7 +21,36 @@
     "fan-game"
   ],
   "type": "module",
-  "main": "server/index.js",
+  "main": "desktop/main.cjs",
+  "build": {
+    "appId": "top.rosmontis.stronghold.protocol",
+    "productName": "Stronghold Protocol Alliance",
+    "asar": true,
+    "files": [
+      "desktop/**",
+      "server/**",
+      "shared/**",
+      "public/**",
+      "data/**",
+      "package.json",
+      "node_modules/**"
+    ],
+    "extraResources": [],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "artifactName": "Stronghold-Protocol-${version}-${channel}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
@@ -32,7 +61,12 @@
     "postinstall": "node tools/vendor.mjs",
     "setup": "node tools/setup.mjs",
     "doctor": "node tools/doctor.mjs",
-    "launch": "node scripts/launch.mjs"
+    "launch": "node scripts/launch.mjs",
+    "desktop:dir": "electron-builder --dir",
+    "desktop:win": "electron-builder --win nsis portable",
+    "mobile:sync": "npx cap sync android",
+    "mobile:open": "npx cap open android",
+    "mobile:apk": "npx cap sync android && gradlew.bat assembleDebug"
   },
   "engines": {
     "node": ">=22"
@@ -46,6 +80,12 @@
     "ws": "^8.22.0"
   },
   "devDependencies": {
-    "puppeteer-core": "^25.12.0"
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "puppeteer-core": "^25.12.0",
+    "typescript": "^7.0.2"
   }
 }

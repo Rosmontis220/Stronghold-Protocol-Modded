@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Stronghold Protocol Alliance</string>
+    <string name="title_activity_main">Stronghold Protocol Alliance</string>
+    <string name="package_name">top.rosmontis.stronghold.protocol</string>
+    <string name="custom_url_scheme">top.rosmontis.stronghold.protocol</string>
+</resources>

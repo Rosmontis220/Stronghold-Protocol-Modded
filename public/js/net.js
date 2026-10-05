@@ -98,6 +98,15 @@ export function backoffDelay(attempt, rand = Math.random) {
  */
 export function defaultWsUrl(loc = globalThis.location) {
   if (!loc || !loc.host) return 'ws://localhost:3000/ws';
+  const configured = new URLSearchParams(loc.search || '').get('server');
+  if (configured) {
+    try {
+      const remote = new URL(configured, `${loc.protocol}//${loc.host}`);
+      if (remote.protocol === 'http:' || remote.protocol === 'https:') {
+        return `${remote.protocol === 'https:' ? 'wss' : 'ws'}://${remote.host}${remote.pathname.replace(/\/$/, '') || ''}/ws`;
+      }
+    } catch { /* ignore invalid desktop/server override */ }
+  }
   return `${loc.protocol === 'https:' ? 'wss' : 'ws'}://${loc.host}/ws`;
 }
 

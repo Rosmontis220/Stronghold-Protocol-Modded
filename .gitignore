@@ -1,5 +1,11 @@
 # --- dependencies & generated client libs -------------------------------------------------------
 node_modules/
+# Electron build outputs
+/dist/
+# Capacitor generated web sync and local Android outputs
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
 # copied from node_modules by tools/vendor.mjs (postinstall); never commit third-party builds
 public/vendor/
 
