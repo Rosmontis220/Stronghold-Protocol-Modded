@@ -1,11 +1,11 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace = "top.rosmontis.stronghold.protocol"
+    namespace = "com.rosmontis220.wsxy"
     compileSdk = rootProject.ext.compileSdkVersion
     buildToolsVersion = "36.1.0"
     defaultConfig {
-        applicationId "top.rosmontis.stronghold.protocol"
+        applicationId "com.rosmontis220.wsxy"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

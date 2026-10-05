@@ -1,4 +1,4 @@
-package top.rosmontis.stronghold.protocol;
+package com.rosmontis220.wsxy;
 
 import com.getcapacitor.BridgeActivity;
 

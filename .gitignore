@@ -2,6 +2,17 @@
 node_modules/
 # Electron build outputs
 /dist/
+# Generated Android resource payload
+mobile-web/resource-manifest.json
+mobile-web/assets/
+mobile-web/fonts/
+mobile-web/data/
+mobile-web/shared/
+mobile-web/css/
+mobile-web/js/
+mobile-web/dev/
+mobile-web/admin.html
+mobile-web/robots.txt
 # Capacitor generated web sync and local Android outputs
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
