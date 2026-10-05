@@ -185,21 +185,17 @@ function begin() {
   start();
 }
 
-async function detectLocalSelection(index) {
-  const candidates = [];
-  if (selection?.audio !== false || selection?.guide !== false) candidates.push(selection);
-  candidates.push({ audio: true, guide: true }, { audio: false, guide: false });
-  const seen = new Set();
-  for (const candidate of candidates) {
-    const key = `${candidate.audio !== false}:${candidate.guide !== false}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    try {
-      const result = await inspectCachedSnapshot(index, candidate);
-      if (result.complete) return candidate;
-    } catch (err) { console.warn('[boot] local snapshot inspection failed', err); }
+async function detectRequiredLocalSnapshot(index) {
+  // Startup readiness only concerns mandatory game files. Audio and tutorial pages are optional downloads and must
+  // never prevent an already playable local snapshot from entering the game.
+  const required = { audio: false, guide: false };
+  try {
+    const result = await inspectCachedSnapshot(index, required);
+    return result.complete ? required : null;
+  } catch (err) {
+    console.warn('[boot] required local snapshot inspection failed', err);
+    return null;
   }
-  return null;
 }
 
 function wireChoices() {
@@ -285,7 +281,7 @@ if (dl) dl.hidden = true;
 async function bootFromLocalOrShowPicker() {
   try {
     const index = await fetchIndex();
-    const local = await detectLocalSelection(index);
+    const local = await detectRequiredLocalSnapshot(index);
     if (local) {
       selection = local;
       if (status) status.textContent = '本地资源已校对，正在进入游戏…';
@@ -295,10 +291,31 @@ async function bootFromLocalOrShowPicker() {
     renderChoices(index);
     if (dl) dl.hidden = false;
     if (status) status.textContent = '本地资源不完整，请选择完整或精简下载…';
+    startDownloadCountdown();
   } catch (err) {
     if (dl) dl.hidden = false;
     if (importNote) importNote.textContent = `无法获取云端资源清单：${String(err?.message || err).slice(0, 120)}`;
   }
+}
+
+let downloadCountdown = null;
+function startDownloadCountdown() {
+  if (downloadCountdown || preloadStarted) return;
+  let left = 10;
+  const tick = () => {
+    if (preloadStarted || !dl || dl.hidden || autoStartHeld) return;
+    if (status) status.textContent = left > 0
+      ? `本地必需资源缺失，${left} 秒后开始下载…`
+      : '正在开始下载…';
+    if (left <= 0) {
+      downloadCountdown = null;
+      begin();
+      return;
+    }
+    left -= 1;
+    downloadCountdown = setTimeout(tick, 1000);
+  };
+  tick();
 }
 
 bootFromLocalOrShowPicker();
