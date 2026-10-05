@@ -10,7 +10,10 @@ const manifest = await (await fetch(`${BASE}/resource-manifest.json`, { cache: '
 if (!Array.isArray(manifest.files) || !manifest.files.length) throw new Error('invalid production manifest');
 let done = 0;
 for (const entry of manifest.files) {
-  const target = path.join(OUT, entry.url.replace(/^\//, '').replaceAll('/', path.sep));
+  const relative = entry.url.replace(/^\//, '').replaceAll('/', path.sep);
+  const target = relative.startsWith(`data${path.sep}`)
+    ? path.join(ROOT, relative)
+    : path.join(OUT, relative);
   await fs.mkdir(path.dirname(target), { recursive: true });
   let valid = false;
   try {

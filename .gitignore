@@ -13,6 +13,8 @@ mobile-web/js/
 mobile-web/dev/
 mobile-web/admin.html
 mobile-web/robots.txt
+mobile-web/sw.js
+mobile-web/vendor/
 # Capacitor generated web sync and local Android outputs
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json
