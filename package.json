@@ -66,7 +66,8 @@
     "desktop:win": "electron-builder --win nsis portable",
     "mobile:sync": "npx cap sync android",
     "mobile:open": "npx cap open android",
-    "mobile:apk": "npx cap sync android && gradlew.bat assembleDebug"
+    "mobile:prepare": "node scripts/prepare-android-web.mjs",
+    "mobile:apk": "npm run mobile:prepare && npx cap sync android && cd android && gradlew.bat assembleDebug"
   },
   "engines": {
     "node": ">=22"
