@@ -16,6 +16,7 @@ const mb = (bytes) => `${((bytes || 0) / (1024 * 1024)).toFixed(1)} MB`;
 const ready = document.getElementById('boot-ready');
 const music = document.getElementById('boot-music');
 const mute = document.getElementById('boot-mute');
+const audioPanel = document.getElementById('boot-audio');
 const dl = document.getElementById('boot-download');
 const dlToggle = document.getElementById('boot-dl-toggle');
 const dlTotal = document.getElementById('boot-dl-total');
@@ -182,7 +183,7 @@ function begin() {
   preloadStarted = true;
   if (dl) dl.hidden = true;
   if (dlToggle) dlToggle.hidden = true;
-  document.querySelector('.boot__audio')?.setAttribute('hidden', '');
+  audioPanel?.setAttribute('hidden', '');
   start();
 }
 
@@ -294,8 +295,13 @@ async function bootFromLocalOrShowPicker() {
     renderChoices(index);
     startDownloadCountdown();
   } catch (err) {
-    if (dl) dl.hidden = false;
+    // A manifest failure is a verification error, not proof that the player should see the download picker.
+    // Keep every download control hidden until required-resource absence has been confirmed by a valid index.
+    if (dl) dl.hidden = true;
+    if (dlToggle) dlToggle.hidden = true;
+    audioPanel?.setAttribute('hidden', '');
     if (importNote) importNote.textContent = `无法获取资源清单：${String(err?.message || err).slice(0, 120)}`;
+    if (error) error.textContent = '资源校验服务暂时不可用，请稍后刷新重试。';
   }
 }
 
