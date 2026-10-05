@@ -1,10 +1,11 @@
 // Optional startup presentation: use verified local resources while the full snapshot is downloading.
-import { audio, installPreloadAudio, stopPreloadAudio } from './audio.js';
+import { audio } from './audio.js';
 
 export function createPreloadEffects({ onState, win = window, audioSelected = true } = {}) {
   let settings = {};
   try { settings = JSON.parse(win.localStorage.getItem('sp.pref.settings') || '{}') || {}; } catch { /* defaults */ }
-  installPreloadAudio({ settings });
+  audio.install();
+  audio.setVolumes(settings);
   let startup = null;
   let readResource;
   let disposed = false;
@@ -30,7 +31,7 @@ export function createPreloadEffects({ onState, win = window, audioSelected = tr
     configure(index, read) {
       startup = index.startup || { bgm: null, fonts: [] };
       readResource = read;
-      installPreloadAudio({ track: startup.bgm, readResource, settings });
+      audio.setVolumes(settings);
       emit();
     },
     async resourceReady(file) {
@@ -72,7 +73,7 @@ export function createPreloadEffects({ onState, win = window, audioSelected = tr
       disposed = true;
       cancelled = failed;
       win.clearInterval(timer);
-      if (failed) stopPreloadAudio();
+      if (failed) audio.playBgm(null);
       // The app continues with this singleton and the same playing loop.
     },
   };
