@@ -36,6 +36,12 @@ export function createResourceIndex({ publicDir, dataDir }) {
         const bytes = Buffer.from(EMPTY_LOCAL_MANIFEST);
         return { url, sha256: hash(bytes), bytes: bytes.length };
       }
+      // A missing enemy E2 icon can safely use its base icon. Asset downloads may fail transiently while the
+      // generated data/assets.json keeps the previous URL; omit that stale leaf so the cloud manifest remains usable.
+      if (err.code === 'ENOENT' && /^\/assets\/enemy\/icon\/enemy_\d+_[a-z0-9]+_2\.png$/i.test(url)) {
+        const base = filePath(url.replace(/_2\.png$/i, '.png'));
+        try { if ((await fsp.stat(base)).isFile()) return null; } catch { /* base is also unavailable */ }
+      }
       throw new Error(`Resource unavailable: ${url} (${err.code || err.message})`);
     }
     if (!stat.isFile()) throw new Error(`Resource is not a file: ${url}`);

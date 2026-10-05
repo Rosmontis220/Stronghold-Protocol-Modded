@@ -52,6 +52,18 @@ test('content index includes raw-byte SHA-256, stable empty local manifest, and 
   assert.equal(changed.files.find((file) => file.url === '/assets/a.png').sha256, sha('bravo'));
 });
 
+test('missing enemy E2 icon falls back by omitting the stale manifest leaf', async (t) => {
+  const dirs = await fixture(t);
+  const iconDir = path.join(dirs.publicDir, 'assets', 'enemy', 'icon');
+  await fsp.mkdir(iconDir, { recursive: true });
+  await fsp.writeFile(path.join(iconDir, 'enemy_2085_skzjxd.png'), 'base');
+  await fsp.writeFile(path.join(dirs.dataDir, 'assets.json'), JSON.stringify({
+    chars: {}, enemies: { duck: { icon: '/assets/enemy/icon/enemy_2085_skzjxd_2.png' } },
+  }));
+  const index = await createResourceIndex(dirs)();
+  assert.equal(index.files.some((file) => file.url.endsWith('enemy_2085_skzjxd_2.png')), false);
+});
+
 test('index serves fresh no-store JSON and blocks incomplete resources', async (t) => {
   const dirs = await fixture(t);
   const handler = createStaticHandler(dirs);
