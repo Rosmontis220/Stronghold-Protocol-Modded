@@ -1,5 +1,5 @@
 // Do not execute the game shell until its local resource snapshot is complete and verified.
-import { prepareAssets, validateResourceIndex } from './preload.js';
+import { prepareAssets, validateResourceIndex, inspectCachedSnapshot } from './preload.js';
 import { createPreloadEffects } from './preload-effects.js';
 import { RESOURCE_INDEX_URL, OPTIONAL_RESOURCE_GROUPS, classifyResourceFiles, selectResourceFiles } from '../../shared/resource-plan.js';
 import { pickResourceDirectory, recallDirectory, permissionOf, requestPermission, importDirectory,
@@ -185,6 +185,23 @@ function begin() {
   start();
 }
 
+async function detectLocalSelection(index) {
+  const candidates = [];
+  if (selection?.audio !== false || selection?.guide !== false) candidates.push(selection);
+  candidates.push({ audio: true, guide: true }, { audio: false, guide: false });
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const key = `${candidate.audio !== false}:${candidate.guide !== false}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    try {
+      const result = await inspectCachedSnapshot(index, candidate);
+      if (result.complete) return candidate;
+    } catch (err) { console.warn('[boot] local snapshot inspection failed', err); }
+  }
+  return null;
+}
+
 function wireChoices() {
   if (!dl) return;
   const repaint = () => { fetchIndex().then(renderChoices).catch(() => {}); };
@@ -263,19 +280,25 @@ wireChoices();
 wireImport(fetchIndex()).catch(() => {});
 const saved = loadSelection();
 if (saved) selection = saved;
-// The choice panel needs the real sizes; the local-folder row awaits the same single fetch.
-fetchIndex().then(renderChoices).catch((err) => { if (importNote) importNote.textContent = `无法获取云端资源清单：${String(err?.message || err).slice(0, 120)}`; });
-if (saved) {
-  // A remembered choice starts right away; 「下载内容」 reopens the panel.
-  begin();
-} else {
-  // First visit: show the picker, but do not block the boot — the default (everything) starts on its own.
-  let left = 8;
-  const tick = setInterval(() => {
-    if (preloadStarted) { clearInterval(tick); return; }
-    if (autoStartHeld) return; // the player is importing a folder; do not start the download underneath
-    left -= 1;
-    if (status) status.textContent = left > 0 ? `可先选择下载内容或导入本地素材，${left} 秒后自动开始…` : '正在开始下载…';
-    if (left <= 0) { clearInterval(tick); begin(); }
-  }, 1000);
+if (dl) dl.hidden = true;
+
+async function bootFromLocalOrShowPicker() {
+  try {
+    const index = await fetchIndex();
+    const local = await detectLocalSelection(index);
+    if (local) {
+      selection = local;
+      if (status) status.textContent = '本地资源已校对，正在进入游戏…';
+      begin();
+      return;
+    }
+    renderChoices(index);
+    if (dl) dl.hidden = false;
+    if (status) status.textContent = '本地资源不完整，请选择完整或精简下载…';
+  } catch (err) {
+    if (dl) dl.hidden = false;
+    if (importNote) importNote.textContent = `无法获取云端资源清单：${String(err?.message || err).slice(0, 120)}`;
+  }
 }
+
+bootFromLocalOrShowPicker();

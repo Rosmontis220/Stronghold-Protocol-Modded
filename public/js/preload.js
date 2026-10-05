@@ -56,6 +56,22 @@ function waitForActivation(worker) {
   });
 }
 
+export async function inspectCachedSnapshot(index, selection = null) {
+  const selected = selection ? selectResourceFiles(index.files, selection) : index.files;
+  const worker = await activeWorker();
+  const channel = new MessageChannel();
+  const result = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('本地资源快速校对超时')), 30000);
+    channel.port1.onmessage = (event) => {
+      const data = event.data || {};
+      if (data.type === 'LOCAL_SNAPSHOT') { clearTimeout(timer); resolve(data); }
+      if (data.type === 'ERROR') { clearTimeout(timer); reject(new Error(data.message || '本地资源快速校对失败')); }
+    };
+    worker.postMessage({ type: 'INSPECT_SNAPSHOT', index, wanted: selected.map((file) => file.url) }, [channel.port2]);
+  });
+  return { ...result, selected: selected.length, selectedBytes: selected.reduce((sum, file) => sum + file.bytes, 0) };
+}
+
 async function activeWorker() {
   const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
   await registration.update();

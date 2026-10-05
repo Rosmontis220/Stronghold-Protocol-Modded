@@ -7,6 +7,7 @@ const PENDING_PREFIX = '/__sp_pending__/';
 const BATCH_FILES = 96;
 const BATCH_BYTES = 8 * 1024 * 1024;
 const ORIGIN = self.location.origin;
+const LOCAL_BUNDLE = self.location.hostname === 'localhost';
 let preloadQueue = Promise.resolve();
 const metadata = new Map();
 const resourceMaps = new WeakMap();
@@ -201,11 +202,43 @@ async function preloadBatch(index, offset, port, clientId, wanted = null) {
     cached, downloaded, downloadedBytes, checkedBytes, final });
 }
 
+async function inspectSnapshot(index, wanted, port) {
+  const list = Array.isArray(wanted) && wanted.length
+    ? index.files.filter((file) => wanted.includes(file.url)) : index.files;
+  const objects = await caches.open(OBJECT_CACHE);
+  let cached = 0;
+  let missing = 0;
+  for (const file of list) {
+    const hit = await objects.match(objectKey(file));
+    if (await verifiedBody(hit, file)) { cached++; continue; }
+    if (LOCAL_BUNDLE) {
+      const response = await fetch(file.url, { cache: 'no-store' });
+      const bytes = await verifiedBody(response, file);
+      if (bytes) {
+        const headers = new Headers(response.headers);
+        headers.delete('content-encoding'); headers.delete('content-length'); headers.delete('content-range');
+        await objects.put(objectKey(file), new Response(bytes, { status: 200, headers }));
+        cached++;
+        continue;
+      }
+    }
+    missing++;
+  }
+  port.postMessage({ type: 'LOCAL_SNAPSHOT', cached, missing, complete: missing === 0, hash: index.hash });
+}
+
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type === 'SKIP_WAITING') { event.waitUntil(self.skipWaiting()); return; }
   const port = event.ports?.[0];
-  if (!port || data.type !== 'PRELOAD_BATCH') return;
+  if (!port) return;
+  if (data.type === 'INSPECT_SNAPSHOT') {
+    event.waitUntil(inspectSnapshot(data.index, data.wanted, port).catch((err) => {
+      try { port.postMessage({ type: 'ERROR', message: String(err?.message || err) }); } catch {}
+    }));
+    return;
+  }
+  if (data.type !== 'PRELOAD_BATCH') return;
   const task = preloadQueue.then(() => preloadBatch(data.index, data.offset, port, event.source?.id, data.wanted));
   preloadQueue = task.catch(() => {});
   event.waitUntil(task.catch((err) => {
