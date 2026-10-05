@@ -29,6 +29,13 @@ await fs.mkdir(OUT, { recursive: true });
 await copy(path.join(ROOT, 'public'), OUT);
 await copy(path.join(ROOT, 'data'), path.join(OUT, 'data'));
 await copy(path.join(ROOT, 'shared'), path.join(OUT, 'shared'));
+// Client-side combat imports /sim/* and /data.js, which the Node server normally serves dynamically.
+// Capacitor serves only this static payload, so ship the browser modules and the same data bridge here.
+await copy(path.join(ROOT, 'server', 'sim'), path.join(OUT, 'sim'));
+await fs.writeFile(path.join(OUT, 'data.js'), `import { getSimData } from './sim/simdata.js';
+export function getData() { return getSimData() || {}; }
+export function resetData() {}
+`);
 const mobileIndex = path.join(OUT, 'index.html');
 let html = await fs.readFile(mobileIndex, 'utf8');
 html = html.replace('</head>', `<script>globalThis.__SP_DESKTOP_SERVER='https://wsxy.rosmontis220.top';</script></head>`);
