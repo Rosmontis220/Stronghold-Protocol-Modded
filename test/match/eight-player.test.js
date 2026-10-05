@@ -6,6 +6,17 @@ import { compactResult } from '../../server/sim/spec.js';
 import { validateC2S, RESULT_LIMITS } from '../../shared/protocol.js';
 import { MAX_SEATS } from '../../shared/constants.js';
 
+test('co-op boss pool scales from the four-player baseline above four players', () => {
+  const gd = makeMatch({ humans: 1, fake: true }).m.gd;
+  const base = gd.bossPoolShare(4);
+  assert.equal(gd.bossPoolShare(1), base);
+  assert.equal(gd.bossPoolShare(4), base);
+  assert.equal(gd.bossPoolShare(5), base * 1.25);
+  assert.equal(gd.bossPoolShare(6), base * 1.5);
+  assert.equal(gd.bossPoolShare(7), base * 1.75);
+  assert.equal(gd.bossPoolShare(8), base * 2);
+});
+
 test('eight-player battle reports and last draft index pass protocol validation', () => {
   assert.equal(MAX_SEATS, 8);
   assert.equal(RESULT_LIMITS.players, 8);

@@ -139,11 +139,11 @@ export class GameData {
     const cs = this.config.bossHpScale && typeof this.config.bossHpScale === 'object' ? this.config.bossHpScale : {};
     const pick = (k, d) => (Number.isFinite(ms[k]) && ms[k] > 0 ? ms[k] : Number.isFinite(cs[k]) && cs[k] > 0 ? cs[k] : d);
     if (this.isSolo) return pick('solo', 0.25);
-    const scaling = typeof ms.aliveScaling === 'boolean' ? ms.aliveScaling : cs.aliveScaling === true;
-    const full = Math.max(1, Math.floor(pick('aliveFull', MAX_SEATS)));
+    // Co-op keeps the four-player BOSS value as its baseline; larger rooms scale linearly by players / 4.
+    // A partially filled 1–4 player room never lowers that baseline.
     const n = Number(aliveCount);
-    const alive = scaling && Number.isFinite(n) && n >= 1 ? Math.min(full, Math.floor(n)) : full;
-    return pick('coop', 1) * (alive / full);
+    const players = Number.isFinite(n) && n >= 1 ? Math.min(MAX_SEATS, Math.floor(n)) : 4;
+    return pick('coop', 1) * (Math.max(4, players) / 4);
   }
 
   /** config.titles with the tuning overrides (stat / rule per title id) merged in. */
