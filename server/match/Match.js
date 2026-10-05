@@ -1542,7 +1542,7 @@ export class Match {
   // SP_DRAFT (机变)
 
   enterSpDraft() {
-    const draft = generateDraft(this.gd, this.rngDraft, this.round, { stageId: this.stageId, bondAvailable: (bondId) => this.bondLive(bondId) });
+    const draft = generateDraft(this.gd, this.rngDraft, this.round, { stageId: this.stageId, bondAvailable: (bondId) => this.bondLive(bondId), playerCount: this.alivePlayers().length });
     const alive = this.alivePlayers();
     if (!draft || !alive.length) { this.enterPrep(); return; }
     this.phase = PHASE.SP_DRAFT;

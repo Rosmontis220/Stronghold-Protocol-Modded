@@ -543,8 +543,8 @@ describe('websocket lobby', () => {
     assert.equal(st.difficulty, 'HARD');
     assert.equal(st.inMatch, false);
     assert.equal(st.seats.length, MAX_SEATS);
-    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', isBot: false, ready: false, connected: true });
-    assert.deepEqual(st.seats.slice(1), [null, null, null]);
+    assert.deepEqual(st.seats[0], { seat: 0, playerId: host.id, name: 'Host', avatar: null, isBot: false, ready: false, connected: true });
+    assert.deepEqual(st.seats.slice(1), new Array(MAX_SEATS - 1).fill(null));
 
     const guest = await pool.player('Guest');
     const joined = await joinRoom(guest, st.code.toLowerCase());
@@ -588,7 +588,7 @@ describe('websocket lobby', () => {
     const host = await pool.player('H');
     const st = await createRoom(host);
     const guests = [];
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < MAX_SEATS - 2; i++) {
       const g = await pool.player(`G${i}`);
       await joinRoom(g, st.code);
       guests.push(g);
@@ -634,7 +634,7 @@ describe('websocket lobby', () => {
     const s3 = await pool.player('Watcher3');
     await expectError(s3, { t: 'room.spectate', code: st.code }, ERR.ROOM_FULL);
     await joinRoom(s3, st.code);
-    await expectOk(host, { t: 'room.addBot' });
+    for (let i = 3; i < MAX_SEATS; i++) await expectOk(host, { t: 'room.addBot' });
     const full = await host.waitFor('room.state', (s) => s.seats.every(Boolean));
     assert.equal(full.spectators.length, 2);
     await expectOk(s3, { t: 'room.ready', ready: true });
@@ -762,11 +762,12 @@ describe('websocket lobby', () => {
     const s1 = await host.waitFor('room.state', (s) => s.seats[1]?.isBot);
     assert.equal(s1.seats[1].ready, true);
     assert.equal(s1.seats[1].connected, true);
-    assert.equal(s1.seats[1].name, BOT_NAMES[0]);
+    assert.ok(BOT_NAMES.includes(s1.seats[1].name));
     assert.match(s1.seats[1].playerId, /^ai_[0-9a-f]{8}$/);
     await expectOk(host, { t: 'room.addBot' });
     const s2 = await host.waitFor('room.state', (s) => s.seats[2]?.isBot);
-    assert.equal(s2.seats[2].name, BOT_NAMES[1]);
+    assert.ok(BOT_NAMES.includes(s2.seats[2].name));
+    assert.notEqual(s2.seats[2].name, s2.seats[1].name);
 
     await expectError(host, { t: 'room.removeBot', seat: 0 }, ERR.BAD_TARGET); // human seat
     await expectError(host, { t: 'room.removeBot', seat: 3 }, ERR.BAD_TARGET); // empty seat
@@ -775,7 +776,16 @@ describe('websocket lobby', () => {
     assert.ok(s3);
     await expectOk(host, { t: 'room.addBot' });
     const s4 = await host.waitFor('room.state', (s) => s.seats[1]?.isBot);
-    assert.equal(s4.seats[1].name, BOT_NAMES[0], 'freed bot name is reused');
+    assert.ok(BOT_NAMES.includes(s4.seats[1].name));
+    assert.notEqual(s4.seats[1].name, s4.seats[2].name);
+    for (let i = 3; i < MAX_SEATS; i++) await expectOk(host, { t: 'room.addBot' });
+    const full = await host.waitFor('room.state', (s) => s.seats.every(Boolean));
+    const names = full.seats.filter((s) => s.isBot).map((s) => s.name);
+    assert.equal(names.length, 7);
+    assert.equal(new Set(names).size, 7);
+    assert.deepEqual(names.slice().sort(), BOT_NAMES.slice().sort());
+    assert.ok(names.includes('AI·迷迭香'));
+    await expectError(host, { t: 'room.addBot' }, ERR.ROOM_FULL);
 
     await expectOk(host, { t: 'room.leave' });
     const probe = await pool.player('Probe');
@@ -877,7 +887,7 @@ describe('websocket lobby', () => {
     assert.equal(w.token, guest.token);
     const restored = await back.waitFor('room.state');
     assert.equal(restored.code, st.code);
-    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', isBot: false, ready: true, connected: true });
+    assert.deepEqual(seatOf(restored, guest.id), { seat: 1, playerId: guest.id, name: 'Guest2', avatar: null, isBot: false, ready: true, connected: true });
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.connected === true);
 
     // an unknown token just creates a new identity

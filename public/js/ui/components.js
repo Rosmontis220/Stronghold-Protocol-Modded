@@ -674,7 +674,7 @@ export function Spinner({ size = 'md', label, tone = 'mint', class: cls }) {
 
 // ---- Avatar frame ------------------------------------------------------------------------------
 
-const SEAT_HUES = [162, 196, 38, 280];
+const SEAT_HUES = [162, 196, 38, 280, 12, 220, 90, 325];
 /**
  * Square avatar frame with bracket corners. Falls back to a glyph (first letter / robot).
  * @param {{ name?: string, src?: string, size?: 'sm'|'md'|'lg'|'xl', seat?: number, host?: boolean, bot?: boolean,
@@ -683,7 +683,7 @@ const SEAT_HUES = [162, 196, 38, 280];
 export function AvatarFrame({ name = '', src, size = 'md', seat = 0, host, bot, self, ready, offline, dead, empty, class: cls }) {
   const [badSrc, setBadSrc] = useState(null);
   const imgOk = !!src && badSrc !== src;
-  const hue = SEAT_HUES[((seat | 0) % 4 + 4) % 4];
+  const hue = SEAT_HUES[((seat | 0) % SEAT_HUES.length + SEAT_HUES.length) % SEAT_HUES.length];
   const glyph = [...(name || '').trim()][0] || '?';
   return html`<div class=${cx('avatar', `avatar--${size}`, 'brackets', host && 'is-host', bot && 'is-bot', self && 'is-self',
       ready && 'is-ready', offline && 'is-offline', dead && 'is-dead', empty && 'is-empty', cls)} style=${`--seat-hue:${hue}`}>

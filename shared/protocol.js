@@ -26,7 +26,7 @@ const isList = (v, max, item) => Array.isArray(v) && v.length <= max && v.every(
 // ---- client-side combat (DESIGN §14): b.progress / b.result payloads -------------------------------------------
 
 /** Size limits of a b.result payload (the whole frame also obeys the 64 KB inbound limit). */
-export const RESULT_LIMITS = Object.freeze({ players: 4, leaked: 400, unitsEnd: 64, unitStats: 160, layerGains: 40, mods: 16, unspawned: 400 });
+export const RESULT_LIMITS = Object.freeze({ players: MAX_SEATS, leaked: 400, unitsEnd: 64, unitStats: 160, layerGains: 40, mods: 16, unspawned: 400 });
 const BIG = 1e13;
 const isStat = (v) => v === undefined || isNum(v, 0, BIG);
 const isModVal = (v) => v === null || isNum(v, -BIG, BIG) || isStr(v, 64) || isBool(v);
@@ -281,7 +281,7 @@ export const C2S = {
   'g.art': { itemUid: isUid, row: (v) => isInt(v, 0, GEO.ROWS - 1), col: (v) => isInt(v, 0, GEO.COLS - 1), dir: isDir, $optional: ['dir'] },
   'g.destroy': { uid: isUid },
   'g.reward': { idx: (v) => isInt(v, 0, 5) },
-  'g.choice': { idx: (v) => isInt(v, 0, 5) },
+  'g.choice': { idx: (v) => isInt(v, 0, Math.max(6, MAX_SEATS) - 1) },
   'g.ready': { ready: isBool },
   'g.emote': { id: (v) => EMOTES.includes(v) },
   'g.watch': { fieldId: (v) => isStr(v, 32) },

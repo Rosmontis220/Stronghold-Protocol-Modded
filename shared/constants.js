@@ -5,7 +5,7 @@ export const PROTOCOL_VERSION = 1;
  * (test/version.test.js); PROTOCOL_VERSION above is the separate wire-format number. */
 export const APP_VERSION = '0.1.3';
 
-export const MAX_SEATS = 4;
+export const MAX_SEATS = 8;
 /**
  * Spectator seats of a co-op room (community report #26, owner's decision 2026-10-04) — a remake feature: the official
  * room has 1–4 players and no spectator seat (there only eliminated players and 联防 bystanders watch, research 09 §3.1).

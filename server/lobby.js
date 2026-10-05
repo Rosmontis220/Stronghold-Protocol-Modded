@@ -101,7 +101,7 @@ export const LOBBY_DEFAULTS = Object.freeze({
 export const SOLO_RECONNECT_FALLBACK_SEC = 86_400;
 
 /** Display names for AI teammates (the tutorial NPCs first, then a few familiar faces). */
-export const BOT_NAMES = Object.freeze(['AI·华法琳', 'AI·阿米娅', 'AI·惊蛰', 'AI·杜宾', 'AI·凯尔希', 'AI·可露希尔']);
+export const BOT_NAMES = Object.freeze(['AI·华法琳', 'AI·阿米娅', 'AI·惊蛰', 'AI·杜宾', 'AI·凯尔希', 'AI·可露希尔', 'AI·迷迭香']);
 
 const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
@@ -484,7 +484,8 @@ export class Lobby {
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
-    const name = BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`;
+    const availableNames = BOT_NAMES.filter((n) => !used.has(n));
+    const name = availableNames.length ? availableNames[randomInt(availableNames.length)] : `AI·${idx + 1}`;
     let playerId;
     do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
     room.seats[idx] = { seat: idx, playerId, name, isBot: true, ready: true, connected: true, left: false };

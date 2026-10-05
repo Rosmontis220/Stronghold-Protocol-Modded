@@ -11,6 +11,7 @@
 // (the former enemyHpMul / enemyAtkMul / enemySpeedMul / bossHpMul / flyPlaceholders knobs were removed; a tuning file
 // that still carries them is ignored).
 
+import { MAX_SEATS } from '../../shared/constants.js';
 import { getConfig, getMode } from '../data.js';
 import { isShopItem } from '../sim/simdata.js';
 
@@ -139,7 +140,7 @@ export class GameData {
     const pick = (k, d) => (Number.isFinite(ms[k]) && ms[k] > 0 ? ms[k] : Number.isFinite(cs[k]) && cs[k] > 0 ? cs[k] : d);
     if (this.isSolo) return pick('solo', 0.25);
     const scaling = typeof ms.aliveScaling === 'boolean' ? ms.aliveScaling : cs.aliveScaling === true;
-    const full = Math.max(1, Math.floor(pick('aliveFull', 4)));
+    const full = Math.max(1, Math.floor(pick('aliveFull', MAX_SEATS)));
     const n = Number(aliveCount);
     const alive = scaling && Number.isFinite(n) && n >= 1 ? Math.min(full, Math.floor(n)) : full;
     return pick('coop', 1) * (alive / full);

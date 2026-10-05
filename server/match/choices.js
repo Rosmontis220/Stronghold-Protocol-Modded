@@ -136,15 +136,19 @@ function itemCard(gd, id) {
  * Build the draft cards for an SP round.
  * @returns {{ family: string, name: string, desc: string, eventId: string|null, cards: object[] } | null}
  */
-export function generateDraft(gd, rng, round, { stageId = null, bondAvailable = null } = {}) {
+export function generateDraft(gd, rng, round, { stageId = null, bondAvailable = null, playerCount = 1 } = {}) {
   const sch = scheduleFor(gd, round);
   const fams = Array.isArray(sch.families) && sch.families.length ? sch.families.map((f) => [f.family, f.weight]) : [['supply', 1]];
   let family = weightedPick(rng, fams) || 'supply';
-  const n = Number.isInteger(sch.cards) && sch.cards > 0 ? Math.min(sch.cards, 6) : formatCount(gd);
+  const baseCount = Number.isInteger(sch.cards) && sch.cards > 0 ? Math.min(sch.cards, 6) : formatCount(gd);
+  const n = Math.max(baseCount, playerCount);
   const opts = { stageId, bondAvailable, round };
   let cards = buildCards(gd, rng, family, n, sch, opts);
   if (!cards.length && family !== 'supply') { family = 'supply'; cards = buildCards(gd, rng, family, n, sch, opts); }
   if (!cards.length) return null;
+  // Fixed six-card pools (for example the secret shop) must still give every player a turn.
+  const originals = cards.slice();
+  while (cards.length < playerCount) cards.push({ ...originals[cards.length % originals.length] });
   cards.forEach((c, i) => { c.idx = i; c.family = family; });
   const famInfo = gd.choices.families && gd.choices.families[family];
   const events = sch.events && Array.isArray(sch.events[family]) ? sch.events[family] : [];

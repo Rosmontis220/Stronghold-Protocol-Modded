@@ -11,7 +11,7 @@
 //   * Shared boss HP pool (DESIGN §20.10, GameData.bossPoolShare): one pool shared by every boss field (official tip
 //     "所有人将一起对敌方领袖造成伤害"); co-op = bloodPoint[difficulty] whatever the number of alive players (notice 5114's
 //     "敌方领袖的总生命值不变" is about the mirrored copies of a pair field sharing it, not about that number); config
-//     bossHpScale.aliveScaling true scales it × alive / 4 (巴哈姆特 12294 "聯機隊友(撤退/死掉)變少，最後boss血條也會變少" — one
+//     bossHpScale.aliveScaling true scales it × alive / MAX_SEATS (巴哈姆特 12294 "聯機隊友(撤退/死掉)變少，最後boss血條也會變少" — one
 //     community note, no proportion; off until the user confirms it); solo = bloodPoint × config bossHpScale.solo (0.25,
 //     flagged unknown); × the tuning bossHpMul when data/tuning.json still has one (docs/BALANCE.md); bosses are never
 //     scaled by enemyScale.
@@ -33,6 +33,7 @@
 //     Σ activated layers of the alive players measured at the end of the boss round's prep > threshold (solo 350 /
 //     co-op 1200) and team LP > minTeamLpExclusive (1).
 
+import { MAX_SEATS } from '../../shared/constants.js';
 import { BOSS_ROW_OFFSET, COLS, BOSS_POOL_MIN_HP } from '../sim/constants.js';
 import { mirrorDir, normDir } from '../sim/dir.js';
 
