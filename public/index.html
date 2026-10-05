@@ -63,9 +63,9 @@
       <div class="boot__text">STRONGHOLD PROTOCOL</div>
       <div id="boot-status" class="boot__status">正在校对本地资源…</div>
       <div id="boot-progress" class="boot__progress" aria-hidden="true"><span></span></div>
-      <div id="boot-detail" class="boot__detail">首次启动会下载约 250 MB 素材，之后校对并复用本地资源。</div>
-      <div id="boot-ready" class="boot__ready">音乐与字体就绪后即可使用，其他素材继续下载。</div>
-      <div id="boot-download" class="boot__dl">
+      <div id="boot-detail" class="boot__detail">正在检查游戏必需的本地资源。</div>
+      <div id="boot-ready" class="boot__ready"></div>
+      <div id="boot-download" class="boot__dl" hidden>
         <p class="boot__dl-head">下载内容 <span class="num" id="boot-dl-total"></span></p>
         <div class="boot__dl-row">
           <label class="boot__dl-opt"><input type="checkbox" id="boot-dl-audio" /> <span id="boot-dl-audio-label">音频</span></label>
@@ -85,7 +85,7 @@
         </div>
       </div>
       <button id="boot-dl-toggle" class="boot__music" type="button" hidden>下载内容</button>
-      <div class="boot__audio">
+      <div class="boot__audio" hidden>
         <button id="boot-music" class="boot__music" type="button" aria-pressed="false">开启下载期间音乐</button>
         <button id="boot-mute" class="boot__music" type="button" aria-pressed="false">静音</button>
       </div>
@@ -126,12 +126,7 @@
   <script type="module" src="/js/boot.js" onerror="window.__spBootFail && window.__spBootFail('load')"></script>
   <script nomodule>window.__spBootFail && window.__spBootFail('old');</script>
   <script>
-    // Asset predownload can legitimately take several minutes on a first visit; only show a hint,
-    // while the boot module owns the final error/retry state.
-    setTimeout(function () {
-      var b = document.getElementById('boot'), e = document.getElementById('boot-err'), s = document.getElementById('boot-status');
-      if (b && !b.classList.contains('is-done') && e && !e.textContent && s && s.textContent === '正在校对本地资源…') s.textContent = '首次启动会校对并下载本地资源，请保持页面打开…';
-    }, 30000);
+    // The verification screen stays download-free; boot.js reveals the download panel only after required resources are missing.
   </script>
 </body>
 </html>

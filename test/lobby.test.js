@@ -763,6 +763,7 @@ describe('websocket lobby', () => {
     assert.equal(s1.seats[1].ready, true);
     assert.equal(s1.seats[1].connected, true);
     assert.ok(BOT_NAMES.includes(s1.seats[1].name));
+    assert.match(s1.seats[1].avatar, /^char_[a-z0-9_]+$/);
     assert.match(s1.seats[1].playerId, /^ai_[0-9a-f]{8}$/);
     await expectOk(host, { t: 'room.addBot' });
     const s2 = await host.waitFor('room.state', (s) => s.seats[2]?.isBot);

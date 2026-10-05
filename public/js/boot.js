@@ -181,7 +181,8 @@ function begin() {
   if (preloadStarted) return;
   preloadStarted = true;
   if (dl) dl.hidden = true;
-  if (dlToggle) dlToggle.hidden = false;
+  if (dlToggle) dlToggle.hidden = true;
+  document.querySelector('.boot__audio')?.setAttribute('hidden', '');
   start();
 }
 
@@ -215,13 +216,13 @@ function wireChoices() {
 }
 
 const effects = createPreloadEffects({ audioSelected: selection.audio, onState(state) {
-  const labels = { loading: '音乐优先下载中', ready: '音乐已就绪，点击开启', playing: '正在播放本地音乐',
-    muted: '音乐已静音', unavailable: '音乐不可用，继续下载素材', skipped: '音乐未选择下载' };
+  const labels = { loading: '音乐准备中', ready: '音乐已就绪', playing: '正在播放本地音乐',
+    muted: '音乐已静音', unavailable: '音乐不可用', skipped: '音乐未选择' };
   if (ready) ready.textContent = `${labels[state.music]}${state.fonts ? ` · ${state.fonts} 款字体已应用` : ''}`;
   if (music) {
     music.dataset.state = state.music;
     music.disabled = state.music === 'unavailable' || state.music === 'skipped';
-    music.textContent = state.music === 'playing' ? '音乐已开启' : state.music === 'loading' ? '开启下载期间音乐' : '开启音乐';
+    music.textContent = state.music === 'playing' ? '音乐已开启' : state.music === 'loading' ? '开启音乐' : '开启音乐';
     music.setAttribute('aria-pressed', String(state.music === 'playing'));
   }
   if (mute) {
@@ -263,7 +264,7 @@ async function start() {
     if (mute) mute.disabled = true;
     console.error('[boot] asset predownload failed', err);
     if (error) {
-      error.textContent = `资源下载或校对失败：${String(err?.message || err).slice(0, 220)}。请检查网络或本地存储空间后重试。`;
+      error.textContent = `本地资源校对失败：${String(err?.message || err).slice(0, 220)}。请检查网络或本地存储空间后重试。`;
       error.setAttribute('data-final', '1');
     }
     if (retry) { retry.hidden = false; retry.onclick = () => location.reload(); }
@@ -288,13 +289,13 @@ async function bootFromLocalOrShowPicker() {
       begin();
       return;
     }
-    renderChoices(index);
     if (dl) dl.hidden = false;
-    if (status) status.textContent = '本地资源不完整，请选择完整或精简下载…';
+    if (status) status.textContent = '本地必需资源不完整，请选择下载方案…';
+    renderChoices(index);
     startDownloadCountdown();
   } catch (err) {
     if (dl) dl.hidden = false;
-    if (importNote) importNote.textContent = `无法获取云端资源清单：${String(err?.message || err).slice(0, 120)}`;
+    if (importNote) importNote.textContent = `无法获取资源清单：${String(err?.message || err).slice(0, 120)}`;
   }
 }
 
