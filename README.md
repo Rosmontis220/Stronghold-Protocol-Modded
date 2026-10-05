@@ -44,6 +44,7 @@ English summary: [below](#english).
 | 运行方式 | 官方游戏客户端 | 浏览器 + Node.js 服务器；支持 Windows、macOS、Linux、手机和平板浏览器 |
 | 联机规模 | 以官方版本和活动规则为准 | 同盟房间最多 8 个玩家席位；可以由 1 名真人加最多 7 名 AI 组成，AI 名称在房间内随机且不重复 |
 | 联机模式 | 官方匹配和服务端 | 自建房间、4 位字母密钥、局域网或自建公网服务；支持断线重连、观战和 AI 托管 |
+| 玩家头像 | 官方账号和客户端资料体系 | 可以从可用干员中搜索并选择自定义头像，也可以恢复默认头像；选择保存在本机并同步给房间队友 |
 | 战斗执行 | 官方客户端和官方服务 | 默认由各玩家浏览器本地模拟；也可以切换为服务器模拟并推流 |
 | 资源获取 | 官方客户端资源包 | 启动时按资源清单校验本地文件；只补齐缺失或损坏的必需资源，音频和教程资源可选 |
 | 启动流程 | 官方客户端启动流程 | 先校验本地必需资源；资源完整时直接进入游戏，只有确认缺失后才显示下载选择页 |
@@ -120,9 +121,9 @@ npm start          # 启动服务器：http://localhost:3000
 
 显卡较弱时可以在「设置」里调低画质，或在网址后加 `?board=2d`（强制 2D 棋盘）/ `?render=fallback`（不用 WebGL 的简化画面）。
 
-**素材预下载与本 fork 的客户端改动**：进入游戏前会对比云端清单与本地素材的 SHA-256 与大小，只补下缺失、变化或损坏的文件；大厅音乐与字体优先下载，校验通过即可立即播放／应用，进入标题页后继续播放同一首，不重新起播。首次约 250 MB，失败时保留旧版本，可刷新继续利用已完成的下载；清除站点数据后重新补下。需要 HTTPS 或 `localhost`；联机与启动时的云端校验仍需网络。
+**素材校验与本 fork 的客户端改动**：进入游戏前会对比云端清单与本地素材的 SHA-256 与大小，只补下缺失、变化或损坏的必需文件；音频和教程资源是可选内容，不会阻塞启动。资源完整时直接进入游戏，只有确认必需资源缺失后才显示下载选择页。首次约 250 MB，失败时保留旧版本，可刷新继续利用已完成的下载；清除站点数据后重新补下。需要 HTTPS 或 `localhost`；联机与启动时的云端校验仍需网络。
 
-**自定义头像**：在「选择模拟协议」界面**右上角的博士信息条**点一下，即可从干员里选一名作为头像（可搜索，也可「跟随默认」）。选择保存在本机，并随 `hello` 告知服务器；队友会立刻在准备大厅的座位卡上看到该干员的头像，未选择时保持座位色图标。头像本身只是一个干员 id（如 `char_4040_rockr`），图片来自每位玩家本地已校验的素材，不额外产生流量。
+**自定义头像**：在「选择模拟协议」界面**右上角的博士信息条**点一下，即可从干员里选一名作为头像（可搜索，也可「跟随默认」）。选择保存在本机，并随 `hello` 告知服务器；队友会在准备大厅的座位卡、队伍面板和相关联机界面看到该干员的头像，未选择时保持座位色图标。头像本身只是一个干员 id（如 `char_4040_rockr`），图片来自每位玩家本地已校验的素材，不额外产生流量。
 
 ### 端口与配置
 
@@ -258,6 +259,6 @@ RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部�
 An **unofficial, non-commercial fan remake** of Arknights' seasonal auto-chess tower-defense mode *Stronghold Protocol: Alliance*, played in the browser: solo, or up to 8-player co-op (AI teammates can fill seats). Combat is simulated in each player's browser, so a low-power PC can host.
 
 - **Run:** download the all-in-one bundle from [Releases](../../releases/latest), install Node.js 22 or 24, then double-click `scripts\start-windows.bat` (Windows) or run `./scripts/start.sh` (macOS / Linux) and open <http://localhost:3000>. From source: `npm install && npm run setup && npm start` (setup downloads ~270 MB of art from public mirrors, the emotes and the how-to-play pages included; the official 3D board, some official HUD icons and two enemy models are extracted from a local Arknights client — without one the game uses the 2D board and look-alike stand-ins, and a server can copy `public/assets/local/` and `data/local-assets.json` from the release bundle of the same version). On HTTPS or localhost, the startup screen verifies local file sizes and SHA-256 digests against the server's content index. It enters directly when required resources are complete; optional audio and tutorial resources do not block startup, and the download choices appear only after required resources are confirmed missing.
-- **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel or a VPS — see [docs/DEPLOY.md](docs/DEPLOY.md).
+- **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. Pick a custom operator avatar from the lobby's Doctor information bar, or restore the default seat icon; teammates see the selected avatar in the room and team panels. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel or a VPS — see [docs/DEPLOY.md](docs/DEPLOY.md).
 - **Disclaimer:** not affiliated with or endorsed by Hypergryph or Yostar. All Arknights names, art, audio, text and data are © their respective owners and are **not** covered by this project's GPL licence. For study and personal non-commercial use only — no selling, paid distribution, paid servers or monetisation of any kind. Content will be removed on request of the rights holders. Provided "as is", without warranty.
 - **License:** code GPL-3.0-or-later ([LICENSE](LICENSE)); game assets excluded.
