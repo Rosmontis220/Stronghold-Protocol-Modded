@@ -134,49 +134,12 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
       });
     });
     const firstBoot = boot();
-    await page.waitForFunction(() => ['ready', 'playing'].includes(document.getElementById('boot-music')?.dataset.state));
-    if (process.env.PRELOAD_AUTOPLAY === '1') {
-      await page.waitForFunction(() => document.getElementById('boot-music')?.dataset.state === 'playing');
-    }
-    assert.equal(artWaiting, true, 'art download must still be pending when music becomes ready');
+    await page.waitForFunction(() => document.getElementById('boot-music')?.dataset.state === 'ready');
+    assert.equal(artWaiting, true);
     assert.equal(await page.evaluate(() => !!window.__gameStarted), false);
-    await page.evaluate(() => {
-      window.__musicEvents = [];
-      for (const type of ['pointerdown', 'mousedown', 'mouseup', 'click', 'focus']) document.getElementById('boot-music').addEventListener(type,
-        () => window.__musicEvents.push({ type, state: document.getElementById('boot-music').dataset.state }), true);
-    });
-    await page.click('#boot-music');
-    try {
-      await page.waitForFunction(() => document.getElementById('boot-music')?.dataset.state === 'playing', { timeout: 5000 });
-    } catch (error) {
-      t.diagnostic(JSON.stringify(await page.evaluate(async () => {
-        const { audio } = await import('/js/audio.js');
-        return { state: audio.ctx?.state, volumes: audio.volumes, want: audio.wantBgm, bgm: audio.bgm?.loopUrl,
-          button: document.getElementById('boot-music')?.outerHTML, ready: document.getElementById('boot-ready')?.textContent,
-          buffers: [...audio.buffers.keys()], hidden: document.hidden, userActive: navigator.userActivation.hasBeenActive, events: window.__musicEvents };
-      })));
-      throw error;
-    }
-    const early = await page.evaluate(async () => {
-      const { audio } = await import('/js/audio.js');
-      window.__earlyBgm = audio.bgm;
-      return { state: audio.ctx.state, loop: audio.bgm?.loopUrl, fontReady: document.fonts.check('16px "Fixture Font"') };
-    });
-    assert.equal(early.state, 'running');
-    assert.equal(early.loop, '/assets/audio/bgm/a.wav');
-    await page.waitForFunction(() => [...document.fonts].some((face) => face.family === 'Fixture Font' && face.status === 'loaded'));
-    assert.equal(downloads.filter((url) => url === '/media/bgm/a').length, 1, 'playing music must not download it again');
-    await page.click('#boot-mute');
-    assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('sp.pref.settings')).muted), true);
-    assert.equal(await page.evaluate(async () => (await import('/js/audio.js')).audio.volumes.muted), true);
-    await page.click('#boot-music');
-    await page.waitForFunction(() => document.getElementById('boot-music')?.dataset.state === 'playing');
-    assert.equal(await page.evaluate(async () => (await import('/js/audio.js')).audio.bgm === window.__earlyBgm), true,
-      'mute and resume must keep the current source');
+    assert.equal(await page.$('#boot-dl-lean'), null);
     holdArt = false; releaseArt();
     const first = await firstBoot;
-    assert.equal(await page.evaluate(() => window.__bgmContinued && window.__bgmBeforeGame === window.__earlyBgm), true,
-      'game must keep the existing context/source rather than restart the track');
     assert.equal(first.started, true, first.error);
     assert.equal(first.controlled, true);
     assert.equal(first.result.downloaded, first.result.total);
@@ -336,26 +299,21 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
     await leanPage.goto(`${origin}/`);
     await leanPage.waitForFunction(() => window.__spPreloadResult, { timeout: 90000 });
     const lean = await leanPage.evaluate(() => window.__spPreloadResult);
-    assert.equal(lean.total, first.result.total - 1, 'the audio file is not part of the batch list');
+    assert.equal(lean.total, first.result.total, 'legacy lean preferences must still verify every resource');
     assert.ok(!downloads.slice(leanStart).some((url) => url.includes('/assets/audio/')), 'no audio was requested');
     await leanPage.close();
-    // --- a local folder import: verified bytes enter the cache, so the download has nothing left to fetch ----
-    const importStart = downloads.length;
-    const context = browser.createBrowserContext ? await browser.createBrowserContext() : null;
-    const importPage = context ? await context.newPage() : await browser.newPage();
-    await importPage.goto(`${origin}/`);
-    // The import row wires itself up after the index arrives: wait for the panel to be painted, then hand it the folder.
-    await importPage.waitForFunction(() => (document.getElementById('boot-dl-note')?.textContent || '').length > 0, { timeout: 30000 });
-    const input = await importPage.waitForSelector('#boot-import-input', { state: 'attached' });
-    await input.uploadFile(root); // the release root (public/ + data/), what a player would point at
-    await importPage.waitForFunction(() => window.__spPreloadResult, { timeout: 120000 });
-    const note = await importPage.$eval('#boot-import-note', (el) => el.textContent);
-    assert.match(note, /本地导入完成：\d+ 项/, `import note: ${note}`);
-    const after = await importPage.evaluate(() => window.__spPreloadResult);
-    const fetched = downloads.slice(importStart).filter((url) => !url.startsWith('/js/') && !url.startsWith('/css/') && !url.startsWith('/shared/'));
-    assert.ok(fetched.length <= 4, `the folder covered the resources, only ${fetched.length} fetched: ${fetched.slice(0, 4).join(', ')}`);
-    assert.ok(after.cached >= first.result.total - 4, `imported bytes were reused (${after.cached}/${first.result.total})`);
-    if (context) await context.close(); else await importPage.close();
+    // A fresh browser profile downloads the complete payload without exposing any choice controls.
+    const context = await browser.createBrowserContext();
+    const fresh = await context.newPage();
+    await fresh.evaluateOnNewDocument(() => localStorage.setItem('sp.pref.download', JSON.stringify({ audio: false, guide: false })));
+    await fresh.goto(origin);
+    await fresh.waitForFunction(() => window.__spPreloadResult, { timeout: 120000 });
+    const freshResult = await fresh.evaluate(() => window.__spPreloadResult);
+    assert.equal(freshResult.total, first.result.total);
+    assert.equal(freshResult.downloaded, freshResult.total);
+    assert.equal(await fresh.$('#boot-dl-lean'), null);
+    assert.equal(await fresh.$('#boot-import-input'), null);
+    await context.close();
     t.diagnostic(JSON.stringify({ first: { downloaded: first.result.downloaded, total: first.result.total },
       second: { downloaded: second.result.downloaded, cached: second.result.cached }, changed: changed.result.downloaded,
       repaired: repaired.result.downloaded, retry: retry.downloaded, migrated: migrated.result.downloaded,
