@@ -76,15 +76,25 @@ export function createResourceIndex({ publicDir, dataDir }) {
     const priority = new Map(['/data/assets.json', bgm?.intro, bgm?.loop, ...fonts.map((face) => face.url)]
       .filter(Boolean).map((url, i) => [url, i]));
     urls.sort((a, b) => (priority.get(a) ?? 999) - (priority.get(b) ?? 999) || (a < b ? -1 : a > b ? 1 : 0));
-    const files = new Array(urls.length);
+    const files = [];
     let cursor = 0;
     await Promise.all(Array.from({ length: Math.min(8, urls.length) }, async () => {
-      while (cursor < urls.length) { const i = cursor++; files[i] = await fileRecord(urls[i]); }
+      while (cursor < urls.length) {
+        const i = cursor++;
+        const url = urls[i];
+        try {
+          files[i] = await fileRecord(url);
+        } catch (err) {
+          if (optionalGroupOf(url)) continue;
+          throw err;
+        }
+      }
     }));
-    const required = files.filter((file) => !optionalGroupOf(file.url));
-    const optional = files.filter((file) => optionalGroupOf(file.url));
-    return { version: 2, hash: hash(JSON.stringify(files)), bytes: files.reduce((sum, item) => sum + item.bytes, 0),
-      files, required, optional, startup: { bgm, fonts } };
+    const compactFiles = files.filter(Boolean);
+    const required = compactFiles.filter((file) => !optionalGroupOf(file.url));
+    const optional = compactFiles.filter((file) => optionalGroupOf(file.url));
+    return { version: 2, hash: hash(JSON.stringify(compactFiles)), bytes: compactFiles.reduce((sum, item) => sum + item.bytes, 0),
+      files: compactFiles, required, optional, startup: { bgm, fonts } };
   }
 
   // Share concurrent requests, but stat again on the next request so in-place edits are detected.
