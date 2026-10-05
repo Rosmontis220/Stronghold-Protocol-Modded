@@ -98,7 +98,7 @@ export function backoffDelay(attempt, rand = Math.random) {
  */
 export function defaultWsUrl(loc = globalThis.location) {
   if (!loc || !loc.host) return 'ws://localhost:3000/ws';
-  const configured = new URLSearchParams(loc.search || '').get('server');
+  const configured = globalThis.__SP_DESKTOP_SERVER || new URLSearchParams(loc.search || '').get('server');
   if (configured) {
     try {
       const remote = new URL(configured, `${loc.protocol}//${loc.host}`);

@@ -29,6 +29,10 @@ await fs.mkdir(OUT, { recursive: true });
 await copy(path.join(ROOT, 'public'), OUT);
 await copy(path.join(ROOT, 'data'), path.join(OUT, 'data'));
 await copy(path.join(ROOT, 'shared'), path.join(OUT, 'shared'));
+const mobileIndex = path.join(OUT, 'index.html');
+let html = await fs.readFile(mobileIndex, 'utf8');
+html = html.replace('</head>', `<script>globalThis.__SP_DESKTOP_SERVER='https://wsxy.rosmontis220.top';</script></head>`);
+await fs.writeFile(mobileIndex, html);
 const files = [];
 for (const root of ['public/assets', 'public/fonts', 'public/vendor', 'data', 'shared']) {
   for (const [abs, rel] of await walk(path.join(ROOT, root), root.replaceAll('\\', '/'))) {

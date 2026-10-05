@@ -6,7 +6,6 @@ const config: CapacitorConfig = {
   webDir: 'mobile-web',
   bundledWebRuntime: false,
   server: {
-    url: 'https://wsxy.rosmontis220.top',
     cleartext: false,
   },
   android: {
