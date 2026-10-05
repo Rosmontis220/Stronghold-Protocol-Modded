@@ -2,7 +2,7 @@
 import path from 'node:path';
 import fsp from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { buildPreloadPlan, LOCAL_MANIFEST_URL, runtimeResourceUrl } from '../shared/resource-plan.js';
+import { buildPreloadPlan, LOCAL_MANIFEST_URL, runtimeResourceUrl, optionalGroupOf } from '../shared/resource-plan.js';
 
 export const EMPTY_LOCAL_MANIFEST = JSON.stringify({ version: 1, source: 'none', count: 0, groups: {} });
 const hash = (body) => createHash('sha256').update(body).digest('hex');
@@ -81,8 +81,10 @@ export function createResourceIndex({ publicDir, dataDir }) {
     await Promise.all(Array.from({ length: Math.min(8, urls.length) }, async () => {
       while (cursor < urls.length) { const i = cursor++; files[i] = await fileRecord(urls[i]); }
     }));
+    const required = files.filter((file) => !optionalGroupOf(file.url));
+    const optional = files.filter((file) => optionalGroupOf(file.url));
     return { version: 2, hash: hash(JSON.stringify(files)), bytes: files.reduce((sum, item) => sum + item.bytes, 0),
-      files, startup: { bgm, fonts } };
+      files, required, optional, startup: { bgm, fonts } };
   }
 
   // Share concurrent requests, but stat again on the next request so in-place edits are detected.

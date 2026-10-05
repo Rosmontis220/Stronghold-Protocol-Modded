@@ -37,6 +37,8 @@ test('content index includes raw-byte SHA-256, stable empty local manifest, and 
   const local = index.files.find((file) => file.url === '/data/local-assets.json');
   assert.equal(local.sha256, sha(EMPTY_LOCAL_MANIFEST));
   assert.equal(index.bytes, index.files.reduce((sum, file) => sum + file.bytes, 0));
+  assert.equal(index.required.length + index.optional.length, index.files.length);
+  assert.ok(index.required.every((file) => !file.url.startsWith('/assets/audio/') && !file.url.startsWith('/assets/ui/guide/')));
   assert.equal((await build()).hash, index.hash);
   // Image rebuilds touch mtimes even when the file content stays identical.
   await fsp.utimes(path.join(dirs.publicDir, 'assets/a.png'), new Date(), new Date(1000000000000));
