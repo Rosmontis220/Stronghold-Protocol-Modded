@@ -92,7 +92,7 @@ export function pickBusy(busyIdx, card, mine) {
 export function cardPickable(sp, card, { myId, solo, busyIdx = null }) {
   if (!sp || !card) return false;
   const myTurn = solo || sp.turnPid === myId;
-  return myTurn && sp.pickOf.get(myId) == null && !card.takenBy && busyIdx == null;
+  return myTurn && sp.pickOf.get(myId) == null && (sp.repeatable || !card.takenBy) && busyIdx == null;
 }
 
 /**

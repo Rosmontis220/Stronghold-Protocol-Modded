@@ -922,7 +922,7 @@ export class Match {
     if (this.phase === PHASE.SP_DRAFT && this.sp) {
       const s = this.sp;
       v.sp = {
-        family: s.family, name: s.name, desc: s.desc, eventId: s.eventId, cards: s.cards.map(cardView), order: s.order.slice(),
+        family: s.family, name: s.name, desc: s.desc, eventId: s.eventId, repeatable: !!s.repeatable, cards: s.cards.map(cardView), order: s.order.slice(),
         turn: this.spTurn(), picks: { ...s.picks }, taken: { ...s.taken }, untimed: !!s.untimed,
       };
     }
@@ -1571,7 +1571,7 @@ export class Match {
       if (ps && ps.alive && s.picks[ps.playerId] == null) break;
       s.idx++;
     }
-    const available = s.cards.map((c) => c.idx).filter((i) => s.taken[i] == null);
+    const available = s.repeatable ? s.cards.map((c) => c.idx) : s.cards.map((c) => c.idx).filter((i) => s.taken[i] == null);
     if (s.idx >= s.order.length || !available.length) { this.setDeadline(0); this.later(0, () => this.finishSpDraft()); return; }
     const token = ++this._turnToken;
     if (!s.untimed) {
@@ -1581,7 +1581,7 @@ export class Match {
         if (this.phase !== PHASE.SP_DRAFT || token !== this._turnToken) return;
         const ps = this.players.get(this.spTurn());
         if (!ps) return;
-        const avail = s.cards.map((c) => c.idx).filter((i) => s.taken[i] == null);
+        const avail = s.repeatable ? s.cards.map((c) => c.idx) : s.cards.map((c) => c.idx).filter((i) => s.taken[i] == null);
         if (!avail.length) { this.finishSpDraft(); return; }
         this._applyCard(ps, avail[Math.floor(this.rngDraft() * avail.length)]);
       });
@@ -1600,7 +1600,7 @@ export class Match {
       if (this.phase !== PHASE.SP_DRAFT || token !== this._turnToken || !this.sp) return;
       const ps = this.players.get(this.spTurn());
       if (!ps || !ps.botControlled) return;
-      const avail = this.sp.cards.map((c) => c.idx).filter((i) => this.sp.taken[i] == null);
+      const avail = this.sp.repeatable ? this.sp.cards.map((c) => c.idx) : this.sp.cards.map((c) => c.idx).filter((i) => this.sp.taken[i] == null);
       if (!avail.length) return;
       this._applyCard(ps, botPickCard(this, ps, this.sp.cards, avail));
     });
@@ -1612,18 +1612,18 @@ export class Match {
     if (this.sp.picks[ps.playerId] != null) return fail(ERR.ALREADY);
     if (this.spTurn() !== ps.playerId) return fail(ERR.NOT_YOUR_TURN);
     if (!Number.isInteger(idx) || idx < 0 || idx >= this.sp.cards.length) return fail(ERR.BAD_TARGET);
-    if (this.sp.taken[idx] != null) return fail(ERR.SOLD_OUT);
+    if (!this.sp.repeatable && this.sp.taken[idx] != null) return fail(ERR.SOLD_OUT);
     this._applyCard(ps, idx);
     return OK;
   }
 
   _applyCard(ps, idx) {
     const s = this.sp;
-    if (!s || s.picks[ps.playerId] != null || s.taken[idx] != null) return;
+    if (!s || s.picks[ps.playerId] != null || (!s.repeatable && s.taken[idx] != null)) return;
     const card = s.cards[idx];
     if (!card) return;
     s.picks[ps.playerId] = idx;
-    s.taken[idx] = ps.playerId;
+    if (!s.repeatable) s.taken[idx] = ps.playerId;
     try { applyCard(this, ps, card); } catch (e) { this.reportError(`applyCard ${card.id}`, e); }
     this.markPrivate(ps);
     this.markPublic();

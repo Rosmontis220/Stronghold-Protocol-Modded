@@ -141,19 +141,21 @@ export function generateDraft(gd, rng, round, { stageId = null, bondAvailable = 
   const fams = Array.isArray(sch.families) && sch.families.length ? sch.families.map((f) => [f.family, f.weight]) : [['supply', 1]];
   let family = weightedPick(rng, fams) || 'supply';
   const baseCount = Number.isInteger(sch.cards) && sch.cards > 0 ? Math.min(sch.cards, 6) : formatCount(gd);
-  const n = Math.max(baseCount, playerCount);
+  // Large rooms keep the official six-card layout; their players may reuse any card.
+  const repeatable = playerCount >= 5;
+  const n = repeatable ? 6 : Math.max(baseCount, playerCount);
   const opts = { stageId, bondAvailable, round };
   let cards = buildCards(gd, rng, family, n, sch, opts);
   if (!cards.length && family !== 'supply') { family = 'supply'; cards = buildCards(gd, rng, family, n, sch, opts); }
   if (!cards.length) return null;
   // Fixed six-card pools (for example the secret shop) must still give every player a turn.
   const originals = cards.slice();
-  while (cards.length < playerCount) cards.push({ ...originals[cards.length % originals.length] });
+  while (cards.length < (repeatable ? 6 : playerCount)) cards.push({ ...originals[cards.length % originals.length] });
   cards.forEach((c, i) => { c.idx = i; c.family = family; });
   const famInfo = gd.choices.families && gd.choices.families[family];
   const events = sch.events && Array.isArray(sch.events[family]) ? sch.events[family] : [];
   const eventId = events.length ? events[Math.floor(rng() * events.length)] : null;
-  return { family, name: famInfo && famInfo.name ? famInfo.name : FAMILY_NAMES[family] || family, desc: famInfo && famInfo.desc ? famInfo.desc : '', eventId, cards };
+  return { family, name: famInfo && famInfo.name ? famInfo.name : FAMILY_NAMES[family] || family, desc: famInfo && famInfo.desc ? famInfo.desc : '', eventId, repeatable, cards };
 }
 
 /** Bond granted by a 驰援 tactic card (effect buff single_special_choice_gain_bond_chess), else null. */

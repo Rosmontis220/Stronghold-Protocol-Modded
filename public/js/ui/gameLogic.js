@@ -1357,6 +1357,7 @@ export function normalizeSp(sp, players = []) {
     family: typeof sp.family === 'string' ? sp.family : null,
     name: typeof sp.name === 'string' && sp.name ? sp.name : null,
     desc: typeof sp.desc === 'string' && sp.desc ? sp.desc : null,
+    repeatable: !!sp.repeatable,
     untimed: !!sp.untimed,
     cards, order, turnPid, pickOf, takenBy, pickedCount: pickOf.size,
   };
