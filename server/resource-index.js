@@ -42,6 +42,11 @@ export function createResourceIndex({ publicDir, dataDir }) {
         const base = filePath(url.replace(/_2\.png$/i, '.png'));
         try { if ((await fsp.stat(base)).isFile()) return null; } catch { /* base is also unavailable */ }
       }
+      // Some generated avatar manifests retain a base URL while only the alternate avatar exists in the asset pack.
+      if (err.code === 'ENOENT' && /^\/assets\/char\/avatar\/char_\d+_[a-z0-9]+\.png$/i.test(url)) {
+        const alternate = filePath(url.replace(/\.png$/i, '_2.png'));
+        try { if ((await fsp.stat(alternate)).isFile()) return null; } catch { /* alternate is also unavailable */ }
+      }
       throw new Error(`Resource unavailable: ${url} (${err.code || err.message})`);
     }
     if (!stat.isFile()) throw new Error(`Resource is not a file: ${url}`);
