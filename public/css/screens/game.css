@@ -267,6 +267,14 @@
 /* ---- team panel ------------------------------------------------------------------------------------------- */
 .team { position: absolute; left: .22rem; top: 2.36rem; display: flex; flex-direction: column; gap: .14rem; pointer-events: none; }
 .team__row { position: relative; display: flex; align-items: center; gap: .1rem; pointer-events: auto; }
+/* Eight-seat rooms use a compact two-column strip: avatars stay readable while the center gutter keeps emote bubbles clear. */
+.team--dense { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: .95rem; row-gap: .1rem; width: 2.65rem; }
+.team--dense .team__row { justify-content: center; min-width: 0; }
+.team--dense .team__info { display: none; }
+.team--dense .team__bubble { left: 50%; max-width: 2.2rem; z-index: 4; }
+@media (max-height: 34rem) {
+  .team--dense { top: 2.12rem; transform: scale(.88); transform-origin: top left; }
+}
 .team__btn {
   position: relative; padding: 0; background: none; border: 0;
   transition: transform var(--t-fast);

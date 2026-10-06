@@ -77,6 +77,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
   useEffect(() => { setOpenPid(null); }, [phaseKey, watching, observe?.observing]);
   const players = sortedPlayers(pub);
   if (!players.length) return null;
+  const dense = players.length >= 5;
   const click = (p, self) => {
     if (!observe) { onWatch(p); return; }
     if (self) { if (observe.observing) observe.onBack(); setOpenPid(null); return; }
@@ -84,7 +85,7 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
     if (!t.fieldId) { setOpenPid(null); onWatch(p); return; } // the game screen toasts the reason
     setOpenPid((cur) => (cur === p.playerId ? null : p.playerId));
   };
-  return html`<aside class=${cx('team', compact && 'team--compact')} aria-label="同盟成员">
+  return html`<aside class=${cx('team', compact && 'team--compact', dense && 'team--dense')} aria-label="同盟成员">
     ${players.map((p) => {
       const self = p.playerId === myId;
       const status = p.alive === false ? 'dead' : p.status;
@@ -99,12 +100,12 @@ export function TeamPanel({ pub, myId, watching, bubbles, onWatch, compact = fal
       return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', watched && 'is-watched', p.alive === false && 'is-dead', open && 'is-open')}>
         <button type="button" class="team__btn" onClick=${() => click(p, self)} title=${title} aria-expanded=${observe && !self ? String(open) : undefined}>
           <${PlayerAvatar} player=${p} self=${self} />
-          <span class="team__seat num">P${(p.seat ?? 0) + 1}</span>
+          ${!dense ? html`<span class="team__seat num">P${(p.seat ?? 0) + 1}</span>` : null}
           ${p.isBot ? html`<span class="team__ai">AI</span>` : null}
           ${self ? html`<span class="team__you"><${Icon} name="user" /></span>` : null}
         </button>
         <div class="team__info">
-          <span class="team__name">${p.name || '博士'}</span>
+          ${!dense ? html`<span class="team__name">${p.name || '博士'}</span>` : null}
           <div class="team__line">
             <${LpTower} value=${lp.lp} size="sm" tone=${Number.isFinite(lp.lp) && lp.lp - lp.pending <= 5 ? 'danger' : null} pending=${lp.pending}
               tip=${rowLpTip(lp, cap)} />
