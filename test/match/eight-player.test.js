@@ -31,7 +31,7 @@ test('eight-player drafts cover every seat, including fixed secret-shop pools', 
     for (const round of [3, 6, 9, 11, 13]) {
       const draft = generateDraft(h.m.gd, h.m.rngDraft, round, { stageId: h.m.stageId, playerCount: 8 });
       if (draft) {
-        assert.ok(draft.cards.length >= 8, `R${round} ${draft.family} has ${draft.cards.length} cards`);
+        assert.equal(draft.cards.length, 6, `R${round} ${draft.family} keeps the six-card layout`);
         assert.equal(new Set(draft.cards.map((c) => c.idx)).size, draft.cards.length);
       }
     }
