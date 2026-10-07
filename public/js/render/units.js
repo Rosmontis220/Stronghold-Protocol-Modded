@@ -315,7 +315,9 @@ export class UnitView {
     this.golden = !!info.golden;
     this.tier = clamp(Number(info.tier) || 1, 1, 6);
     this.x = Number(info.x) || 0; this.y = Number(info.y) || 0; this.z = 0;
-    this.zTarget = null;          // battle: standing height the feet ease towards (tile top under the unit)
+    this.zTarget = null;          // battle: standing height (road plane for enemies)
+    this.shadowZ = null;
+    this.shadowZTarget = null;
     this.flying = info.motion === 'FLY';
     this.hover = 0;               // flying: body height above the ground under it
     this.dir = this.isEnemy ? null : unitDir(info);
@@ -648,9 +650,13 @@ export class UnitView {
     this.x = s.x; this.y = s.y;
     this.flying = !!(s.flags & UF.FLYING) || this.info.motion === 'FLY';
     // ground enemies only ever walk low tiles (a rounding step onto a block edge must not pop them up)
-    const gz = this.isEnemy && !this.flying ? 0 : groundZ(this.ctx, s.x, s.y);
+    const floor = groundZ(this.ctx, s.x, s.y);
+    const gz = this.isEnemy ? 0 : floor;
     if (this.zTarget == null) this.z = gz;
     this.zTarget = gz;
+    this.shadowZTarget = this.isEnemy && this.flying ? floor : null;
+    if (this.shadowZTarget == null) this.shadowZ = null;
+    else if (this.shadowZ == null) this.shadowZ = this.z;
     if (s.maxHp > 0) this.maxHp = s.maxHp;
     const hp = clamp(s.hp, 0, this.maxHp);
     if (hp < this.hp - 0.5 && this.isBoss) this.shake = 0.25;
@@ -890,6 +896,10 @@ export class UnitView {
       const d = this.zTarget - this.z;
       this.z = Math.abs(d) < 1e-3 ? this.zTarget : this.z + d * Math.min(1, dt * 12);
     }
+    if (this.shadowZTarget != null && this.shadowZ !== this.shadowZTarget) {
+      const d = this.shadowZTarget - this.shadowZ;
+      this.shadowZ = Math.abs(d) < 1e-3 ? this.shadowZTarget : this.shadowZ + d * Math.min(1, dt * 12);
+    }
     const hoverTo = this.flying && this.alive ? FLY_HOVER : 0;
     if (this.hover !== hoverTo) this.hover = Math.abs(hoverTo - this.hover) < 1e-3 ? hoverTo : this.hover + (hoverTo - this.hover) * Math.min(1, dt * 6);
     const p = cam.project(this.x, this.y, this.z + this.hover + this.lift, this.screen);
@@ -926,9 +936,10 @@ export class UnitView {
     if (this._cull(bx, by, s, dt)) return;
     const flip = this.isEnemy ? (ENEMY_MODEL_FACES_LEFT ? -this.visFacing : this.visFacing) : this.visFacing;
 
-    // shadow (on a raised top it is drawn with that block row, else in the shadow layer under everything)
-    placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, this.z);
-    const sh = cam.project(this.x, this.y, this.z, SH_P);
+    // Flying enemies keep their shadow on the actual tile while their body stays over the road.
+    const shz = this.shadowZ ?? this.z;
+    placeOnGround(this.ctx, this.shadow, this.ctx.layers.shadow, this.y, shz);
+    const sh = cam.project(this.x, this.y, shz, SH_P);
     this.shadow.position.set(sh.x, sh.y);
     const shw = s * (this.isBoss ? 1.6 : 0.95) / this.shadow.texture.width;
     this.shadow.scale.set(shw, shw * (this.shadow.texture === shadowTexture() ? 1 : 1.05));
