@@ -1,0 +1,28 @@
+services:
+  stronghold:
+    image: stronghold-protocol:fused
+    build:
+      context: .
+      args:
+        FETCH_ASSETS: "0"
+    container_name: stronghold-fused
+    restart: unless-stopped
+    environment:
+      SP_VERIFY: "off"
+      NODE_ENV: production
+    ports:
+      - "127.0.0.1:3001:3000"
+    volumes:
+      - "${STRONGHOLD_RESOURCE_ROOT:-/opt/stronghold-resources}/assets:/app/public/assets:ro"
+      - "${STRONGHOLD_RESOURCE_ROOT:-/opt/stronghold-resources}/fonts:/app/public/fonts:ro"
+      - "./.deploy:/app/.deploy"
+    networks:
+      - webproxy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+networks:
+  webproxy:
+    external: true
