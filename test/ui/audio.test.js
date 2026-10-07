@@ -160,6 +160,30 @@ describe('operator battle voice', () => {
     assert.equal(g2.request('skill1', 'u1', 10001), 'play', 'a new battle inherits no cooldown');
   });
 
+  test('bilingual voice selects the saved language and falls back to the other bank', async () => {
+    const fw = fakeWindow();
+    const vm = { audio: { voice: {
+      jp: { char_a: { place: '/v/jp.mp3', skill1: '/v/fallback.mp3' } },
+      cn: { char_a: { place: '/v/cn.mp3' } },
+    } } };
+    const a = new AudioManager({ win: fw.win, getManifest: () => vm });
+    a.install(); fw.fire('pointerdown');
+    await new Promise((r) => setTimeout(r, 10));
+    const played = [];
+    a._playVoice = (url) => played.push(url);
+    assert.equal(a.voiceLang, 'jp');
+    assert.equal(a.voice('char_a', 'place'), true);
+    a._stopVoice(); a.voiceGate.reset();
+    a.setVolumes({ voiceLang: 'cn' });
+    assert.equal(a.voice('char_a', 'place'), true);
+    a._stopVoice(); a.voiceGate.reset();
+    assert.equal(a.voice('char_a', 'skill1'), true);
+    a.setVoiceLang('invalid');
+    assert.equal(a.voiceLang, 'cn');
+    assert.deepEqual(played, ['/v/jp.mp3', '/v/cn.mp3', '/v/fallback.mp3']);
+    a._stopVoice();
+  });
+
   test('AudioManager.voice: manifest slots (a drawn array), the gate, and the battle events that drive them', async () => {
     const fw = fakeWindow();
     const origFetch = globalThis.fetch;
