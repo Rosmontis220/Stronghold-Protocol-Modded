@@ -409,6 +409,7 @@ export class AudioManager {
     this.sfxGain = null;
     this.voiceGain = null;
     this.volumes = { bgm: 0.6, sfx: 0.8, voice: 0.8, muted: false };
+    this.voiceLang = 'jp';
     this.buffers = new Map(); // url → Promise<AudioBuffer|null> (insertion order = LRU)
     this.bufBytes = new Map(); // url → decoded PCM bytes (the byte budget of the LRU, see _buffer)
     this.warned = new Set();
@@ -545,6 +546,7 @@ export class AudioManager {
    * @param {{ bgm?: number, sfx?: number, voice?: number, muted?: boolean }} v
    */
   setVolumes(v) {
+    if (v?.voiceLang === 'jp' || v?.voiceLang === 'cn') this.voiceLang = v.voiceLang;
     const n = (x, d) => (Number.isFinite(x) ? Math.max(0, Math.min(1, x)) : d);
     this.volumes = {
       bgm: n(v?.bgm, this.volumes.bgm),
@@ -553,6 +555,10 @@ export class AudioManager {
       muted: typeof v?.muted === 'boolean' ? v.muted : this.volumes.muted,
     };
     this._applyVolumes();
+  }
+
+  setVoiceLang(lang) {
+    if (lang === 'jp' || lang === 'cn') this.voiceLang = lang;
   }
 
   _applyVolumes() {
@@ -795,7 +801,10 @@ export class AudioManager {
     try {
       if (!this.ctx || !this.voiceGain || this.volumes.muted || this.volumes.voice <= 0) return false;
       if (typeof charId !== 'string' || typeof slot !== 'string') return false;
-      const line = this.getManifest()?.audio?.voice?.[charId]?.[slot];
+      const root = this.getManifest()?.audio?.voice;
+      const current = this.voiceLang || 'jp';
+      const fallback = current === 'jp' ? 'cn' : 'jp';
+      const line = root?.[current]?.[charId]?.[slot] ?? root?.[fallback]?.[charId]?.[slot] ?? root?.[charId]?.[slot];
       const url = Array.isArray(line) ? line[Math.floor(Math.random() * line.length)] : line;
       if (typeof url !== 'string' || !url) return false;
       const now = typeof performance !== 'undefined' ? performance.now() : Date.now();

@@ -1588,7 +1588,7 @@ const QUALITIES = ['high', 'medium', 'low'];
 /**
  * Sanitize persisted settings.
  * @param {any} raw
- * @returns {{ bgm: number, sfx: number, voice: number, muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low' }}
+ * @returns {{ bgm: number, sfx: number, voice: number, voiceLang: 'jp'|'cn', muted: boolean, damageNumbers: boolean, quality: 'high'|'medium'|'low' }}
  */
 export function sanitizeSettings(raw) {
   const r = isObj(raw) ? raw : {};
@@ -1597,6 +1597,7 @@ export function sanitizeSettings(raw) {
     bgm: vol(r.bgm, DEFAULT_SETTINGS.bgm),
     sfx: vol(r.sfx, DEFAULT_SETTINGS.sfx),
     voice: vol(r.voice, DEFAULT_SETTINGS.voice),
+    voiceLang: r.voiceLang === 'cn' ? 'cn' : 'jp',
     muted: typeof r.muted === 'boolean' ? r.muted : DEFAULT_SETTINGS.muted,
     damageNumbers: typeof r.damageNumbers === 'boolean' ? r.damageNumbers : DEFAULT_SETTINGS.damageNumbers,
     quality: QUALITIES.includes(r.quality) ? r.quality : DEFAULT_SETTINGS.quality,

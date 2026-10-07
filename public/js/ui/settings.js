@@ -61,6 +61,13 @@ export function SettingsModal({ open, onClose }) {
     <div class="set-list">
       <${Slider} label="背景音乐" micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
       <${Slider} label="干员语音" micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
+      <div class="set-row">
+        <span class="set-row__label">语音语言<${MicroLabel}>VOICE DUB<//></span>
+        <div class="set-seg" role="radiogroup">
+          ${[['jp', '日语'], ['cn', '中文']].map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.voiceLang === id ? 'true' : 'false'}
+            class=${s.voiceLang === id ? 'is-on' : ''} onClick=${() => { updateSettings({ voiceLang: id }); audio.setVoiceLang?.(id); }}>${label}</button>`)}
+        </div>
+      </div>
       <${Slider} label="音效" micro="SFX" icon="signal" value=${s.sfx}
         onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${Toggle} label="静音" micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
