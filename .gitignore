@@ -1,5 +1,6 @@
 # --- dependencies & generated client libs -------------------------------------------------------
 node_modules/
+.npm-cache/
 # Electron build outputs
 /dist/
 # Generated Android resource payload
@@ -8,6 +9,9 @@ mobile-web/assets/
 mobile-web/fonts/
 mobile-web/data/
 mobile-web/shared/
+mobile-web/sim/
+mobile-web/data.js
+mobile-web/icon.png
 mobile-web/css/
 mobile-web/js/
 mobile-web/dev/
