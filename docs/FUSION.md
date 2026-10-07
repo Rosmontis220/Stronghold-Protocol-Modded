@@ -17,7 +17,7 @@ Included:
 Preserved: eight-player rooms, fixed six-card repeatable large-room drafts, two-column dense team panel, custom resource checks and Capacitor Android pipeline.
 
 Validation:
-- Full suite before final resource retry: 3,716 tests, 3,698 passed, 17 skipped, one failed because download was still running.
+- Final full suite: 3,716 tests, 3,699 passed, 17 skipped, zero failures.
 - After resource completion: assets / resource-index / audio tests 67/67 passed; manifest missing file count zero.
 - Chromium local and deployed page smoke tests: no page errors.
 - Android debug APK successfully built; offline payload 8,599 files, approximately 543 MiB. No physical-device test was performed.
