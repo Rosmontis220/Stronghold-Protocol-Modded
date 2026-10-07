@@ -43,7 +43,7 @@ function downloadFile(url, dest, retries = 3) {
     }
 
     const attempt = (left) => {
-      https.get(url, (res) => {
+      const request = https.get(url, (res) => {
         if (res.statusCode === 200) {
           const stream = fs.createWriteStream(dest);
           res.pipe(stream);
@@ -66,6 +66,7 @@ function downloadFile(url, dest, retries = 3) {
         if (left > 1) setTimeout(() => attempt(left - 1), 1000);
         else reject(err);
       });
+      request.setTimeout(20000, () => request.destroy(new Error('Voice download timed out')));
     };
 
     attempt(retries);
@@ -214,6 +215,7 @@ async function main() {
 
   // Write out plan structure cache for manifest sync
   const planOut = path.join(ROOT, '.cache', 'bilingual_voice_structure.json');
+  fs.mkdirSync(path.dirname(planOut), { recursive: true });
   fs.writeFileSync(planOut, JSON.stringify(voiceStructure, null, 2), 'utf8');
   console.log(`[fetch-bilingual-voices] 语音结构已缓存至 ${planOut}`);
 }

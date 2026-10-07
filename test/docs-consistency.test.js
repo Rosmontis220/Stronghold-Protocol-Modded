@@ -850,7 +850,7 @@ test('the deliberate trigger deviation (DESIGN §21.29): six 重装 skills DEFAU
 test('干员战斗语音 (DESIGN §21.30): the manifest data, the official priorities, and the 休整期 stays silent', async () => {
   const { VOICE_PRIORITY, VOICE_COOLDOWN_MS, resultVoiceSlot } = await import('../public/js/audio.js');
   const manifest = JSON.parse(readFileSync(join(ROOT, 'data/assets.json'), 'utf8'));
-  const voice = manifest.audio?.voice ?? {};
+  const voice = manifest.audio?.voice?.cn ?? manifest.audio?.voice ?? {};
   const charIds = Object.keys(voice);
   assert.ok(charIds.length >= 100, `${charIds.length} operators carry official battle voice`);
   assert.equal(manifest.stats.voiceChars, charIds.length, 'stats.voiceChars counts them');

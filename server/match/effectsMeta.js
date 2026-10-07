@@ -203,6 +203,10 @@ export class EffectDispatcher {
     if (deferItems) ps._deferItemMerge = (ps._deferItemMerge || 0) + 1;
     try {
       const reg = this.registry;
+      // A refresh affects only chess present before any handler grants or merges pieces.
+      const refreshed = hook === 'onRefresh' ? [
+        ...boardOrder(ps.board).map(({ piece }) => piece), ...ps.hand,
+      ].filter((piece) => piece?.kind === 'chess') : null;
       // 0. onPrice: the priced chess's own 特质 first — 购买价格为N defines the price every other modifier acts on
       if (hook === 'onPrice') this._garrisons(ps, hook, ev);
       // 1. globals
@@ -220,7 +224,7 @@ export class EffectDispatcher {
         if (h) this._call(ps, key, h, hook, { kind: 'bond', key, bondId, bond: ps.bonds[bondId] ?? null }, ev);
       }
       // 4. garrisons (onPrice: already run as step 0)
-      if (hook !== 'onPrice') this._garrisons(ps, hook, ev);
+      if (hook !== 'onPrice') this._garrisons(ps, hook, ev, refreshed);
       // 5. equipped items (not for the item-specific hooks): every [holder, item] pair of the owned chess, taken before
       // the first item runs; each runs only while still equipped on its still-owned holder — handlers move / destroy
       // pieces (header). Taking the pairs per holder as the walk reached it ran an item equipped meanwhile onto a later
@@ -278,7 +282,7 @@ export class EffectDispatcher {
     return [GARRISON_HOOK[g.eventType]];
   }
 
-  _garrisons(ps, hook, ev) {
+  _garrisons(ps, hook, ev, refreshed = null) {
     const gd = this.m.gd;
     const run = (piece, where) => {
       const rec = gd.chess(piece.id);
@@ -303,6 +307,13 @@ export class EffectDispatcher {
       return;
     }
     if (hook !== 'onRoundStart' && hook !== 'onPrepEnd' && hook !== 'onRefresh') return;
+    if (refreshed) {
+      for (const piece of refreshed) {
+        const loc = ps.find(piece.uid);
+        if (loc && loc.piece === piece && (loc.area === 'board' || loc.area === 'hand')) run(piece, loc.area);
+      }
+      return;
+    }
     for (const { piece } of boardOrder(ps.board)) if (piece.kind === 'chess') run(piece, 'board');
     for (const p of ps.hand) if (p && p.kind === 'chess') run(p, 'hand');
   }

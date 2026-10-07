@@ -855,7 +855,7 @@ function MatchScreen() {
       // raid redeploy speak too — it used to sound only when the player tapped a piece into place.
       view.on('unitDeploy', (e) => {
         const vk = voiceKey(e?.defId || e?.chessId, gd);
-        if (vk) audio.voice(vk);
+        if (vk) audio.voice(vk, 'place');
       }),
       view.on('pieceDragEnd', (e) => {
         // a cancelled drag (no pieceDrop) must not leave the highlights behind; a release on a tile that takes nothing
@@ -877,7 +877,7 @@ function MatchScreen() {
         if (!e) return;
         audio.sfx('click', { volume: 0.4 });
         const vk = voiceKey(e.piece || (e.uid != null ? live.current.placeCtx?.pieces.get(e.uid)?.piece : null) || e.unit, gd);
-        if (vk) audio.voice(vk);
+        if (vk) audio.voice(vk, 'select');
         // an enemy of the preview pen (research 09 §2.2 "Intel": tap it for its detail card)
         const penKey = previewEnemyKey(e);
         if (penKey) { setDetail({ kind: 'enemy', id: penKey }); return; }

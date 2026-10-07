@@ -71,6 +71,14 @@ const SKILL_MODE_FILE = /_(d|h|s)\d*\.mp3$/i;
 
 // ---- pure helpers (unit-tested) -----------------------------------------------------------------------
 
+/** Resolve a board piece or chess id to the operator's voice bank. */
+export function voiceKey(value, gameData) {
+  const id = typeof value === 'string' ? value : value?.defId || value?.id || value?.chessId;
+  if (typeof id !== 'string') return null;
+  const rec = typeof gameData?.chess === 'function' ? gameData.chess(id) : gameData?.chess?.[id];
+  return rec?.charId || (id.startsWith('char_') ? id.replace(/_2$/, '') : null);
+}
+
 /**
  * BGM key for a route + match phase.
  * @param {'title'|'lobby'|'room'|'game'|string} route

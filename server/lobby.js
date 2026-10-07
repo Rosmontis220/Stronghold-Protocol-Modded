@@ -297,6 +297,7 @@ export class Lobby {
       case 'room.kick': return this.kick(session, msg);
       case 'room.start': return this.start(session);
       case 'room.loadout': return this.loadout(session, msg);
+      case 'room.skins': return this.skins(session, msg);
       case 'room.spectate': return this.spectate(session, msg);
       case 'room.removeSpectator': return this.removeSpectator(session, msg);
       default:
@@ -584,6 +585,31 @@ export class Lobby {
     return OK;
   }
 
+  skins(session, { skins }) {
+    const data = this.safeData();
+    const cleaned = {};
+    for (const [id, skinId] of Object.entries(skins || {})) {
+      const rec = lookup('chess', id, data);
+      if (!rec || rec.isGolden || rec.visible === false || rec.isHidden || rec.isDiy || (rec.baseId && rec.baseId !== id)) continue;
+      cleaned[id] = skinId;
+    }
+    session.skins = Object.freeze(cleaned);
+    const room = this.roomOf(session);
+    const seat = room?.seatOf(session.playerId);
+    if (!seat) return OK;
+    seat.skins = session.skins;
+    if (!room.match) return OK;
+    if (typeof room.match.setSkins !== 'function') return fail(ERR.ROOM_STARTED, 'stored for the next match');
+    try {
+      const result = room.match.setSkins(session.playerId, session.skins);
+      if (result?.error) return fail(isErrCode(result.error) ? result.error : ERR.INTERNAL, result.detail);
+      return OK;
+    } catch (err) {
+      this.log.error(`[lobby] ${room.code} match.setSkins threw`, err);
+      return fail(ERR.INTERNAL);
+    }
+  }
+
   // ---------------------------------------------------------------------------------------------------
   // Match wiring
   // ---------------------------------------------------------------------------------------------------
@@ -596,6 +622,7 @@ export class Lobby {
       seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, connected: s.connected,
       // DESIGN §16: the human's checked operator loadout (bots fight with the defaults)
       loadout: s.isBot ? null : s.loadout || null,
+      skins: s.isBot ? null : s.skins || null,
     }));
     // lastPublic / results: the latest m.public broadcast and the m.result frames (encoded), kept for the replay.
     const ctx = { live: true, ended: false, disposed: false, match: null, lastPublic: null, sharedResult: null, results: new Map() };
@@ -854,6 +881,7 @@ export class Lobby {
     return {
       seat: idx, playerId: session.playerId, name: session.name, isBot: false, ready: false, connected: session.connected, left: false,
       loadout: session.loadout || null,
+      skins: session.skins || null,
       avatar: session.avatar ?? null,
     };
   }
