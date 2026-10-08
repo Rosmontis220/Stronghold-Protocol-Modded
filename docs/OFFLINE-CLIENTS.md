@@ -18,6 +18,6 @@ Validation performed:
 - External requests blocked: 1 human + 7 AI alliance reached round 2 without page errors.
 - Android static payload under the same blocked-network scenario reached round 2 without page errors.
 - Actual packaged Windows executable with an unreachable configured server created an AI alliance and entered INFO_CHECK.
-- Android APK build succeeded. No physical Android device was available for installation testing.
+- Android APK installed through ADB on a LNA-AL00 phone running Android 12. With Wi-Fi and mobile data disabled and no active default network, the installed WebView ran one human plus seven AI teammates through round 2 and its alliance defense into round 3. No JavaScript exceptions, app crash or ANR were observed. Native screen capture verified terrain, operator models, equipment and shop rendering in round-3 preparation. The player was returned from AI autopilot to manual play. A transient blank battlefield was observed during an alliance view transition; normal preparation rendering was confirmed afterwards. This was a short smoke test, not a complete match or performance soak.
 
 Game art/audio remains copyright Hypergryph / Yostar. GPL notices apply to code; see LICENSE and NOTICE.md.
