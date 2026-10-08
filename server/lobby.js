@@ -619,7 +619,7 @@ export class Lobby {
     const host = room.seatOf(room.hostId);
     if (host) host.ready = true;
     const seats = room.seats.filter(Boolean).map((s) => ({
-      seat: s.seat, playerId: s.playerId, name: s.name, isBot: s.isBot, connected: s.connected,
+      seat: s.seat, playerId: s.playerId, name: s.name, avatar: s.avatar ?? null, isBot: s.isBot, connected: s.connected,
       // DESIGN §16: the human's checked operator loadout (bots fight with the defaults)
       loadout: s.isBot ? null : s.loadout || null,
       skins: s.isBot ? null : s.skins || null,

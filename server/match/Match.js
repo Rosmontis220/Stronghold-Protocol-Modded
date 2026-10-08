@@ -899,6 +899,7 @@ export class Match {
         playerId: ps.playerId,
         seat: ps.seat,
         name: ps.name,
+        avatar: ps.avatar,
         isBot: ps.isBot,
         connected: ps.isBot || (ps.connected && !ps.left),
         alive: ps.alive,

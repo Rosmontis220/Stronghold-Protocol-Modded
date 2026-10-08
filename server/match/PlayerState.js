@@ -97,6 +97,7 @@ export class PlayerState {
     this.playerId = seat.playerId;
     this.seat = seat.seat;
     this.name = seat.name;
+    this.avatar = seat.avatar ?? null;
     this.isBot = !!seat.isBot;
     this.connected = this.isBot ? true : !!seat.connected;
     this.left = false;
