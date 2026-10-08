@@ -485,7 +485,7 @@ describe('websocket lobby', () => {
     await expectError(c, { t: 'room.join', code: 'AB CD' }, ERR.BAD_MSG);
     await expectError(c, { t: 'room.join', code: { $gt: '' } }, ERR.BAD_MSG);
     await expectError(c, { t: 'room.ready', ready: 'yes' }, ERR.BAD_MSG);
-    await expectError(c, { t: 'room.removeBot', seat: 9 }, ERR.BAD_MSG);
+    await expectError(c, { t: 'room.removeBot', seat: MAX_SEATS }, ERR.BAD_MSG);
     await expectError(c, { t: 'g.buy', slot: -1 }, ERR.BAD_MSG);
     await expectError(c, { t: 'g.move', uid: 1, to: { area: 'moon' } }, ERR.BAD_MSG);
     await expectError(c, { t: 'ping', c: 'x' }, ERR.BAD_MSG);
@@ -782,8 +782,8 @@ describe('websocket lobby', () => {
     for (let i = 3; i < MAX_SEATS; i++) await expectOk(host, { t: 'room.addBot' });
     const full = await host.waitFor('room.state', (s) => s.seats.every(Boolean));
     const names = full.seats.filter((s) => s.isBot).map((s) => s.name);
-    assert.equal(names.length, 7);
-    assert.equal(new Set(names).size, 7);
+    assert.equal(names.length, MAX_SEATS - 1);
+    assert.equal(new Set(names).size, MAX_SEATS - 1);
     assert.deepEqual(names.slice().sort(), BOT_NAMES.slice().sort());
     assert.ok(names.includes('AI·迷迭香'));
     await expectError(host, { t: 'room.addBot' }, ERR.ROOM_FULL);

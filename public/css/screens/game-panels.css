@@ -380,7 +380,8 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__turntxt .icon { width: .26rem; height: .26rem; }
 .spov__turntxt.is-mine { color: var(--gold); text-shadow: 0 0 .16rem rgba(255, 198, 0, .45); animation: blink 1.2s ease-in-out infinite; }
 .spov__turntxt.is-done { color: var(--mint-400); }
-.spov__order { display: flex; gap: .1rem; }
+.spov__order { display: flex; gap: .1rem; flex: none; max-width: 100%; overflow-x: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+.spov__who { flex-shrink: 0; }
 .spov__who { display: flex; align-items: center; gap: .08rem; padding: .05rem .12rem .05rem .06rem; background: rgba(255, 255, 255, .03); border: 1px solid var(--line); }
 .spov__who.is-cur { border-color: var(--gold); background: rgba(255, 198, 0, .08); }
 .spov__who.is-done { border-color: var(--mint-800); }
@@ -391,7 +392,7 @@ button.bpop__harmony:hover { border-style: solid; color: #fff; }
 .spov__wstate .icon { width: .2rem; height: .2rem; }
 .spov__who.is-done .spov__wstate { color: var(--mint-400); }
 .spov__who.is-cur .spov__wstate { color: var(--gold); }
-.spov__grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: .2rem; }
+.spov__grid { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: minmax(2.3rem, 1fr); overflow-y: auto; overscroll-behavior: contain; gap: .2rem; }
 .spov__grid--3 { grid-template-columns: repeat(3, minmax(0, 4.3rem)); grid-template-rows: minmax(0, 4.6rem); justify-content: center; align-content: start; gap: .36rem; margin-top: .3rem; }
 .spov__grid--3 .spcard__icon { width: 1.3rem; height: 1.3rem; }
 /* The official card (research 06 §11.5; the official 悬赏 / 机密商店 / 战术 screenshots): a framed icon at the top-left

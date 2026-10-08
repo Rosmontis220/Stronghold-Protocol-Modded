@@ -267,14 +267,16 @@
 /* ---- team panel ------------------------------------------------------------------------------------------- */
 .team { position: absolute; left: .22rem; top: 2.36rem; display: flex; flex-direction: column; gap: .14rem; pointer-events: none; }
 .team__row { position: relative; display: flex; align-items: center; gap: .1rem; pointer-events: auto; }
-/* Eight-seat rooms use a compact two-column strip: avatars stay readable while the center gutter keeps emote bubbles clear. */
-.team--dense { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: .95rem; row-gap: .1rem; width: 2.65rem; }
-.team--dense .team__row { justify-content: center; min-width: 0; }
-.team--dense .team__info { display: none; }
-.team--dense .team__bubble { left: 50%; max-width: 2.2rem; z-index: 4; }
-@media (max-height: 34rem) {
-  .team--dense { top: 2.12rem; transform: scale(.88); transform-origin: top left; }
-}
+/* Large rooms retain names, LP and status in a vertically scrollable single-column roster. */
+.team__list { display: flex; flex-direction: column; gap: .14rem; }
+.team--many { bottom: 1.12rem; width: max-content; max-width: 3.1rem; }
+.team--many .team__list { min-height: 0; overflow-y: auto; overflow-x: hidden; padding: .08rem; gap: .06rem; pointer-events: auto; scrollbar-width: thin; overscroll-behavior: contain; touch-action: pan-y; }
+.team--many .team__row { flex: none; min-height: .58rem; }
+.team--many .pavatar { --pa: .53rem; }
+.team--many .team__name { max-width: 1.25rem; font-size: .13rem; }
+.team--many .team__info { padding: .01rem .06rem; }
+.team--many .team__line { gap: .04rem; }
+.team--many .team__bubble { left: 0; top: 0; transform: none; z-index: 4; }
 .team__btn {
   position: relative; padding: 0; background: none; border: 0;
   transition: transform var(--t-fast);

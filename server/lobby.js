@@ -101,10 +101,14 @@ export const LOBBY_DEFAULTS = Object.freeze({
 export const SOLO_RECONNECT_FALLBACK_SEC = 86_400;
 
 /** Display names for AI teammates (the tutorial NPCs first, then a few familiar faces). */
-export const BOT_NAMES = Object.freeze(['AI·迷迭香', 'AI·银灰', 'AI·惊蛰', 'AI·德克萨斯', 'AI·佩佩', 'AI·能天使', 'AI·玛恩纳']);
+export const BOT_NAMES = Object.freeze(['AI·迷迭香', 'AI·银灰', 'AI·惊蛰', 'AI·德克萨斯', 'AI·佩佩', 'AI·能天使', 'AI·玛恩纳', 'AI·阿米娅', 'AI·古米', 'AI·角峰', 'AI·野鬃', 'AI·刺玫', 'AI·铃兰', 'AI·巫恋', 'AI·陈', 'AI·杰西卡', 'AI·缪尔赛思', 'AI·芬', 'AI·杜宾']);
 export const BOT_AVATARS = Object.freeze({
   'AI·迷迭香': 'char_391_rosmon', 'AI·银灰': 'char_172_svrash', 'AI·惊蛰': 'char_306_leizi',
   'AI·德克萨斯': 'char_102_texas', 'AI·佩佩': 'char_4058_pepe', 'AI·能天使': 'char_103_angel', 'AI·玛恩纳': 'char_4064_mlynar',
+  'AI·阿米娅': 'char_002_amiya', 'AI·古米': 'char_196_sunbr', 'AI·角峰': 'char_199_yak',
+  'AI·野鬃': 'char_496_wildmn', 'AI·刺玫': 'char_494_vendla', 'AI·铃兰': 'char_358_lisa',
+  'AI·巫恋': 'char_254_vodfox', 'AI·陈': 'char_010_chen', 'AI·杰西卡': 'char_235_jesica',
+  'AI·缪尔赛思': 'char_249_mlyss', 'AI·芬': 'char_123_fang', 'AI·杜宾': 'char_130_doberm',
 });
 
 const OK = Object.freeze({ ok: true });

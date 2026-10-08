@@ -17,33 +17,34 @@ test('co-op boss pool scales from the four-player baseline above four players', 
   assert.equal(gd.bossPoolShare(8), base * 2);
 });
 
-test('eight-player battle reports and last draft index pass protocol validation', () => {
-  assert.equal(MAX_SEATS, 8);
-  assert.equal(RESULT_LIMITS.players, 8);
-  const perPlayer = Object.fromEntries(Array.from({ length: 8 }, (_, i) => [`p_${i}`, { total: 1, killed: 1 }]));
-  assert.equal(Object.keys(compactResult({ perPlayer }).perPlayer).length, 8);
-  assert.equal(validateC2S({ t: 'g.choice', idx: 7 }), null);
+test('twenty-player battle reports and last draft index pass protocol validation', () => {
+  assert.equal(MAX_SEATS, 20);
+  assert.equal(RESULT_LIMITS.players, 20);
+  const perPlayer = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`p_${i}`, { total: 1, killed: 1 }]));
+  assert.equal(Object.keys(compactResult({ perPlayer }).perPlayer).length, 20);
+  assert.equal(validateC2S({ t: 'g.choice', idx: 19 }), null);
 });
 
-test('eight-player drafts cover every seat, including fixed secret-shop pools', () => {
-  const h = makeMatch({ humans: 8, seed: 82, fake: true });
+test('twenty-player drafts cover every seat, including fixed secret-shop pools', () => {
+  const h = makeMatch({ humans: 20, seed: 82, fake: true });
   try {
     for (const round of [3, 6, 9, 11, 13]) {
-      const draft = generateDraft(h.m.gd, h.m.rngDraft, round, { stageId: h.m.stageId, playerCount: 8 });
+      const draft = generateDraft(h.m.gd, h.m.rngDraft, round, { stageId: h.m.stageId, playerCount: 20 });
       if (draft) {
-        assert.equal(draft.cards.length, 6, `R${round} ${draft.family} keeps the six-card layout`);
+        assert.ok(draft.cards.length >= 20, `R${round} ${draft.family} covers all participants`);
+        assert.equal(draft.repeatable, false);
         assert.equal(new Set(draft.cards.map((c) => c.idx)).size, draft.cards.length);
       }
     }
   } finally { h.m.dispose(); }
 });
 
-test('one human and seven AI complete a match with eight players', () => {
-  const h = makeMatch({ humans: 1, bots: 7, fake: true, seed: 85, script: () => ({ duration: 1 }), checkFrames: true });
+test('one human and nineteen AI complete a match with twenty players', () => {
+  const h = makeMatch({ humans: 1, bots: 19, fake: true, seed: 85, script: () => ({ duration: 1 }), checkFrames: true });
   try {
     h.autoHumans().start();
     h.runToEnd();
-    assert.equal(h.m.players.size, 8);
+    assert.equal(h.m.players.size, 20);
     assert.deepEqual(h.logs.error, []);
     assert.deepEqual(h.badFrames, []);
     h.invariants();

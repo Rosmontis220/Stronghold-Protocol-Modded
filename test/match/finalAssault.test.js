@@ -33,7 +33,7 @@ test('boss pool = bloodPoint[difficulty] in co-op whatever the alive count (× a
   assert.equal(bossPoolHp(scaled, 'boss_1', 2), 1800000);
   assert.equal(bossPoolHp(scaled, 'boss_1', 1), 1800000);
   assert.equal(bossPoolHp(scaled, 'boss_1'), 1800000, 'no count given: a full team');
-  assert.equal(bossPoolHp(scaled, 'boss_1', 9), 3600000, 'counts clamp to the eight-player cap');
+  assert.equal(bossPoolHp(scaled, 'boss_1', 21), 9000000, 'counts clamp to the twenty-player cap');
   assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_abyss'), 'boss_5', 1), 750000);
   assert.equal(bossPoolHp(new GameData(RAW, 'mode_single_funny'), 'boss_2', 1), 56250);
   // the balance layer multiplies the pool (docs/BALANCE.md)

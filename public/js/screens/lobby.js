@@ -365,7 +365,7 @@ export function LobbyScreen() {
               : html`<span class="t-dim">向同伴索取 ${ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接</span>`}
           </div>
         <//>`}
-        ${net.local && html`<${Panel}><p>本地模拟 · 全部资源已内置。可独立作战，或创建同盟并添加至多 7 名 AI 队友。</p><p>与其他玩家一起游玩请返回标题并选择多人联机。</p><//>`}
+        ${net.local && html`<${Panel}><p>本地模拟 · 全部资源已内置。可独立作战，或创建同盟并添加至多 19 名 AI 队友。</p><p>与其他玩家一起游玩请返回标题并选择多人联机。</p><//>`}
         <${TipsPanel} />
       </section>
 
