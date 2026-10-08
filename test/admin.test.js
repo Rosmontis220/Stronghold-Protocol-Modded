@@ -8,7 +8,7 @@ import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { createAdminApi, passwordDigest, sameDigest, writeNoticeFile, PASSWORD_HASH } from '../server/admin.js';
+import { createAdminApi, passwordDigest, sameDigest, writeNoticeFile } from '../server/admin.js';
 import { parseNotice, readNotice } from '../server/notice.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -38,7 +38,8 @@ function fakeLobby() {
 }
 
 describe('operator console', () => {
-  test('the password is only ever compared as a SHA-256 digest', () => {
+  test('digest comparison is constant-time and sources have no default password', () => {
+    const PASSWORD_HASH = passwordDigest('forgetmenot');
     assert.equal(PASSWORD_HASH, passwordDigest('forgetmenot'));
     assert.equal(PASSWORD_HASH.length, 64);
     assert.ok(sameDigest(PASSWORD_HASH, passwordDigest('forgetmenot')));
@@ -80,16 +81,26 @@ describe('operator console', () => {
     assert.equal(parseNotice(await fs.readFile(file, 'utf8')).kind, 'info');
   });
 
-  test('login: digest only, attempt limiter, bearer token on everything else', async () => {
+  test('first-use setup persists across restart, cannot be overwritten, and login is limited', async (t) => {
     const { lobby } = fakeLobby();
-    const api = createAdminApi({ lobby, noticeFile: path.join(os.tmpdir(), 'sp-admin-none.json') });
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'sp-admin-auth-'));
+    t.after(() => fs.rm(dir, {recursive:true,force:true}));
+    const authFile = path.join(dir, 'auth.json');
+    const api = createAdminApi({ lobby, authFile, noticeFile: path.join(dir, 'notice.json') });
     const send = (req, p, query = '') => api.handle(req, {}, p, query);
 
     assert.equal(await send(fakeReq({ method: 'GET', headers: {} }), '/api/nope'), false, 'other paths are not ours');
+    assert.equal((await send(fakeReq(), '/api/admin/status')).body.initialized, false);
+    assert.equal((await send(fakeReq(), '/api/admin/overview')).status, 503, 'uninitialized management is blocked');
+    assert.equal((await send(fakeReq({method:'POST',body:{password:'short'}}), '/api/admin/setup')).status,400);
+    assert.equal((await send(fakeReq({method:'POST',body:{password:'test-password-123'}}), '/api/admin/setup')).status,200);
+    assert.equal((await send(fakeReq({method:'POST',body:{password:'another-password'}}), '/api/admin/setup')).status,409);
+    const stored = await fs.readFile(authFile,'utf8');
+    assert.doesNotMatch(stored,/test-password-123/);
     assert.equal((await send(fakeReq({ method: 'GET' }), '/api/admin/overview')).status, 401, 'no token');
-    assert.equal((await send(fakeReq({ method: 'POST', body: { hash: passwordDigest('nope') } }), '/api/admin/login')).status, 401);
+    assert.equal((await send(fakeReq({ method: 'POST', body: { password: 'wrong-password' } }), '/api/admin/login')).status, 401);
 
-    const ok = await send(fakeReq({ method: 'POST', body: { hash: PASSWORD_HASH } }), '/api/admin/login');
+    const ok = await send(fakeReq({ method: 'POST', body: { password: 'test-password-123' } }), '/api/admin/login');
     assert.equal(ok.status, 200);
     assert.match(ok.body.token, /^[a-f0-9]{64}$/);
     const auth = { 'x-admin-token': ok.body.token };
@@ -113,9 +124,10 @@ describe('operator console', () => {
     assert.equal((await send(fakeReq({ method: 'GET', headers: auth }), '/api/admin/overview')).status, 401, 'the token is dead');
 
     // the limiter stops a burst of wrong passwords
-    const api2 = createAdminApi({ lobby });
+    const api2 = createAdminApi({ lobby, authFile });
+    assert.equal((await api2.handle(fakeReq({method:'POST',body:{password:'test-password-123'}}),{},'/api/admin/login','')).status,200,'password survives server recreation');
     let last = 0;
-    for (let i = 0; i < 9; i++) last = (await api2.handle(fakeReq({ method: 'POST', body: { hash: passwordDigest('x') } }), {}, '/api/admin/login', '')).status;
+    for (let i = 0; i < 9; i++) last = (await api2.handle(fakeReq({ method: 'POST', body: { password: 'wrong-password' } }), {}, '/api/admin/login', '')).status;
     assert.equal(last, 429);
   });
 

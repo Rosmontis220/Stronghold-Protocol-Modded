@@ -108,7 +108,8 @@
       <h1>操作台</h1>
       <p class="gate__sub" id="gate-sub">请输入操作口令</p>
       <input id="gate-pass" type="password" autocomplete="current-password" placeholder="口令" autofocus />
-      <button class="btn btn--primary btn--wide" type="submit" id="gate-go">进入</button>
+      <input id="gate-confirm" type="password" autocomplete="new-password" placeholder="再次输入密码" hidden />
+      <button class="btn btn--primary btn--wide" type="submit" id="gate-go" disabled>正在检查…</button>
       <p class="gate__err" id="gate-err" role="alert"></p>
     </form>
   </div>

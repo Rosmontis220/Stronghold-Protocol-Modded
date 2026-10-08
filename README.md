@@ -1,6 +1,6 @@
 # 卫戍协议：盟约 · Stronghold Protocol: Alliance
 
-《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：浏览器即开即玩，支持独立模拟或最多 8 人联机合作。
+《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：支持浏览器、Windows 桌面端和 Android 客户端，可进行独立模拟或最多 8 席位同盟合作。Windows / Android 完整客户端内置资源与本地对局引擎，断网时也能与 AI 队友一起玩。
 
 ![version](https://img.shields.io/badge/version-0.1.6-pre-skin-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
@@ -27,7 +27,7 @@ English summary: [below](#english).
 ## 目录
 
 - [声明](#声明) · [简介](#简介) · [功能一览](#功能一览)
-- [快速开始](#快速开始)：[整合包](#方式一整合包推荐) · [从源码运行](#方式二从源码运行) · [系统要求](#系统要求) · [端口与配置](#端口与配置) · [局域网联机](#和朋友一起玩局域网)
+- [快速开始](#快速开始)：[Windows / Android 完整客户端](#windows--android-完整客户端) · [Node.js 整合包](#方式一nodejs-整合包) · [从源码运行](#方式二从源码运行) · [系统要求](#系统要求) · [端口与配置](#端口与配置) · [局域网联机](#和朋友一起玩局域网)
 - [联机方式](#联机方式) · [操作](#操作) · [文档](#文档) · [开发与测试](#开发与测试) · [项目结构](#项目结构)
 - [许可证](#许可证) · [致谢与数据来源](#致谢与数据来源) · [贡献](#贡献)
 
@@ -58,7 +58,7 @@ English summary: [below](#english).
 
 - **独立模拟**（单人）与**同盟模拟**（最多 8 人**合作**，没有 PvP；空位可以加 AI 队友）。
 - 服务器是一个 Node.js 程序，**战斗在各玩家的浏览器里模拟**（和官方一样），服务器只管经济与回合，一台低功耗小主机就能开服。
-- 当前版本 0.1.3：修复了 0.1.2 发布后玩家和 GitHub 上反馈的问题，详见 [CHANGELOG.md](CHANGELOG.md)。仍有少数规则按推断实现，与官方不一致的地方欢迎在 Issue 里反馈。
+- 当前版本标识为 **0.1.6-pre-skin**：融合 Paper `0.1.6.1` 的皮肤和中日语音，以及兼容的 upstream 修复；保留 8 席位房间与大房间可重复的六卡轮选。融合范围见 [docs/FUSION.md](docs/FUSION.md)，客户端构建与离线行为见 [docs/OFFLINE-CLIENTS.md](docs/OFFLINE-CLIENTS.md)。这不是 upstream 0.2.1 的完整合并。
 
 ## 功能一览
 
@@ -81,7 +81,26 @@ English summary: [below](#english).
 
 ## 快速开始
 
-### 方式一：整合包（推荐）
+### Windows / Android 完整客户端
+
+Windows 提供 x64 安装版与便携版，Android 提供完整资源 APK。若 Releases 暂无这些文件，可按下方命令自行构建；本地构建产物不会自动上传为 GitHub Release。
+
+- 默认选择 **开始本地模拟**：支持独立模拟，以及 1 名玩家 + 最多 7 名 AI 的同盟模拟，无需连接服务器。
+- 选择 **连接服务器 · 多人联机**：切换线上模式；服务器不可用时可返回本地模式。真人房间加入与线上观战需要联网。
+- 本地对局状态保存在内存中，关闭应用会结束本局；本地模式暂不提供保存与恢复。
+- 干员调配、精锐模组、皮肤、中日语音、战斗、联防、机变与结算模块随客户端打包。玩家与 AI 局内显示干员头像，策略选择不会替换头像。
+- Android 使用与项目匹配的深绿黑开屏与项目图标。当前 APK 为调试签名；已在 Android 12 实机通过 ADB 验证断网 8 席位同盟推进至第三回合，以及头像与开屏显示。
+
+```bash
+npm ci
+npm run setup              # 准备完整游戏资源
+npm run desktop:win        # Windows x64 安装版和便携版：dist/
+npm run mobile:apk         # Windows 上构建 Android debug APK（需 JDK 与 Android SDK）
+```
+
+Android 输出：`android/app/build/outputs/apk/debug/app-debug.apk`。资源包约 543 MiB，APK 约 409 MiB，Windows 分发文件约 467 MiB，具体大小随版本变化；源码与构建依赖需额外磁盘空间。详细要求和验证步骤见 [docs/OFFLINE-CLIENTS.md](docs/OFFLINE-CLIENTS.md)。
+
+### 方式一：Node.js 整合包
 
 整合包里已经包含代码、运行依赖和全部美术 / 音频（含官方 3D 棋盘贴图），解压就能玩，不需要再下载任何东西。
 
@@ -89,7 +108,7 @@ English summary: [below](#english).
    - Windows：在 PowerShell 里运行 `winget install OpenJS.NodeJS.LTS`，或到 <https://nodejs.org/zh-cn/download> 下载安装包。
    - macOS：`brew install node@22`，或到官网下载安装包。
    - Linux：发行版的包管理器、nvm 或 fnm。
-2. **下载**：在 [Releases](../../releases/latest) 页面下载最新版本（v0.1.3）的整合包（zip），解压到一个路径较短的文件夹（Windows 上建议不要放在 OneDrive 同步的目录里）。
+2. **下载**：在 [Releases](../../releases/latest) 页面下载可用版本的 Node.js 整合包（zip），核对发布说明中的版本与构建日期，解压到一个路径较短的文件夹（Windows 上建议不要放在 OneDrive 同步的目录里）。
 3. **启动**
    - Windows：双击 **`scripts\start-windows.bat`**。如果弹出「安全警告」，点「运行」；Windows 防火墙弹窗请勾选「专用网络」并允许。
    - macOS / Linux：在解压出的文件夹里运行 `./scripts/start.sh`（或 `bash scripts/start.sh`）。
@@ -101,7 +120,7 @@ English summary: [below](#english).
 git clone https://github.com/Rosmontis220/Stronghold-Protocol-Modded.git
 cd Stronghold-Protocol-Modded
 npm install        # 安装依赖（postinstall 会把 pixi / preact / three 复制到 public/vendor）
-npm run setup      # 检查环境，并从公开镜像下载约 270 MB 美术 / 音频（可中断，再次运行会续传）
+npm run setup      # 检查环境并准备完整美术 / 音频；下载可中断续传
 npm start          # 启动服务器：http://localhost:3000
 ```
 
@@ -121,7 +140,7 @@ npm start          # 启动服务器：http://localhost:3000
 
 显卡较弱时可以在「设置」里调低画质，或在网址后加 `?board=2d`（强制 2D 棋盘）/ `?render=fallback`（不用 WebGL 的简化画面）。
 
-**素材校验与本 fork 的客户端改动**：进入游戏前会对比云端完整资源清单与本地素材的 SHA-256 与大小，只补下缺失、变化或损坏的文件；音频和教程也属于完整资源。资源完整时直接进入游戏，只有确认资源缺失后才显示完整下载状态，不提供精简下载或资源勾选。首次约 250 MB，失败时保留旧版本，可刷新继续利用已完成的下载；清除站点数据后重新补下。需要 HTTPS 或 `localhost`；联机与启动时的云端校验仍需网络。
+**素材校验与本 fork 的客户端改动**：进入游戏前会对比云端完整资源清单与本地素材的 SHA-256 与大小，只补下缺失、变化或损坏的文件；音频和教程也属于完整资源。资源完整时直接进入游戏，只有确认资源缺失后才显示完整下载状态，不提供精简下载或资源勾选。当前完整清单约 543 MiB，失败时保留旧版本，可刷新继续利用已完成的下载；清除站点数据后重新补下。网页校验需要 HTTPS 或 `localhost`，联网启动和真人联机需要网络。Windows / Android 完整客户端直接使用安装包内的资源，不依赖云端校验即可进入本地模拟。
 
 **自定义头像**：在「选择模拟协议」界面**右上角的博士信息条**点一下，即可从干员里选一名作为头像（可搜索，也可「跟随默认」）。选择保存在本机，并随 `hello` 告知服务器；队友会在准备大厅的座位卡、队伍面板和相关联机界面看到该干员的头像，未选择时保持座位色图标。头像本身只是一个干员 id（如 `char_4040_rockr`），图片来自每位玩家本地已校验的素材，不额外产生流量。
 
@@ -167,6 +186,16 @@ npm start          # 启动服务器：http://localhost:3000
 - 游戏没有账号系统，**知道地址的人都能进来**。请只把地址发给朋友，不要公开发布，也不要搭建公开大厅；这同时能降低素材版权方面的风险。
 - 有公网 IPv4 时也可以在路由器上做端口转发，但这会把家里的电脑直接暴露在公网上，优先考虑上面的方式。
 
+## 服务器管理控制台
+
+源码包含独立管理页面 `/admin.html` 和 `/api/admin/*` API，可查看房间、发布公告及调整局内状态。首次访问时设置 12–256 位密码并确认；以后使用该密码登录。没有默认密码，也没有写在源码里的登录哈希。
+
+认证文件默认保存到 `.deploy/admin-auth.json`，包含随机盐与 scrypt 派生验证值，不保存明文密码；可用环境变量 `SP_ADMIN_AUTH_FILE` 指定其他路径。该目录已被 Git 忽略，生产 Docker 配置将其挂载到宿主机，因此重启和更新容器不会重置密码。未初始化时管理接口不可用，已初始化的密码不能通过首次设置接口覆盖；认证文件损坏时接口拒绝服务，不会自动退回首次设置状态。
+
+首次设置由第一个成功提交密码的访问者完成，首次部署应由管理员立即初始化，或先限制管理入口的访问范围。公网控制台必须使用 HTTPS。登录令牌保存在当前浏览器会话中，12 小时到期，服务器重启会使令牌失效。忘记密码时需在服务器上停止服务、备份并移走认证文件，再启动服务并重新初始化。
+
+检查结果：控制台页面与代码是仓库正式功能，并非服务器终端或 SSH 控制台；没有发现服务器私钥或 SSH 凭据。Android 当前静态打包也会复制管理页面，但 APK 的本地引擎不提供管理 API。
+
 ## 操作
 
 | 操作 | 方法 |
@@ -189,6 +218,8 @@ npm start          # 启动服务器：http://localhost:3000
 
 | 文档 | 内容 |
 |---|---|
+| [docs/OFFLINE-CLIENTS.md](docs/OFFLINE-CLIENTS.md) | Windows / Android 完整客户端、离线行为、构建与实机测试 |
+| [docs/FUSION.md](docs/FUSION.md) | Paper / upstream 融合范围和资源分离部署 |
 | [CHANGELOG.md](CHANGELOG.md) | 更新记录：每个版本修复了什么、哪些反馈经核实不是问题 |
 | [docs/PLAYING.md](docs/PLAYING.md) | 玩法指南：流程、经济、招募与晋升、摆阵、联防、盟约、最终攻势、结算称号 |
 | [docs/DEPLOY.md](docs/DEPLOY.md) | 部署指南：Windows 开服与开机自启、防火墙、组网 / 隧道、反向代理与 HTTPS、Docker、systemd、排错 |
@@ -205,7 +236,7 @@ npm start          # 启动服务器：http://localhost:3000
 
 ```bash
 npm run dev                 # node --watch：改动服务器代码后自动重启
-node --test                 # 单元 + 集成测试（约 3170 项；缺少素材 / 浏览器的用例会自动跳过）
+node --test                 # 单元 + 集成测试（约 3700 项；缺少素材 / 浏览器的用例会自动跳过）
 SP_E2E=1 node --test test/ui/mock.e2e.test.js        # 浏览器端到端测试，需要本机 Chrome（CHROME_PATH 可指定路径）
 SP_REAL_E2E=1 node --test test/ui/real.e2e.test.js   # 需要 Chrome + 已下载的素材
 RENDER_E2E=1 node --test 'test/render/*.browser.test.js'   # 渲染测试，部分需要本地提取的棋盘贴图

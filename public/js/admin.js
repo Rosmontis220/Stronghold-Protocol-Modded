@@ -1,6 +1,6 @@
 // public/js/admin.js — 操作台 (admin.html): login + overview + live room view + notice publishing.
 // Plain ES module, no build step and no game shell: the API is /api/admin/* (server/admin.js) and the password is
-// hashed with WebCrypto before it leaves the page.
+// set on first use and verified by the server using a salted scrypt verifier. Use HTTPS for remote access.
 
 const $ = (id) => document.getElementById(id);
 const TOKEN_KEY = 'sp.admin.token';
@@ -8,11 +8,16 @@ let token = sessionStorage.getItem(TOKEN_KEY) || '';
 let pollTimer = null;
 let openRoom = null;
 let busy = false;
-
-/** hex SHA-256 of a string (the only form of the password the server ever sees). */
-async function sha256(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+let setupRequired = false;
+async function refreshAuthState() {
+  const { status, data } = await api('status');
+  if (status !== 200) throw new Error('无法读取控制台认证配置');
+  setupRequired = !data.initialized;
+  $('gate-confirm').hidden = !setupRequired;
+  $('gate-pass').autocomplete = setupRequired ? 'new-password' : 'current-password';
+  $('gate-sub').textContent = setupRequired ? '首次使用：设置至少 12 位的管理密码' : '请输入操作口令';
+  $('gate-go').textContent = setupRequired ? '设置密码并进入' : '进入';
+  $('gate-go').disabled = false;
 }
 
 async function api(path, { method = 'GET', body = null } = {}) {
@@ -32,8 +37,7 @@ const say = (el, text, tone = '') => { el.textContent = text; el.classList.toggl
 // ---- login -----------------------------------------------------------------------------------------
 
 async function login(password) {
-  const hash = await sha256(password);
-  const { status, data } = await api('login', { method: 'POST', body: { hash } });
+  const { status, data } = await api('login', { method: 'POST', body: { password } });
   if (status !== 200) {
     throw new Error(status === 429 ? '尝试次数过多，请稍后再试' : '口令错误');
   }
@@ -274,7 +278,19 @@ $('gate-form').addEventListener('submit', async (e) => {
   go.disabled = true;
   $('gate-err').textContent = '';
   try {
+    if (setupRequired) {
+      if (pass.length < 12 || pass.length > 256) throw new Error('密码长度须为 12–256 位');
+      if (pass !== $('gate-confirm').value) throw new Error('两次输入的密码不一致');
+      const result = await api('setup', { method: 'POST', body: { password: pass } });
+      if (result.status !== 200) {
+        await refreshAuthState();
+        throw new Error(result.status === 409 ? '密码已由另一页面设置，请登录' : '密码保存失败，请检查服务器配置');
+      }
+      await refreshAuthState();
+    }
     await login(pass);
+    $('gate-pass').value = '';
+    $('gate-confirm').value = '';
     await enterConsole();
   } catch (err) {
     $('gate-err').textContent = err.message || '登录失败';
@@ -293,8 +309,7 @@ $('state-room').addEventListener('change', async () => {
 $('drawer-close').addEventListener('click', () => { openRoom = null; $('drawer').hidden = true; });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openRoom) { openRoom = null; $('drawer').hidden = true; } });
 
-if (token) {
-  enterConsole().catch(() => signOut());
-} else {
-  $('gate').hidden = false;
-}
+refreshAuthState().then(() => {
+  if (token && !setupRequired) enterConsole().catch(() => signOut());
+  else { token = ''; sessionStorage.removeItem(TOKEN_KEY); $('gate').hidden = false; }
+}).catch(err => { $('gate-err').textContent = err.message; });

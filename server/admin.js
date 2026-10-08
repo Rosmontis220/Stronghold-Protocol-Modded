@@ -1,7 +1,7 @@
 // server/admin.js — operator console API (UI: public/admin.html + public/js/admin.js).
 //
-// Login is the SHA-256 of the password (the plaintext never lives here): the page hashes what was typed with WebCrypto
-// and posts the hex digest; a per-IP attempt limiter and a constant-time compare guard the check. A successful login
+// First-use setup stores a salted scrypt verifier in the persistent auth file. Passwords travel over HTTPS,
+// never enter logs or source code; a per-IP attempt limiter and constant-time comparison guard login. A successful login
 // hands out a random bearer token kept in memory (a server restart logs everyone out).
 //
 // Endpoints (all JSON, all but /login need the token):
@@ -20,8 +20,8 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { cleanNoticeText, NOTICE_KINDS, NOTICE_FILE } from './notice.js';
 
-/** SHA-256 of the console password. */
-const PASSWORD_SHA256 = '69e8713b2d833a1df2de72eb88dcfbf510f67ce7363576e24900a33f6d7bbcde';
+/** Credentials are created by the first visitor and kept outside the source tree. */
+export const ADMIN_AUTH_FILE = process.env.SP_ADMIN_AUTH_FILE || path.resolve('.deploy/admin-auth.json');
 /** Login attempts allowed per IP inside the window. */
 const ATTEMPT_LIMIT = 8;
 const ATTEMPT_WINDOW_MS = 10 * 60_000;
@@ -50,7 +50,7 @@ export function sameDigest(a, b) {
 
 /** The digest the page must send for `password` (also what the tests use). */
 export const passwordDigest = (password) => crypto.createHash('sha256').update(String(password), 'utf8').digest('hex');
-export const PASSWORD_HASH = PASSWORD_SHA256;
+const derivePassword = (password, salt) => crypto.scryptSync(password, salt, 64).toString('hex');
 
 /** Read a JSON body with a hard size cap. Resolves `null` for anything unusable. */
 export function readJsonBody(req, max = ADMIN_BODY_MAX) {
@@ -89,8 +89,15 @@ export function writeNoticeFile(file, { text, kind, forMs } = {}) {
  * The console API.
  * @param {{ lobby: any, noticeBoard?: any, noticeFile?: string, log?: any, now?: () => number }} deps
  */
-export function createAdminApi({ lobby, noticeBoard = null, noticeFile = null, log = {}, now = Date.now } = {}) {
+export function createAdminApi({ lobby, noticeBoard = null, noticeFile = null, authFile = ADMIN_AUTH_FILE, log = {}, now = Date.now } = {}) {
   const file = noticeFile || NOTICE_FILE;
+  const readAuth = () => {
+    try {
+      const auth = JSON.parse(fs.readFileSync(authFile, 'utf8'));
+      if (auth.version !== 1 || !/^[a-f0-9]{64}$/.test(auth.salt) || !/^[a-f0-9]{128}$/.test(auth.verifier)) throw new Error('Invalid admin credentials');
+      return auth;
+    } catch (err) { if (err.code === 'ENOENT') return null; throw err; }
+  };
   /** @type {Map<string, number>} token → expiry */
   const sessions = new Map();
   /** @type {Map<string, { count: number, first: number }>} ip → attempts */
@@ -182,15 +189,33 @@ export function createAdminApi({ lobby, noticeBoard = null, noticeFile = null, l
   async function handle(req, res, rawPath, query) {
     if (!rawPath.startsWith('/api/admin/')) return false;
     const route = rawPath.slice('/api/admin/'.length);
+    let credentials;
+    try { credentials = readAuth(); } catch { return { status: 503, body: { error: 'AUTH_CONFIG_ERROR' } }; }
+    if (route === 'status' && req.method === 'GET') return { status: 200, body: { initialized: !!credentials } };
     if (req.method !== 'POST' && !(req.method === 'GET' && (route === 'overview' || route === 'room'))) {
       res.setHeader('Allow', req.method === 'GET' ? 'GET, POST' : 'POST');
       return { status: 405, body: { error: 'BAD_METHOD' } };
     }
+    if (route === 'setup') {
+      if (credentials) return { status: 409, body: { error: 'ALREADY_INITIALIZED' } };
+      const body = await readJsonBody(req);
+      if (typeof body?.password !== 'string' || body.password.length < 12 || body.password.length > 256) return { status: 400, body: { error: 'PASSWORD_LENGTH' } };
+      const salt = crypto.randomBytes(32).toString('hex');
+      const auth = { version: 1, salt, verifier: derivePassword(body.password, salt) };
+      try {
+        fs.mkdirSync(path.dirname(authFile), { recursive: true });
+        fs.writeFileSync(authFile, JSON.stringify(auth) + '\n', { flag: 'wx', mode: 0o600 });
+      } catch (err) {
+        return { status: err.code === 'EEXIST' ? 409 : 503, body: { error: err.code === 'EEXIST' ? 'ALREADY_INITIALIZED' : 'AUTH_SAVE_FAILED' } };
+      }
+      return { status: 200, body: { ok: true } };
+    }
+    if (!credentials) return { status: 503, body: { error: 'SETUP_REQUIRED' } };
     if (route === 'login') {
       const ip = req.socket?.remoteAddress || '?';
       if (attemptsOf(ip) >= ATTEMPT_LIMIT) return { status: 429, body: { error: 'TOO_MANY_ATTEMPTS' } };
       const body = await readJsonBody(req);
-      if (!body || typeof body.hash !== 'string' || !sameDigest(body.hash, PASSWORD_SHA256)) {
+      if (!body || typeof body.password !== 'string' || body.password.length > 256 || !sameDigest(derivePassword(body.password, credentials.salt), credentials.verifier)) {
         noteAttempt(ip);
         log.warn?.(`[admin] rejected login from ${ip}`);
         return { status: 401, body: { error: 'BAD_PASSWORD' } };
@@ -255,5 +280,5 @@ export function createAdminApi({ lobby, noticeBoard = null, noticeFile = null, l
     return { status: 200, body: { ok: true, room: view, publicView, players } };
   }
 
-  return { handle, overview, roomDetail, applyState, sessions, PASSWORD_SHA256 };
+  return { handle, overview, roomDetail, applyState, sessions };
 }
