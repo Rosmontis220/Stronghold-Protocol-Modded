@@ -252,7 +252,13 @@ export function TitleScreen() {
         <${TextField} label="博士代号" micro="CALLSIGN" size="lg" icon="user" value=${name} maxLength=${NAME_MAX_LEN}
           placeholder="输入你的代号（最多 ${NAME_MAX_LEN} 字）" autoFocus=${!touchUi}
           onInput=${setName} onEnter=${start} />
-        <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>开始<//>
+        <${Button} variant="primary" size="xl" block=${true} iconRight="chevrons" disabled=${!valid} onClick=${start}>${net.local ? '开始本地模拟' : '开始'}<//>
+        ${(globalThis.__SP_PACKAGED || new URLSearchParams(globalThis.location?.search || '').get('packaged') === '1') && html`<${Button} block=${true} onClick=${() => {
+          const url = new URL(location.href);
+          url.searchParams.set('play', net.local ? 'online' : 'local');
+          identity.setEntered(false);
+          location.href = url.href;
+        }}>${net.local ? '连接服务器 · 多人联机' : '离线游玩 · 本地模拟'}<//>`}
         <div class="title-conn">
           <span class=${`status-dot ${dotClass}`}></span>
           <span>${STATUS_TEXT[conn.status] || conn.status}</span>

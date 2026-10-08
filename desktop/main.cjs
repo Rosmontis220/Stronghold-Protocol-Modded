@@ -30,7 +30,7 @@ function configuredGameServer() {
 
 async function createWindow() {
   const localUrl = await startLocalServer();
-  const target = `${localUrl}/?server=${encodeURIComponent(configuredGameServer())}`;
+  const target = `${localUrl}/?packaged=1&server=${encodeURIComponent(configuredGameServer())}`;
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,

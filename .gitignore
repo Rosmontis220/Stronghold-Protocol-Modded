@@ -10,6 +10,7 @@ mobile-web/fonts/
 mobile-web/data/
 mobile-web/shared/
 mobile-web/sim/
+mobile-web/local-server/
 mobile-web/data.js
 mobile-web/icon.png
 mobile-web/css/
@@ -25,6 +26,7 @@ android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
 # copied from node_modules by tools/vendor.mjs (postinstall); never commit third-party builds
 public/vendor/
+public/local-server/
 
 # --- game assets: (c) Hypergryph / Yostar, fetched or extracted locally, NEVER committed ----------
 # tools/fetch-assets.mjs → public/assets/** (~270 MB) and public/fonts/** (+ fonts.css)

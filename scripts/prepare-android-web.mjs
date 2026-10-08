@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import './prepare-local-runtime.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'mobile-web');
@@ -38,7 +39,7 @@ export function resetData() {}
 `);
 const mobileIndex = path.join(OUT, 'index.html');
 let html = await fs.readFile(mobileIndex, 'utf8');
-html = html.replace('</head>', `<script>globalThis.__SP_DESKTOP_SERVER='https://wsxy.rosmontis220.top';</script></head>`);
+html = html.replace('</head>', `<script>globalThis.__SP_PACKAGED=true;globalThis.__SP_DESKTOP_SERVER='https://wsxy.rosmontis220.top';</script></head>`);
 await fs.writeFile(mobileIndex, html);
 const files = [];
 for (const root of ['public/assets', 'public/fonts', 'data']) {

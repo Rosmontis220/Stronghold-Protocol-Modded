@@ -319,7 +319,8 @@ export function LobbyScreen() {
     <header class="topbar">
       <div class="topbar__left">
         <${Button} variant="ghost" size="sm" icon="chevronLeft" onClick=${backToTitle} title="返回标题">返回<//>
-        <${PingPill} ms=${conn.ping} online=${online} />
+        ${net.local ? html`<span>本地模拟 · 无需网络</span>` : html`<${PingPill} ms=${conn.ping} online=${online} />`}
+        ${!online && (globalThis.__SP_PACKAGED || new URLSearchParams(location.search).get('packaged') === '1') && html`<${Button} onClick=${() => { const url = new URL(location.href); url.searchParams.set('play', 'local'); location.href = url.href; }}>服务器不可用 · 本地开玩<//>`}
       </div>
       <div class="topbar__center">
         <${MicroLabel} tone="mint">SIMULATION PROTOCOL SELECT<//>
@@ -347,7 +348,7 @@ export function LobbyScreen() {
           ${MODE_CARDS.map((c) => html`<${ModeCard} key=${c.id} card=${c} selected=${roomMode === c.id} onSelect=${pickMode} />`)}
         </div>
 
-        <div class="section-label"><span class="section-label__idx num">03</span>加入同盟<${MicroLabel}>JOIN WITH ALLIANCE KEY<//></div>
+        ${!net.local && html`<div class="section-label"><span class="section-label__idx num">03</span>加入同盟<${MicroLabel}>JOIN WITH ALLIANCE KEY<//></div>
         <${Panel} class="join-panel" tone="amber">
           <div class="join-row">
             <${TextField} size="code" icon="key" value=${code} placeholder="输入同盟密钥 / 粘贴邀请链接"
@@ -363,7 +364,8 @@ export function LobbyScreen() {
                 onClick=${() => setCode(c)}>${c}</button>`)}`
               : html`<span class="t-dim">向同伴索取 ${ROOM_CODE_LEN} 位同盟密钥，或直接打开邀请链接</span>`}
           </div>
-        <//>
+        <//>`}
+        ${net.local && html`<${Panel}><p>本地模拟 · 全部资源已内置。可独立作战，或创建同盟并添加至多 7 名 AI 队友。</p><p>与其他玩家一起游玩请返回标题并选择多人联机。</p><//>`}
         <${TipsPanel} />
       </section>
 
@@ -380,7 +382,7 @@ export function LobbyScreen() {
           <//>
           <div class="create-box__hint">
             ${online
-              ? html`<span>${roomMode === 'solo' ? '创建后即可开始模拟' : '创建后可邀请好友或添加 AI 队友'}</span>`
+              ? html`<span>${roomMode === 'solo' ? '创建后即可开始模拟' : net.local ? '创建后可添加 AI 队友，完整同盟规则在本地运行' : '创建后可邀请好友或添加 AI 队友'}</span>`
               : html`<${Spinner} size="sm" label="CONNECTING" />`}
           </div>
         </div>

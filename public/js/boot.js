@@ -122,6 +122,11 @@ async function start() {
 if (dl) dl.hidden = true;
 
 async function bootFromLocalOrDownload() {
+  // Packaged assets are validated at build time and served directly from the installation.
+  if (globalThis.__SP_PACKAGED || new URLSearchParams(location.search).get('packaged') === '1') {
+    await import('./main.js');
+    return;
+  }
   try {
     const index = await fetchIndex();
     const local = await detectRequiredLocalSnapshot(index);

@@ -43,9 +43,13 @@
         "portable"
       ],
       "icon": "desktop/icon.ico",
-      "artifactName": "Stronghold-Protocol-${version}-${channel}.${ext}"
+      "artifactName": "Stronghold-Protocol-${version}-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Stronghold-Protocol-${version}-portable-${arch}.${ext}"
     },
     "nsis": {
+      "artifactName": "Stronghold-Protocol-${version}-setup-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": false,
@@ -64,8 +68,8 @@
     "setup": "node tools/setup.mjs",
     "doctor": "node tools/doctor.mjs",
     "launch": "node scripts/launch.mjs",
-    "desktop:dir": "electron-builder --dir",
-    "desktop:win": "electron-builder --win nsis portable",
+    "desktop:dir": "node scripts/prepare-local-runtime.mjs && electron-builder --dir",
+    "desktop:win": "node scripts/prepare-local-runtime.mjs && electron-builder --win nsis portable",
     "mobile:sync": "npx cap sync android",
     "mobile:open": "npx cap open android",
     "mobile:prepare": "node scripts/prepare-android-web.mjs",

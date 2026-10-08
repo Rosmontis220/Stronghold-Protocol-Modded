@@ -351,6 +351,13 @@ async function boot() {
     ui: { ...s.ui, pendingJoin },
   }));
 
+  if ((globalThis.__SP_PACKAGED || new URLSearchParams(location.search).get('packaged') === '1') && new URLSearchParams(location.search).get('play') !== 'online') {
+    const { createLocalTransport } = await import('./local-runtime.js');
+    const local = await createLocalTransport();
+    net.WS = local.WebSocket;
+    net.url = local.url;
+    net.local = true;
+  }
   wireNet();
   installLoadoutSync({ net });
   installSkinsSync({ net });
