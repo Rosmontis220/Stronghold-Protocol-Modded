@@ -11,6 +11,21 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle state) {
         super.onCreate(state);
         hideSystemBars();
+        // Keep the project emblem visible while the bundled WebView prepares its first frame.
+        android.widget.FrameLayout splash = new android.widget.FrameLayout(this);
+        splash.setBackgroundColor(android.graphics.Color.rgb(12, 15, 14));
+        android.widget.ImageView emblem = new android.widget.ImageView(this);
+        emblem.setImageResource(com.rosmontis220.wsxy.R.drawable.icon_launcher);
+        emblem.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        int side = (int) (240 * getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout.LayoutParams iconParams = new android.widget.FrameLayout.LayoutParams(side, side, android.view.Gravity.CENTER);
+        splash.addView(emblem, iconParams);
+        addContentView(splash, new android.view.ViewGroup.LayoutParams(-1, -1));
+        splash.postDelayed(() -> {
+            if (splash.getParent() instanceof android.view.ViewGroup) {
+                ((android.view.ViewGroup) splash.getParent()).removeView(splash);
+            }
+        }, 1400);
     }
 
     @Override
