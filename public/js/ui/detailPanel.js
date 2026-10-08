@@ -1,4 +1,4 @@
-﻿// Detail panel (click / right-click a piece, shop card, bond member, battle unit or previewed enemy):
+// Detail panel (click / right-click a piece, shop card, bond member, battle unit or previewed enemy):
 // operators — portrait, name, tier, elite, class/subclass and, right under them in the header's right column (no
 // scrolling, user playtest #2 item 9), the unit's bonds (阵营 / 盟约: icon, name, member count / next threshold,
 // reached tier, active state — tap one for its popup; a bond the mode never activates reads 本局禁用, gameLogic

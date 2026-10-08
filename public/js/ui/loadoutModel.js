@@ -76,7 +76,7 @@ export function sanitizeSkins(raw) {
   const limit = SKIN_LIMITS?.entries || 160;
   for (const [id, skinId] of Object.entries(raw)) {
     if (Object.keys(out).length >= limit) break;
-    if (UNSAFE_IDS.has(id) || !/^[A-Za-z0-9_\-.\:]{1,64}$/.test(id)) continue;
+    if (UNSAFE_IDS.has(id) || !/^[A-Za-z0-9_\-.:]{1,64}$/.test(id)) continue;
     if (isSkinId(skinId)) out[id] = skinId;
   }
   return out;
@@ -94,7 +94,7 @@ export function mergeSkins(currentSkins, importedSkins) {
 /**
  * Portable payload of a loadout, as downloaded / copied by 导出.
  * @param {Record<string, any>} entries `room.loadout.entries`
- * @param {{ now?: number }} [o]
+ * @param {{ now?: number, skins?: Record<string, string>|null }} [o]
  */
 export function exportPayload(entries, { now = Date.now(), skins = null } = {}) {
   const clean = {};
