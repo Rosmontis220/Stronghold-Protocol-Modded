@@ -10,7 +10,8 @@
 //     (`snap` = b.snap frame from battle.snapshot(), `ev` = b.ev frame from battle.drainEvents()) and publishes the
 //     field meta (m.field shape) into store.match.field so the game screen enters the battle,
 //   * when authoritative: reports b.progress (~1 Hz; boss fields 4 Hz with the shared-pool damage and the LP meter)
-//     and b.result (compactResult) at the end; applies b.pool (LocalBossPool.sync) and b.end (forceEnd / takeover),
+//     and b.result (compactResult) at the end, or b.yield for an oversized result; applies b.pool (LocalBossPool.sync)
+//     and b.end (forceEnd / takeover),
 //   * keeps an authoritative battle running while the tab is hidden (a 250 ms interval pump; browsers throttle it to
 //     ~1 Hz, the bounded fast-forward absorbs that); the server deadline + takeover cover anything worse.
 // A frame that fast-forwards (catch-up) passes on only the state-bearing events (keepsState: spawns, deaths, deploys,
@@ -23,6 +24,12 @@
 // time (`gt`): the render engine then knows how late a form fx is and skips a change clip that has already ended.
 // Display replicas (a teammate's field after the own battle, 联防 observers, the partner of a boss pair) run the same
 // spec fast-forwarded to the server's clock (`elapsed`) and never report.
+// A b.start is registered as pending the moment it arrives — before the sim module has loaded, while the Battle is built
+// and caught up silently — so what comes for that battle meanwhile is applied to it in order (PR #266): a b.end takeover
+// stops its reports; a forced / timeout b.end (the first end counts) ends it as soon as the Battle exists, without
+// catching up; a second b.start of it updates its flags (never a second Battle); b.pool and the solo pause reach it. A
+// b.start of another field supersedes it: an authority, or a battle the server already ended, is still built and kept, a
+// display replica is dropped. The next prep's clear() drops it.
 // A b.result lost with the socket (the request failed DISCONNECTED / OFFLINE, or timed out twice) is kept and sent
 // again when the session is back online ('status' → 'online') or when a b.start still names this finished battle
 // authoritative (the server is waiting for it); the server takes a duplicate idempotently. A server refusal is final.
@@ -55,17 +62,17 @@
 //                           0.1.0). Read-only: it takes the stats the sim computed last (`unit._s`) and the range grid it
 //                           keeps, and never makes the unit recompute them, so looking never changes the battle's floats.
 //   battleRunner.unitIdOf(uid, ownerId, fieldId?) → the id of an own board piece's unit in that battle | null
-//   battleRunner.ownerOps(ownerId, fieldId?) → [{ kind: 'op', ownerId, defId, items? }] that player's operators in the
-//                           battle on screen with their equipment (a teammate's bond popup: the members in play, DESIGN
-//                           §20.15, 变形同构体 wearers included) | []
+//   battleRunner.ownerOps(ownerId, fieldId?) → [{ kind: 'op', ownerId, defId, items?, standInFor? }] that player's
+//                           operators in the battle on screen with their equipment (a teammate's bond popup: the members in
+//                           play, DESIGN §20.15, 变形同构体 wearers included; a 补位 stand-in names the replaced charId) | []
 //
 // createBattleRunner(deps) builds an instance with injectable net / store / clock / frame scheduler / sim loader
-// (test/match/runner.test.js drives it under Node).
+// (test/match/runner.test.js and test/match/runner-pending.test.js drive it under Node).
 
-import { MAX_SEATS } from '../../../shared/constants.js';
 import { net as appNet } from '../net.js';
 import { store as appStore } from '../store.js';
-import { unitStatsEntry, fxForm } from '../../../shared/protocol.js';
+import { unitStatsEntry, fxForm, RESULT_LIMITS } from '../../../shared/protocol.js';
+import { MAX_SEATS } from '../../../shared/constants.js';
 import { spectateEffects } from './observe.js';
 
 const TICK = 1 / 30;
@@ -106,7 +113,7 @@ export function compactHeld(list) {
   return list.filter((x, i) => (x[0] === 'status' ? last.get(`s:${x[1]}:${x[2]}`) === i : x[0] === 'skill' ? last.get(`k:${x[1]}`) === i : true));
 }
 /** Data files the simulation reads (DataSource + content/support gameData()). */
-export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'tokens', 'stages', 'waves', 'bonds', 'items', 'garrisons', 'bands', 'effects']);
+export const SIM_DATA_FILES = Object.freeze(['chess', 'enemies', 'tokens', 'stages', 'waves', 'bonds', 'items', 'garrisons', 'bands', 'effects', 'backups']);
 
 /** Request failures after which a b.result counts as never delivered (re-sent on resume / b.start). */
 export const LOST_RESULT_CODES = Object.freeze(['DISCONNECTED', 'OFFLINE', 'TIMEOUT']);
@@ -187,10 +194,12 @@ export function createBattleRunner(deps) {
 
   /** @type {Map<string, any>} battleId → entry */
   const entries = new Map();
+  /** @type {Map<string, any>} battleId → entry of a b.start still being prepared (prepare(); `battle` null until built) */
+  const pending = new Map();
   let cur = null;              // entry on screen
   let simP = null;
-  let startSeq = 0;
-  let loading = null;          // b.start being prepared
+  let startSeq = 0;            // counts the b.starts: the latest one is the view asked for
+  let loading = null;          // the pending entry of the latest b.start (shown when prepared)
   let rafH = null;
   let ivH = null;
   let lastPool = null;
@@ -432,7 +441,7 @@ export function createBattleRunner(deps) {
       }
     } else {
       msg.leaks = Math.min(1e6, p.leaks);
-      // 联防: the leakers' enemies still standing (shared/protocol.js b.progress `left`, ≤ 4 players)
+      // 联防: the leakers' enemies still standing (shared/protocol.js b.progress `left`, ≤ 20 players)
       if (p.left) msg.left = Object.fromEntries(Object.entries(p.left).slice(0, MAX_SEATS));
     }
     try { net.send('b.progress', msg); } catch { /* offline */ }
@@ -446,44 +455,52 @@ export function createBattleRunner(deps) {
       progress(e, true);
       e.resultSent = true;
       let result = null;
+      let wire = null;
       try {
-        result = e.sim.spec.compactResult(e.battle.result());
-        // an oversized frame would close the socket at the very end of the battle (64 KB inbound limit)
-        if (typeof e.sim.spec.fitResult === 'function') result = e.sim.spec.fitResult(result, { bossLike: bossLike(e), battleId: e.battleId });
+        const raw = e.battle.result();
+        const tooManyEntries = Object.keys(raw.perPlayer || {}).length > RESULT_LIMITS.players
+          || Object.values(raw.perPlayer || {}).some((p) => (p?.leaked?.length || 0) > RESULT_LIMITS.leaked)
+          || (raw.unspawned?.length || 0) > RESULT_LIMITS.unspawned;
+        result = e.sim.spec.compactResult(raw);
+        // The server must see every surviving enemy. A compactResult list cap or an oversized frame would otherwise
+        // silently undercharge a leaker, or close the socket at the 64 KB inbound limit.
+        wire = tooManyEntries ? null : e.sim.spec.fitResult(result, { bossLike: bossLike(e), battleId: e.battleId });
       } catch (err) { console.warn('[runner] result failed', err); }
-      if (result) {
-        e.result = result;
+      e.result = wire || result;
+      e.deliveryType = wire ? 'b.result' : 'b.yield';
+      if (e.result) {
         // the view answers with the settlement voice of this battle (screens/game.js → audio.voice result*): the
         // compact result carries the leaks and the kill count the slot is picked from
-        emit('result', { fieldId: e.fieldId, battleId: e.battleId, own: !!e.own, result });
-        deliver(e);
+        emit('result', { fieldId: e.fieldId, battleId: e.battleId, own: !!e.own, result: e.result });
       }
+      deliver(e);
     }
     if (e === cur) publishState();
     else flushLeaks();
   }
 
   /**
-   * Send an entry's b.result (retried once on a timeout). `e.delivery`: 'pending' while a request is out, 'delivered'
+   * Send an entry's b.result or b.yield (retried once on a timeout). `e.delivery`: 'pending' while a request is out, 'delivered'
    * once the server answered (ok, or a refusal — final), 'undelivered' when it never got there (LOST_RESULT_CODES): kept
    * for redeliver() (session back online) and for an authoritative b.start of the finished battle.
    */
   function deliver(e) {
-    if (!net || !e.result || e.delivery === 'pending') return;
+    if (!net || (!e.result && e.deliveryType !== 'b.yield') || e.delivery === 'pending') return;
     e.delivery = 'pending';
-    const msg = { battleId: e.battleId, result: e.result };
+    const type = e.deliveryType || 'b.result';
+    const msg = type === 'b.yield' ? { battleId: e.battleId } : { battleId: e.battleId, result: e.result };
     const send = (tries) => {
       let req;
-      try { req = net.request('b.result', msg, { timeout: 15000 }); } catch (err) { req = Promise.reject(err); }
+      try { req = net.request(type, msg, { timeout: 15000 }); } catch (err) { req = Promise.reject(err); }
       return Promise.resolve(req).then(() => { e.delivery = 'delivered'; }, (err) => {
         const code = err && err.code;
         if (code === 'TIMEOUT' && tries > 0) return send(tries - 1);
         if (LOST_RESULT_CODES.includes(code)) {
           e.delivery = 'undelivered';
-          console.warn(`[runner] b.result not delivered (${code}) — sent again when the session resumes`);
+          console.warn(`[runner] ${type} not delivered (${code}) — sent again when the session resumes`);
         } else {
           e.delivery = 'delivered';
-          console.warn('[runner] b.result refused', code);
+          console.warn(`[runner] ${type} refused`, code);
         }
         return null;
       });
@@ -504,7 +521,8 @@ export function createBattleRunner(deps) {
     } else {
       const d = Math.max(0, now() - pausedAt);
       pausedAt = null;
-      for (const e of entries.values()) { e.t0 += d; e.lastProgressAt += d; }
+      // a pending battle not built yet takes its clock when it is built
+      for (const e of [...entries.values(), ...pending.values()]) if (e.t0 != null) { e.t0 += d; e.lastProgressAt += d; }
     }
     publishState();
     schedule();
@@ -593,53 +611,46 @@ export function createBattleRunner(deps) {
   async function onStart(msg) {
     if (!msg || typeof msg !== 'object' || !msg.spec || typeof msg.battleId !== 'string') return;
     const speed = Number(msg.speed) > 0 ? Number(msg.speed) : 2;
-    const existing = entries.get(msg.battleId);
+    const seq = ++startSeq;
+    const prep = pending.get(msg.battleId);
+    const existing = entries.get(msg.battleId) || prep;
     if (existing) {
+      existing.seq = seq;
       const was = existing.authoritative;
       existing.authoritative = !!msg.authoritative && !existing.resultSent;
       existing.watch = !!msg.watch;
       // the server still waits for this finished battle's result (lost with the socket, or its answer was): again
       if (msg.authoritative && existing.resultSent) deliver(existing);
-      if (existing.authoritative && !was) {
+      if (!existing.battle) {
+        // still loading: it starts from the latest field clock
+        existing.elapsed = Number(msg.elapsed) || 0;
+      } else if (existing.authoritative && !was) {
         // handover (the partner left): continue from the field's clock and report from now on
         existing.t0 = clock() - ((Number(msg.elapsed) || 0) / speed) * 1000;
         existing.lastProgressAt = -Infinity;
         if (existing.battle.finished) { existing.done = false; finished(existing); }
       }
-      ++startSeq;
+      if (prep) {
+        // being prepared: the view asked for again, shown when ready (one Battle per battleId)
+        loading = prep;
+        publishState();
+        return prep.ready;
+      }
       loading = null;
       // a resend of what is already on screen (reconnect / resync) only updates the state; switching back shows it
       if (cur !== existing) show(existing);
       else { publishState(); schedule(); }
       return;
     }
-    const seq = ++startSeq;
-    loading = { battleId: msg.battleId, fieldId: msg.fieldId, kind: msg.kind };
-    publishState();
-    let sim;
-    try { sim = await ensureSim(); } catch (err) {
-      console.warn('[runner] simulation unavailable', err);
-      if (seq === startSeq) { loading = null; publishState(); }
-      return;
-    }
-    if (seq !== startSeq) return; // superseded by a newer b.start
-    let battle;
-    try {
-      battle = sim.spec.createBattleFromSpec(msg.spec, sim.ds, { logger });
-    } catch (err) {
-      console.warn('[runner] battle construction failed', err);
-      loading = null;
-      publishState();
-      return;
-    }
-    stats.battles++;
     const e = {
-      battleId: msg.battleId, fieldId: msg.fieldId || msg.spec.fieldId, kind: msg.kind || msg.spec.kind, spec: msg.spec, sim, battle,
+      battleId: msg.battleId, fieldId: msg.fieldId || msg.spec.fieldId, kind: msg.kind || msg.spec.kind, spec: msg.spec,
+      // built by prepare(); `seq` = its latest b.start, `elapsed` = the field clock to start from, `endReason` = the first
+      // forced / timeout b.end (applied once the Battle exists), `ready` = the preparation (a promise)
+      sim: null, battle: null, meter: null, seq, elapsed: Number(msg.elapsed) || 0, endReason: null, ready: null,
       authoritative: !!msg.authoritative, watch: !!msg.watch, own: !msg.watch, speed,
       members: (msg.spec.players || []).map((p) => p && p.playerId).filter(Boolean),
-      t0: clock() - ((Number(msg.elapsed) || 0) / speed) * 1000, lastProgressAt: -Infinity, done: false, resultSent: false,
+      t0: null, lastProgressAt: -Infinity, done: false, resultSent: false,
       result: null, delivery: null,
-      meter: sim.spec.attachLpMeter(battle),
       // counted leaks so far (normal fields; noteLeaks) and the Battle state they were counted at; 联防 fields: each
       // leaker's enemies still standing (noteUniteLeft)
       leaks: 0, leakMark: '', left: null,
@@ -650,43 +661,83 @@ export function createBattleRunner(deps) {
       // view from the field meta); the event batches of the current sliced step (stepEntry)
       held: [], stale: false, slices: [],
     };
-    if (lastPool && battle.sharedBoss && typeof battle.sharedBoss.sync === 'function') {
-      battle.sharedBoss.sync(lastPool.hp, lastPool.acked ? lastPool.acked[e.fieldId] : undefined);
-    }
-    // silent catch-up to the field's clock before it is shown (a reconnect / observing a running field)
-    while (!battle.finished && targetTick(e, clock()) - battle.tickCount > ticksPerFrameCap(speed)) {
-      const n = Math.min(PREPARE_SLICE, targetTick(e, clock()) - battle.tickCount);
-      stepEntry(e, n);
-      try { battle.drainEvents(); } catch { /* ignore */ }
-      noteLeaks(e);
-      if (e.authoritative) progress(e);
-      await yieldFrame();
-      if (seq !== startSeq) {
-        // superseded while preparing: an authoritative battle must still finish (it is kept), a replica is dropped
-        if (e.authoritative) { entries.set(e.battleId, e); evict(); if (e.leaks) leaksDirty = true; schedule(); }
+    pending.set(e.battleId, e);
+    loading = e;
+    publishState();
+    e.ready = prepare(e);
+    return e.ready;
+  }
+
+  /**
+   * Build a pending entry's Battle once the sim is loaded, apply the b.end that came meanwhile, catch it up silently to
+   * the field's clock and register it (shown when it is still the view asked for). It is dropped when clear() removed it
+   * (or a new b.start replaced it after a clear) and when a b.start of another field superseded it — unless it is an
+   * authority (it must finish and report) or the server already ended it (switching back shows the end).
+   */
+  async function prepare(e) {
+    const wanted = () => pending.get(e.battleId) === e && (e.seq === startSeq || e.authoritative || !!e.endReason);
+    try {
+      let sim;
+      try { sim = await ensureSim(); } catch (err) {
+        console.warn('[runner] simulation unavailable', err);
         return;
       }
+      if (!wanted()) return;
+      let battle;
+      try {
+        battle = sim.spec.createBattleFromSpec(e.spec, sim.ds, { logger });
+      } catch (err) {
+        console.warn('[runner] battle construction failed', err);
+        return;
+      }
+      stats.battles++;
+      e.sim = sim;
+      e.battle = battle;
+      e.meter = sim.spec.attachLpMeter(battle);
+      e.t0 = clock() - (e.elapsed / e.speed) * 1000;
+      if (lastPool && battle.sharedBoss && typeof battle.sharedBoss.sync === 'function') {
+        battle.sharedBoss.sync(lastPool.hp, lastPool.acked ? lastPool.acked[e.fieldId] : undefined, lastPool.max);
+      }
+      if (e.endReason) endBattle(e);
+      // silent catch-up to the field's clock before it is shown (a reconnect / observing a running field) — for the view
+      // asked for; a superseded authority catches up in the background (advance)
+      while (!battle.finished && e.seq === startSeq && targetTick(e, clock()) - battle.tickCount > ticksPerFrameCap(e.speed)) {
+        const n = Math.min(PREPARE_SLICE, targetTick(e, clock()) - battle.tickCount);
+        stepEntry(e, n);
+        try { battle.drainEvents(); } catch { /* ignore */ }
+        noteLeaks(e);
+        progress(e);
+        await yieldFrame();
+        if (!wanted()) return;
+      }
+      pending.delete(e.battleId);
+      entries.set(e.battleId, e);
+      evict();
+      noteLeaks(e);
+      leaksDirty = true; // its leak count / bond layers join the published state
+      if (e.seq === startSeq) { loading = null; show(e); }
+      if (battle.finished) finished(e);
+      flushLeaks();
+      schedule();
+    } finally {
+      if (pending.get(e.battleId) === e) pending.delete(e.battleId);
+      if (loading === e) { loading = null; publishState(); }
     }
-    entries.set(e.battleId, e);
-    evict();
-    loading = null;
-    noteLeaks(e);
-    show(e);
-    if (battle.finished) finished(e);
   }
 
   function onPool(msg) {
     if (!msg || typeof msg !== 'object') return;
     lastPool = msg;
-    for (const e of entries.values()) {
-      const pool = e.battle.sharedBoss;
-      if (pool && typeof pool.sync === 'function') pool.sync(msg.hp, msg.acked ? msg.acked[e.fieldId] : undefined);
+    // a pending battle not built yet takes lastPool when it is built
+    for (const e of [...entries.values(), ...pending.values()]) {
+      const pool = e.battle ? e.battle.sharedBoss : null;
+      if (pool && typeof pool.sync === 'function') pool.sync(msg.hp, msg.acked ? msg.acked[e.fieldId] : undefined, msg.max);
     }
     emit('pool', msg);
   }
 
   function onEnd(msg) {
-    const e = msg && entries.get(msg.battleId);
+    const e = msg && (entries.get(msg.battleId) || pending.get(msg.battleId));
     if (!e) return;
     if (msg.reason === 'takeover') {
       e.authoritative = false;
@@ -694,8 +745,15 @@ export function createBattleRunner(deps) {
       schedule();
       return;
     }
+    // the first end counts; a battle still loading ends as soon as it is built (prepare)
+    if (!e.endReason) e.endReason = msg.reason === 'timeout' ? 'timeout' : 'forced';
+    if (e.battle) endBattle(e);
+  }
+
+  /** End an entry's battle with its b.end reason; an authority reports it at once. */
+  function endBattle(e) {
     if (!e.battle.finished) {
-      try { e.battle.forceEnd(msg.reason === 'timeout' ? 'timeout' : 'forced'); } catch { /* ignore */ }
+      try { e.battle.forceEnd(e.endReason); } catch { /* ignore */ }
     }
     if (e === cur) emitFrame(e, false);
     finished(e);
@@ -711,6 +769,8 @@ export function createBattleRunner(deps) {
       // never drop an unreported authoritative result (the round already moved on: the server has its own)
       if (e.authoritative && !e.resultSent && !e.battle.finished) { try { e.battle.forceEnd('forced'); } catch { /* ignore */ } }
     }
+    // a battle still being prepared too: its preparation finds itself gone and stops (prepare)
+    pending.clear();
     entries.clear();
     cur = null;
     lastPool = null;
@@ -738,7 +798,7 @@ export function createBattleRunner(deps) {
       if (phase === lastPhase) return;
       lastPhase = phase;
       if (!phase || ['PREP', 'ROUND_START', 'SP_DRAFT', 'RESULT', 'LOBBY', 'INFO_CHECK', 'BAND_DRAFT', 'BATTLE_CHECK'].includes(phase)) {
-        if (entries.size || loading) clear();
+        if (entries.size || pending.size) clear();
       }
       // warm the simulation up as soon as a match runs (the first b.start then starts at once)
       if (phase && phase !== 'LOBBY' && !simP) ensureSim().catch(() => {});
@@ -797,7 +857,11 @@ export function createBattleRunner(deps) {
       if (!e || typeof ownerId !== 'string' || !ownerId || (fieldId != null && e.fieldId !== fieldId)) return [];
       const list = Array.isArray(e.battle.allyUnits) ? e.battle.allyUnits : [];
       return list.filter((u) => u && u.kind === 'op' && u.ownerId === ownerId && typeof u.defId === 'string')
-        .map((u) => (Array.isArray(u.items) && u.items.length ? { kind: 'op', ownerId, defId: u.defId, items: [...u.items] } : { kind: 'op', ownerId, defId: u.defId }));
+        .map((u) => {
+          const o = Array.isArray(u.items) && u.items.length ? { kind: 'op', ownerId, defId: u.defId, items: [...u.items] } : { kind: 'op', ownerId, defId: u.defId };
+          const si = u.def && typeof u.def.standInFor === 'string' ? u.def.standInFor : null;
+          return si ? { ...o, standInFor: si } : o;
+        });
     },
     /** Re-show the current battle (the game screen remounted). */
     reshow() { if (cur) show(cur); },

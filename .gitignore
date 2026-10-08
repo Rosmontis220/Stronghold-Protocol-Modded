@@ -1,5 +1,6 @@
 # --- dependencies & generated client libs -------------------------------------------------------
 node_modules/
+node_modules.pre-modern-backup/
 .npm-cache/
 # Electron build outputs
 /dist/

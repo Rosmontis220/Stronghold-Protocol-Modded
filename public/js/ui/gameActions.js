@@ -47,10 +47,15 @@ export async function act(t, fields = {}, opts = {}) {
   }
 }
 
+/** Legacy/dev frames may lack identity; omit absent guards rather than sending protocol-invalid nulls. */
+export function draftRequestScope({ draftId, groupId } = {}) {
+  return { ...(draftId != null ? { draftId } : {}), ...(groupId != null ? { groupId } : {}) };
+}
+
 export const actions = {
   infoReady: () => act('g.infoReady'),
-  band: (bandId) => act('g.band', { bandId }),
-  bandSkip: () => act('g.bandSkip'),
+  band: (bandId, opts = {}) => act('g.band', { bandId, ...draftRequestScope(opts) }),
+  bandSkip: (opts = {}) => act('g.bandSkip', draftRequestScope(opts)),
   buy: (slot) => act('g.buy', { slot }),
   refresh: () => act('g.refresh'),
   freeze: () => act('g.freeze'),
@@ -64,11 +69,13 @@ export const actions = {
   art: (itemUid, row, col, dir) => act('g.art', dir ? { itemUid, row, col, dir } : { itemUid, row, col }),
   destroy: (uid) => act('g.destroy', { uid }),
   reward: (idx) => act('g.reward', { idx }),
-  choice: (idx) => act('g.choice', { idx }),
+  choice: (idx, opts = {}) => act('g.choice', { idx, ...draftRequestScope(opts) }),
   ready: (ready) => act('g.ready', { ready }, { sfx: ready ? 'ready' : 'back' }),
   emote: (id) => act('g.emote', { id }, { quiet: true }),
-  watch: (fieldId) => act('g.watch', { fieldId }, { sfx: 'tab' }),
+  // `playerId`: the player tapped in the team panel (a shared field shows two) — what an eliminated viewer follows
+  watch: (fieldId, playerId = null) => act('g.watch', typeof playerId === 'string' && playerId ? { fieldId, playerId } : { fieldId }, { sfx: 'tab' }),
   autoplay: (on) => act('g.autoplay', { on }),
+  uniteSkipVote: ({ voteId } = {}) => act('g.uniteSkipVote', voteId == null ? {} : { voteId }, { sfx: 'confirm' }),
   // solo battles only (ui/matchStatus.js pauseAvailable): m.public.paused follows
   pause: (on) => act('g.pause', { on: !!on }, { sfx: on ? 'click' : 'confirm' }),
 };

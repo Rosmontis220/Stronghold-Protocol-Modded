@@ -26,6 +26,19 @@ test('pool caps follow config (12/14/18/16/8/5, 缪尔赛思 4) and only visible
   assert.ok(!p2.has(banned[0]) && p2.left(banned[0]) === 0 && p2.take(banned[0]) === 0);
 });
 
+test('five-player pool: tier III has 22 copies, other tiers still round up and Muelsyse has 5', () => {
+  const pool = new SharedPool(gdOf(), { scale: 1.25 });
+  const caps = { 1: 15, 2: 18, 3: 22, 4: 20, 5: 10, 6: 7 };
+  for (const [id, entry] of pool.entries) {
+    const expected = id === 'chess_char_6_11_a' ? 5 : caps[entry.tier];
+    assert.equal(entry.cap, expected, id);
+    assert.equal(pool.take(id, 100), expected, `${id}: only the expected copies are available`);
+    assert.equal(pool.take(id), 0);
+    assert.equal(pool.give(id, 100), expected, `${id}: returns clamp at the new cap`);
+    assert.equal(pool.left(id), expected);
+  }
+});
+
 test('take/give never go below 0 or above the cap', () => {
   const pool = new SharedPool(gdOf());
   const id = chessOfTier(6)[0];

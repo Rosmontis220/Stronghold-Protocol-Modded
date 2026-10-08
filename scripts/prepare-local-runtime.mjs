@@ -24,7 +24,7 @@ export function randomInt(max) {
 export function isIP(value) { return value?.includes(':') ? 6 : /^\\d+\\.\\d+\\.\\d+\\.\\d+$/.test(value || '') ? 4 : 0; }
 `);
 const original = await fs.readFile(path.join(root, 'server/data.js'), 'utf8');
-const names = ['config', 'chess', 'bonds', 'garrisons', 'items', 'bands', 'effects', 'choices', 'enemies', 'factions', 'waves', 'stages', 'bosses', 'tokens', 'assets', 'skins'];
+const names = ['config', 'chess', 'bonds', 'garrisons', 'items', 'bands', 'effects', 'choices', 'enemies', 'factions', 'waves', 'stages', 'bosses', 'tokens', 'assets', 'skins', 'backups'];
 await fs.writeFile(path.join(out, 'data.js'), `const singleton = Object.fromEntries(await Promise.all(${JSON.stringify(names)}.map(async name => {
  const response = await fetch('/data/' + name + '.json');
  if (!response.ok) throw new Error('Missing local game data: ' + name);

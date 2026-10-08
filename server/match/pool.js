@@ -12,7 +12,23 @@
 //
 // Rolls: each chess slot draws ONE copy uniformly from all remaining copies of eligible chess with tier ≤ shop level
 // ("copy-weighted"; duplicates within a roll allowed). The item slot picks a tier with the same tier shares, then a
-// uniform shop-eligible item of that tier (falling back to lower tiers).
+// uniform shop-eligible item of that tier (falling back to lower tiers). A roll may add entries outside the pool
+// (`extra`, after its own): one player's 自选 stock (0.2.0, player/diy.js diyRollEntries) — weighted by its copies like
+// any chess, drawn by that player's shop only.
+
+import { poolGroupSizes, poolCopyScale } from '../../shared/playerCapacity.js';
+
+/** Groups are assigned by occupied seat order at match start and never reshuffled after eliminations. */
+export function createPoolGroups(gd, players, opts = {}) {
+  const sorted = players.slice().sort((a, b) => a.seat - b.seat);
+  let offset = 0;
+  return poolGroupSizes(sorted.length).map((size, i) => {
+    const playerIds = sorted.slice(offset, offset + size).map((p) => p.playerId);
+    offset += size;
+    const scale = poolCopyScale(size);
+    return { id: i + 1, playerIds, scale, pool: new SharedPool(gd, { ...opts, scale }) };
+  });
+}
 
 /**
  * Per-match disabled bond set D and banned chess (research 01 A2): D = uniform sample of `core` core bonds and `addon`
@@ -51,18 +67,22 @@ function sample(arr, n, rng) {
 export class SharedPool {
   /**
    * @param {import('./gamedata.js').GameData} gd
-   * @param {{ banned?: Iterable<string> }} [opts]
+   * @param {{ banned?: Iterable<string>, scale?: number }} [opts]
    */
-  constructor(gd, { banned = [] } = {}) {
+  constructor(gd, { banned = [], scale = 1 } = {}) {
     this.gd = gd;
+    this.scale = Number.isFinite(scale) && scale > 0 ? scale : 1;
     const ban = new Set(banned);
     /** @type {Map<string, { cap: number, left: number, tier: number }>} */
     this.entries = new Map();
     for (const id of gd.visibleChess) {
       if (ban.has(id)) continue;
-      const cap = gd.poolCopies(id);
+      const tier = gd.tierOf(id);
+      const scaled = gd.poolCopies(id) * this.scale;
+      // Five-player tier III uses 22 instead of rounding 18 * 1.25 up to 23.
+      const cap = this.scale === poolCopyScale(5) && tier === 3 ? Math.floor(scaled) : Math.ceil(scaled);
       if (cap <= 0) continue;
-      this.entries.set(id, { cap, left: cap, tier: gd.tierOf(id) });
+      this.entries.set(id, { cap, left: cap, tier });
     }
     this.banned = [...ban].sort();
   }
@@ -90,22 +110,30 @@ export class SharedPool {
     return k;
   }
 
-  /** Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`). */
-  _eligible({ maxTier = 6, tier = null, filter = null } = {}) {
+  /**
+   * Remaining copies of eligible chess (tier ≤ maxTier, or exactly `tier`): the pool's entries, then `extra` ([id, entry]
+   * pairs of the same shape — a player's 自选 stock) under the same filters.
+   */
+  _eligible({ maxTier = 6, tier = null, filter = null, extra = null } = {}) {
     const out = [];
-    for (const [id, e] of this.entries) {
-      if (e.left <= 0) continue;
-      if (tier != null ? e.tier !== tier : e.tier > maxTier) continue;
-      if (filter && !filter(id, e)) continue;
-      out.push([id, e.left]);
-    }
+    const scan = (list) => {
+      for (const [id, e] of list) {
+        if (e.left <= 0) continue;
+        if (tier != null ? e.tier !== tier : e.tier > maxTier) continue;
+        if (filter && !filter(id, e)) continue;
+        out.push([id, e.left]);
+      }
+    };
+    scan(this.entries);
+    if (extra) scan(extra);
     return out;
   }
 
   /**
    * Copy-weighted roll: one copy uniformly among remaining copies of eligible chess. Returns a base id or null.
    * @param {Function} rng
-   * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean }} [opts]
+   * @param {{ maxTier?: number, tier?: number|null, filter?: (id: string, e: object) => boolean,
+   *   extra?: Iterable<[string, { left: number, tier: number }]>|null }} [opts]
    */
   roll(rng, opts = {}) {
     const el = this._eligible(opts);

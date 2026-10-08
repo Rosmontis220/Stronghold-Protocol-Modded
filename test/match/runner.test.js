@@ -127,6 +127,27 @@ test('authoritative battle: 2× pacing, ≤ max(8, 4·speed) ticks per frame, b.
   r.runner.dispose();
 });
 
+test('the browser yields a result beyond the leak list cap without sending a truncated b.result', async () => {
+  const start = realStart(9421);
+  const r = rig();
+  r.net.emit('b.start', start);
+  await r.settle();
+  const e = r.runner._entries.get(start.battleId);
+  const raw = e.battle.result();
+  const pid = start.spec.players[0].playerId;
+  raw.perPlayer[pid].leaked = Array.from({ length: 401 }, () => ({ enemyKey: 'enemy_1007_slime', counted: true, sourcePlayerId: pid }));
+  raw.perPlayer[pid].perfect = false;
+  raw.perPlayer[pid].total = 401;
+  raw.total = 401;
+  e.battle.result = () => raw;
+  r.net.emit('b.end', { battleId: start.battleId, reason: 'forced' });
+  await r.settle();
+  assert.equal(e.deliveryType, 'b.yield');
+  assert.equal(r.net.sent.filter((x) => x.t === 'b.yield' && x.battleId === start.battleId).length, 1);
+  assert.equal(r.net.sent.filter((x) => x.t === 'b.result' && x.battleId === start.battleId).length, 0);
+  r.runner.dispose();
+});
+
 test('fast-forward to `elapsed` before showing; display replicas never report; b.end takeover demotes; hidden tab keeps an authoritative battle going', async () => {
   const start = realStart(7302);
   // observing a running field 20 game s in
@@ -219,6 +240,10 @@ test('boss field: the local pool follows b.pool (server hp − unacknowledged lo
   assert.equal(typeof last.leaks, 'number');
   r.net.emit('b.pool', { hp: pool.maxHp * 0.5, max: pool.maxHp, teamLp: 20, acked: { [start.fieldId]: pool.cum } });
   assert.ok(Math.abs(pool.hp - pool.maxHp * 0.5) < 1e-6, 'server hp when everything is acknowledged');
+  const smallerMax = Math.round(pool.maxHp * 0.75);
+  r.net.emit('b.pool', { hp: Math.round(smallerMax * 0.5), max: smallerMax, teamLp: 20, acked: { [start.fieldId]: pool.cum } });
+  assert.equal(pool.maxHp, smallerMax, 'a departed player reduces the local leader maximum too');
+  assert.equal(pool.hp, Math.round(smallerMax * 0.5));
   r.runner.dispose();
 });
 

@@ -121,13 +121,14 @@ function runOne(cfg, seed) {
   // 机变 picks (cheap, timed per call) and bounties taken
   const apply = m._applyCard.bind(m);
   m._applyCard = (ps, idx) => {
-    const card = m.sp && m.sp.cards[idx];
+    const group = m.spGroup(ps.playerId);
+    const card = group && group.cards[idx];
     if (card && card.kind === 'bounty') {
       // the bot's own kill-chance estimate (when this bot version has one), for the calibration table
       const c0 = performance.now();
       const p = typeof bot.bountyKillChance === 'function' ? bot.bountyKillChance(m, ps, card) : null;
       // the best estimate among the draft's bounty cards still untaken (was a likelier one on offer?)
-      const best = p == null ? null : Math.max(p, ...m.sp.cards.filter((c) => c && c.kind === 'bounty' && m.sp.taken[c.idx] == null).map((c) => bot.bountyKillChance(m, ps, c)));
+      const best = p == null ? null : Math.max(p, ...group.cards.filter((c) => c && c.kind === 'bounty' && group.taken[c.idx] == null).map((c) => bot.bountyKillChance(m, ps, c)));
       calMs += performance.now() - c0;
       rec.bounties.push({ round: m.round, pid: ps.playerId, enemyKey: card.enemyKey, count: card.count, tier: card.tier, payout: card.payout, battles: card.rounds, p, best });
     }

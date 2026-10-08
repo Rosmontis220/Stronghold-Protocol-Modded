@@ -36,7 +36,7 @@ function walk(dir, ext, out = []) {
   return out;
 }
 
-/** URL path served by the server → file on disk (mirrors server/index.js mounts). */
+/** URL path served by the server → file on disk (mirrors the server/http/static.js mounts). */
 function urlPathToFile(urlPath) {
   const clean = decodeURIComponent(urlPath.split(/[?#]/)[0]);
   if (clean.startsWith('/shared/')) return path.join(ROOT, clean);
@@ -147,10 +147,6 @@ describe('shared modules', () => {
 const JS_FILES = walk(path.join(PUBLIC, 'js'), '.js');
 
 describe('client modules parse as ES modules', () => {
-  test('service worker parses as JavaScript', () => {
-    const err = checkModuleSyntax(readFileSync(path.join(PUBLIC, 'sw.js'), 'utf8'));
-    assert.equal(err, null, err || '');
-  });
   test('found client modules', () => {
     for (const f of ['main.js', 'net.js', 'store.js', 'data.js', 'ui/components.js', 'ui/toasts.js',
       'screens/title.js', 'screens/lobby.js', 'screens/room.js', 'screens/game.js']) {
@@ -192,15 +188,12 @@ describe('HTML pages reference existing files', () => {
       }
     });
   }
-  test('index.html boots the preloader module and has the rotate hint', () => {
+  test('index.html boots main.js as a module and has the rotate hint', () => {
     const src = readFileSync(path.join(PUBLIC, 'index.html'), 'utf8');
     assert.match(src, /<script type="module" src="\/js\/boot\.js"[^>]*><\/script>/);
-    assert.match(src, /id="boot-status"/);
-    assert.match(src, /id="boot-progress"/);
     assert.match(src, /class="rotate-hint"/);
     assert.match(src, /fonts\.googleapis\.com\/css2\?family=Noto\+Sans\+SC/);
-    assert.match(src, /id="boot-music"/);
-    assert.match(src, /id="boot-ready"/);
+    assert.match(src, /Local font faces are added from verified bytes/);
   });
 });
 
@@ -452,21 +445,6 @@ describe('net.js', () => {
     assert.equal(ws().sent.filter((m) => m.t === 'hello').length, 1, 'same name: no second hello');
     net.setName('阿米娅');
     assert.equal(ws().last('hello').name, '阿米娅', 'rename re-sends hello on the live socket');
-  });
-
-  test('a picked operator avatar rides on hello; a junk id is never sent', async () => {
-    const { net, ws } = await makeNet({ getAvatar: () => 'char_2_10_a' });
-    net.setName('凯尔希');
-    ws().open();
-    assert.equal(ws().last('hello').avatar, 'char_2_10_a', 'the chosen operator is announced with the name');
-    const junk = await makeNet({ getAvatar: () => 'not-a-chess-id' });
-    junk.net.setName('凯尔希');
-    junk.ws().open();
-    assert.equal(junk.ws().last('hello').avatar, undefined, 'junk never reaches the wire');
-    const plain = await makeNet();
-    plain.net.setName('凯尔希');
-    plain.ws().open();
-    assert.equal(plain.ws().last('hello').avatar, undefined, 'default look: the 0.1.2 frame, no avatar field');
   });
 
   test('token longer than the protocol limit is not sent', async () => {
@@ -990,6 +968,13 @@ describe('screen helpers', () => {
     assert.equal(findUiAsset({ ui: {} }, ['x']), null);
   });
 
+  test('title exposes the shared settings modal', () => {
+    const source = readFileSync(path.join(PUBLIC, 'js/screens/title.js'), 'utf8');
+    assert.match(source, /import \{ SettingsModal \} from '\.\.\/ui\/settings\.js'/);
+    assert.match(source, /class="title-settings fsbtn tapx"/, 'title screen includes the settings control');
+    assert.match(source, /<\$\{SettingsModal\} open=\$\{settingsOpen\}/, 'settings control opens the shared modal');
+  });
+
   test('lobby: normalizeCode / parseRoomParam / difficultyInfo', async () => {
     const { normalizeCode, parseRoomParam, difficultyInfo, MODE_TEXT } = await mod('screens/lobby.js');
     assert.equal(normalizeCode('ab-c d9'), 'ABCD');
@@ -1072,14 +1057,15 @@ describe('screen helpers', () => {
         { seat: 3, playerId: 'ai_1', name: 'AI·华法琳', isBot: true, ready: true, connected: true },
       ],
     };
-    assert.equal(normalizeSeats(room).length, 20);
+    assert.equal(normalizeSeats(room).length, 4);
     assert.equal(normalizeSeats({ mode: 'solo', seats: [room.seats[0], null, null, null] }).length, 1);
-    assert.deepEqual(normalizeSeats({ mode: 'coop', seats: 'bad' }), Array(20).fill(null));
+    assert.deepEqual(normalizeSeats({ mode: 'coop', seats: 'bad' }), Array(8).fill(null), 'a legacy room without seats uses the default eight-seat capacity');
+    assert.deepEqual(normalizeSeats({ mode: 'coop', capacity: 20, seats: [] }), Array(20).fill(null));
     let f = roomFacts(room, 'h');
     assert.equal(f.isHost, true);
     assert.equal(f.canStart, false, 'guest not ready');
     assert.equal(f.humans.length, 2);
-    assert.equal(f.emptySeats, 17);
+    assert.equal(f.emptySeats, 1);
     assert.equal(f.readyHumans, 1, 'host counts as ready (start = host ready)');
     room.seats[1].ready = true;
     f = roomFacts(room, 'h');
@@ -1108,7 +1094,7 @@ describe('screen helpers', () => {
     assert.equal(f.spectating, true);
     assert.equal(f.mine, null);
     assert.equal(f.humans.length, 1, 'never a player');
-    assert.equal(f.emptySeats, 19, 'a free player seat stays free (入座)');
+    assert.equal(f.emptySeats, 3, 'a free player seat stays free (入座)');
     assert.deepEqual(f.spectators.map((x) => x.playerId), ['s']);
     const hf = roomFacts(room, 'h');
     assert.equal(hf.canStart, true, 'a spectator never blocks the start');

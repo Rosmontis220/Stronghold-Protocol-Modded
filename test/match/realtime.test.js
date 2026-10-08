@@ -74,8 +74,11 @@ async function driveLoop(c, { skipOnce = false, until, stats }) {
       const key = `band:${pub.draft.order.join()}`;
       if (done.has(key)) continue;
       done.add(key);
-      const last = pub.draft.order.indexOf(c.id) === pub.draft.order.length - 1;
-      if (!skipped && !last) {
+      const laterManual = pub.draft.order.slice(pub.draft.order.indexOf(c.id) + 1).some((pid) => {
+        const p = pub.players.find((row) => row.playerId === pid);
+        return p && p.alive && p.connected && !p.isBot && !p.autoplay && !pub.draft.picks[pid];
+      });
+      if (!skipped && laterManual) {
         skipped = true;
         const r = await c.request({ t: 'g.bandSkip' });
         // a slow client may lose its (scaled) turn to the timer before the skip arrives
@@ -191,7 +194,9 @@ test('real-time co-op over websockets with the real simulation: 2 humans + 2 AI 
 
   assert.ok(stats.a.skipTries + stats.b.skipTries >= 1, 'a human tried to pass its band-draft turn (g.bandSkip)');
   for (const [c, s] of [[a, stats.a], [b, stats.b]]) {
-    assert.equal(s.bands + s.bandTimeouts, 1, `${c.id} drafted a band (or its turn timed out → 华法琳)`);
+    // A skipped human turn can expire before the throttled next m.public reaches the client; the server still assigns it.
+    assert.ok(m.players.get(c.id)?.bandId, `${c.id} received a strategy (manual pick or timeout)`);
+    assert.ok(s.bands + s.bandTimeouts <= 1, `${c.id} sent at most one band pick`);
     assert.ok(s.buys >= 3 && s.placed >= 3 && s.readies >= 3, `${c.id} played its preps: ${JSON.stringify(s)}`);
     // the SP round (NORMAL R3) gave every alive player a card
     assert.equal(s.cards, 1, `${c.id} picked one 机变 card`);

@@ -48,6 +48,8 @@ import { PROTOCOL_VERSION, APP_VERSION } from '../shared/constants.js';
 import { MEDIA_PREFIX, AUDIO_EXTS } from '../shared/media.js';
 import { createResourceIndex, EMPTY_LOCAL_MANIFEST } from './resource-index.js';
 import { RESOURCE_INDEX_URL } from '../shared/resource-plan.js';
+import { createPackRegistry } from './packs.js';
+import { PACKS_URL, PACK_INDEX_FILE } from '../shared/packs.js';
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -358,7 +360,8 @@ function splitUrl(url) {
 const LOCAL_ART_MANIFEST = 'local-assets.json';
 const EMPTY_LOCAL_ART = Buffer.from(EMPTY_LOCAL_MANIFEST);
 
-export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), log = noopLog }) {
+export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = path.join(ROOT, 'server', 'sim'), packsDir = path.join(ROOT, 'packs'), packs = null, log = noopLog }) {
+  const packRegistry = packs || createPackRegistry({publicDir, dataDir, packsDir}, {log});
   const mounts = [
     { prefix: '/data/', name: 'data', dir: path.resolve(dataDir) },
     { prefix: '/shared/', name: 'shared', dir: path.resolve(sharedDir) },
@@ -376,6 +379,15 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
     try { decoded = decodeURIComponent(rawPath); } catch { sendError(req, res, 400, '请求地址无效 · Bad request'); return; }
     if (!decoded.startsWith('/') || decoded.includes('\0') || decoded.includes('\\')) {
       sendError(req, res, 400, '请求地址无效 · Bad request');
+      return;
+    }
+    if (decoded.startsWith(PACKS_URL)) {
+      const parts = decoded.slice(PACKS_URL.length).split('/');
+      if (parts.length === 1 && parts[0] === PACK_INDEX_FILE) { sendJson(req, res, 200, packRegistry.index()); return; }
+      const abs = parts.length >= 2 && !parts.some((s) => s === '' || s === '.' || s === '..') ? packRegistry.servable(parts[0], parts.slice(1).join('/')) : null;
+      const st = abs ? await fsp.stat(abs).catch(() => null) : null;
+      if (!st || !st.isFile()) { sendError(req, res, 404, '页面不存在 · Not found'); return; }
+      await serveFile(req, res, abs, st, 'packs', parts, query, gzipCache, log);
       return;
     }
     if (decoded === RESOURCE_INDEX_URL) {

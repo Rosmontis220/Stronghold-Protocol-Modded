@@ -6,9 +6,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { bgmKeyFor, resolveBgm, SfxLimiter, AudioManager, normalAttackSfx, installAudio, audio, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS } from '../../public/js/audio.js';
+import { bgmKeyFor, resolveBgm, SfxLimiter, AudioManager, normalAttackSfx, installAudio, audio, combatTrackFor, COMBAT_TRACK_SWITCH_ROUND, VoiceGate, resultSpeaker, resultVoiceSlot, VOICE_PRIORITY, VOICE_COOLDOWN_MS } from '../../public/js/audio.js';
 import { mediaUrl } from '../../public/js/media.js';
 import { PHASE } from '../../shared/constants.js';
+import { makeBattle, chessRec } from '../helpers/battleHarness.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data', 'assets.json'), 'utf8'));
@@ -32,11 +33,37 @@ describe('bgm selection', () => {
     assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT }), 'combat');
     // 联防 has its own track: the official escaped_single / escaped_multi levels declare bgmEvent = corrosion
     assert.equal(bgmKeyFor('game', { phase: PHASE.UNITE }), 'unite');
+    // 开战 BGM: the round's own track (combatTrackFor) indexes the manifest's `bgm.combatAlts`
+    assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT }, 0), 'combat:0');
+    assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT }, 1), 'combat:1');
+    assert.equal(bgmKeyFor('game', { phase: PHASE.UNITE }, 1), 'unite', '联防 keeps its own track, not the round index');
+    assert.equal(bgmKeyFor('game', { phase: PHASE.PREP }, 1), 'prep');
+    assert.equal(bgmKeyFor('game', { phase: PHASE.FINAL_ASSAULT, bossId: 'boss_4' }, 1), 'boss:boss_4');
     assert.equal(bgmKeyFor('game', { phase: PHASE.FINAL_ASSAULT, bossId: 'boss_4' }), 'boss:boss_4');
     assert.equal(bgmKeyFor('game', { phase: PHASE.FINAL_ASSAULT }), 'boss');
-    assert.equal(bgmKeyFor('game', { phase: PHASE.HIDDEN_CORE, bossId: 'boss_1', hiddenBossId: 'boss_9' }), 'boss:boss_9');
+    assert.equal(bgmKeyFor('game', { phase: PHASE.HIDDEN_CORE, bossId: 'boss_1', hiddenBossId: 'boss_9' }, 1), 'boss:boss_9');
     assert.equal(bgmKeyFor('game', { phase: PHASE.RESULT }), 'lobby');
     assert.equal(bgmKeyFor('weird', null), null);
+  });
+  test('开战 BGM: the track is fixed per round, not drawn (无畏者 1–7, 骑士之日 8–13)', () => {
+    // The mode does not draw its battle theme: the official schedule plays 无畏者 through the early rounds and
+    // 骑士之日 from round 8 on (reviewer note — review had this as a per-match 0.5 draw before).
+    for (const r of [1, 2, 3, 4, 5, 6, 7]) assert.equal(combatTrackFor(r), 1, `round ${r} plays 无畏者`);
+    for (const r of [8, 9, 10, 11, 12, 13]) assert.equal(combatTrackFor(r), 0, `round ${r} plays 骑士之日`);
+    assert.equal(COMBAT_TRACK_SWITCH_ROUND, 7, 'the switch sits between round 7 and 8');
+    // the boss rounds (14 最终攻势 / 15 隐秘核心) have their own tracks and never ask for combat:<i>
+    assert.equal(bgmKeyFor('game', { phase: PHASE.FINAL_ASSAULT, round: 14 }, combatTrackFor(14)), 'boss');
+    // an unknown round falls back to the manifest's plain combat track (older manifest / no round yet)
+    for (const bad of [null, undefined, 0, -1, NaN, 'x']) assert.equal(combatTrackFor(bad), null, `${bad} ⇒ no index`);
+    assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT, round: 3 }, combatTrackFor(null)), 'combat');
+    // both ends of a real run: a solo 标准 match is 9 rounds, so it hears 无畏者 and then 骑士之日
+    assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT, round: 7 }, combatTrackFor(7)), 'combat:1');
+    assert.equal(bgmKeyFor('game', { phase: PHASE.COMBAT, round: 8 }, combatTrackFor(8)), 'combat:0');
+    // the index↔track mapping this table assumes, from docs/ASSETS.md: combatAlts[0] = m_bat_kazimierz2_1 骑士之日,
+    // combatAlts[1] = m_bat_kazimierz2_2 无畏者 (a reordering upstream breaks this test, not the players' ears)
+    const alt = manifest.audio.bgm.combatAlts;
+    assert.ok(alt[0].loop.includes('m_bat_kazimierz2_1'), `combatAlts[0] is 骑士之日: ${alt[0].loop}`);
+    assert.ok(alt[1].loop.includes('m_bat_kazimierz2_2'), `combatAlts[1] is 无畏者: ${alt[1].loop}`);
   });
   test('resolveBgm uses the manifest (boss fallback, intro optional)', () => {
     const lobby = resolveBgm(manifest, 'lobby');
@@ -44,6 +71,15 @@ describe('bgm selection', () => {
     const b4 = resolveBgm(manifest, 'boss:boss_4');
     assert.equal(b4.loop, manifest.audio.bossBgm.boss_4.loop);
     assert.equal(resolveBgm(manifest, 'boss:nope').loop, manifest.audio.bgm.boss.loop);
+    // 开战 BGM: combat:<i> → bgm.combatAlts[i], and back to the default combat track when the index (or the whole
+    // array, e.g. an older manifest) is missing
+    const alts = manifest.audio.bgm.combatAlts;
+    assert.ok(Array.isArray(alts) && alts.length >= 2, 'manifest carries the mode’s own battle tracks');
+    assert.equal(resolveBgm(manifest, 'combat:0').loop, alts[0].loop);
+    assert.equal(resolveBgm(manifest, 'combat:1').loop, alts[1].loop);
+    assert.notEqual(alts[0].loop, manifest.audio.bgm.combat.loop, 'a real battle track, not the shop loop');
+    assert.equal(resolveBgm(manifest, 'combat:9').loop, manifest.audio.bgm.combat.loop);
+    assert.equal(resolveBgm({ audio: { bgm: { combat: { loop: '/shop.mp3' } } } }, 'combat:0').loop, '/shop.mp3');
     assert.equal(resolveBgm(manifest, 'prep').intro, manifest.audio.bgm.prep.intro ?? null);
     // 联防's own track (bgm.unite = corrosion, the official escaped levels' bgmEvent), and the fallback for an older
     // manifest that has no `unite` entry (the music must not go silent)
@@ -56,6 +92,49 @@ describe('bgm selection', () => {
     assert.equal(resolveBgm(null, 'lobby'), null);
     assert.equal(resolveBgm(manifest, null), null);
     assert.equal(resolveBgm(manifest, 'nope'), null);
+  });
+  test('installAudio: the round\'s own 开战 track, fixed per round and the same on every client', () => {
+    const calls = [];
+    const origPlay = audio.playBgm;
+    audio.playBgm = (k) => { calls.push(k); };
+    try {
+      const pub = (o) => ({ phase: PHASE.PREP, round: 1, stageId: 'st1', players: [{ playerId: 'p1' }], ...o });
+      const state = { route: 'game', match: { public: pub({}) } };
+      let fire = null;
+      /** One client: its own store subscription (the expected keys below are what its own round yields — the point of
+       * the test is that the track follows the round, never moves inside a battle and never differs between clients). */
+      const wire = () => installAudio({
+        getManifest: () => manifest, getState: () => state, selectRoute: (s) => s.route,
+        subscribe: (fn) => { fire = fn; return () => {}; },
+      });
+      wire();
+      assert.equal(calls.at(-1), 'prep', 'the prep keeps the shop track');
+      // round 1 ⇒ 无畏者 (combatAlts[1])
+      state.match.public = pub({ phase: PHASE.COMBAT });
+      fire(state, {}); assert.equal(calls.at(-1), 'combat:1');
+      // a re-render / teammate view inside the same battle never moves
+      fire(state, {}); assert.equal(calls.at(-1), 'combat:1');
+      // 联防 has its OWN track (#110, the official escaped levels' `bgmEvent = corrosion`) — it does not inherit the
+      // round's 开战 track
+      state.match.public = pub({ phase: PHASE.UNITE });
+      fire(state, {}); assert.equal(calls.at(-1), 'unite');
+      // …and back to the round's own track in the 作战
+      state.match.public = pub({ phase: PHASE.COMBAT });
+      fire(state, {}); assert.equal(calls.at(-1), 'combat:1', "back to the round's own track");
+      // a second client of the same room hears the same track (its own installAudio, same round)
+      calls.length = 0; wire();
+      assert.deepEqual(calls, ['combat:1'], 'every client of the match hears the same track');
+      // round 7 is the last on 无畏者, round 8 switches to 骑士之日 (combatAlts[0]) — whoever sits in seat 1
+      state.match.public = pub({ round: 7, phase: PHASE.COMBAT });
+      fire(state, {}); assert.equal(calls.at(-1), 'combat:1');
+      state.match.public = pub({ round: 8, phase: PHASE.COMBAT });
+      fire(state, {}); assert.equal(calls.at(-1), 'combat:0');
+      state.match.public = pub({ round: 8, phase: PHASE.COMBAT, players: [{ playerId: 'p2' }] });
+      fire(state, {}); assert.equal(calls.at(-1), 'combat:0', 'the track does not depend on the seats');
+      // the boss rounds keep their own tracks
+      state.match.public = pub({ phase: PHASE.FINAL_ASSAULT, bossId: 'boss_4' });
+      fire(state, {}); assert.equal(calls.at(-1), 'boss:boss_4');
+    } finally { audio.playBgm = origPlay; }
   });
 });
 
@@ -133,6 +212,19 @@ describe('operator battle voice', () => {
     assert.equal(resultSpeaker({ unitsEnd: [{ defId: 'enemy_1007_slime', alive: true }] }, () => 0), null, 'an enemy');
   });
 
+  test('resultSpeaker on a real battle result: unitsEnd names the chess, the chess record gives the speaking operator', () => {
+    // the sim reports each unit by its chess id (sim/Battle.js unitsEnd defId = the chess record's id), so the line needs
+    // the chess → charId step the game screen passes (data.lookup('chess', id).charId); without it no battle ever spoke
+    const chessTable = JSON.parse(readFileSync(path.join(ROOT, 'data', 'chess.json'), 'utf8'));
+    const id = 'chess_char_1_01_a';
+    assert.equal(chessTable[id]?.charId, 'char_498_inside');
+    const h = makeBattle({ defs: { chess: { [id]: chessRec({ id }) } }, units: [{ chessId: id, row: 10, col: 4 }], content: 'none' });
+    const mine = Object.values(h.runToEnd(30).perPlayer)[0];
+    assert.equal(mine.unitsEnd[0].defId, id, 'the result carries the chess id, not the charId');
+    assert.equal(resultSpeaker(mine, () => 0), null, 'no chess → charId step: silent (the 0.1.4 bug)');
+    assert.equal(resultSpeaker(mine, () => 0, (defId) => chessTable[defId]?.charId ?? null), 'char_498_inside');
+  });
+
   test('VoiceGate: one line at a time, a global gap, per-unit cooldowns, higher priority takes over', () => {
     assert.ok(VOICE_PRIORITY.start > VOICE_PRIORITY.skill1 && VOICE_PRIORITY.skill1 > VOICE_PRIORITY.place, 'the official order');
     assert.ok(VOICE_PRIORITY.resultThree > VOICE_PRIORITY.skill1 && VOICE_PRIORITY.resultThree < VOICE_PRIORITY.faceEnemy);
@@ -158,30 +250,6 @@ describe('operator battle voice', () => {
     g2.release();
     g2.reset();
     assert.equal(g2.request('skill1', 'u1', 10001), 'play', 'a new battle inherits no cooldown');
-  });
-
-  test('bilingual voice selects the saved language and falls back to the other bank', async () => {
-    const fw = fakeWindow();
-    const vm = { audio: { voice: {
-      jp: { char_a: { place: '/v/jp.mp3', skill1: '/v/fallback.mp3' } },
-      cn: { char_a: { place: '/v/cn.mp3' } },
-    } } };
-    const a = new AudioManager({ win: fw.win, getManifest: () => vm });
-    a.install(); fw.fire('pointerdown');
-    await new Promise((r) => setTimeout(r, 10));
-    const played = [];
-    a._playVoice = (url) => played.push(url);
-    assert.equal(a.voiceLang, 'jp');
-    assert.equal(a.voice('char_a', 'place'), true);
-    a._stopVoice(); a.voiceGate.reset();
-    a.setVolumes({ voiceLang: 'cn' });
-    assert.equal(a.voice('char_a', 'place'), true);
-    a._stopVoice(); a.voiceGate.reset();
-    assert.equal(a.voice('char_a', 'skill1'), true);
-    a.setVoiceLang('invalid');
-    assert.equal(a.voiceLang, 'cn');
-    assert.deepEqual(played, ['/v/jp.mp3', '/v/cn.mp3', '/v/fallback.mp3']);
-    a._stopVoice();
   });
 
   test('AudioManager.voice: manifest slots (a drawn array), the gate, and the battle events that drive them', async () => {
@@ -594,5 +662,64 @@ describe('impact sounds (user playtest #4 item 6)', () => {
       await settle();
       assert.ok(!asked(urls, manifest.audio.sfx.units[charId].hit), '4 s later: not that attack\'s impact');
     } finally { globalThis.performance = perf; restore(); }
+  });
+});
+
+// =====================================================================================================================
+// 漏怪 sound (user request "接下来加漏怪的音效", then "应该是原版明日方舟关卡中的怪进蓝门的音效"). The sim emits
+// `['leak', id]` when an enemy reaches its goal (Battle.leak) — NOT a `die` — so until now an escape was completely
+// silent, for the player's own field and for a 联防 the helpers could not hold alike.
+//
+// The cue is the ORIGINAL Arknights stage alarm an enemy entering the exit plays in any normal stage: the manifest's
+// `sfx.battle.leak`, bank `battle.ON_ENEMY_REACHED_EXIT`, file `Battle/b_ui/b_ui_alarmenter`. (The autochess banks
+// have nothing named for an escape — all 13,948 SFX banks searched — but the stage itself does.) The official bank is
+// a one-shot: `maxSoundAllowed: 1` with `popOldest: true` on the `Battle_UI_Important` mixer.
+
+describe('漏怪 sound', () => {
+  async function rig() {
+    const fw = fakeWindow();
+    const urls = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = async (u) => { urls.push(u); return { ok: true, arrayBuffer: async () => new ArrayBuffer(8) }; };
+    const a = new AudioManager({ win: fw.win, getManifest: () => manifest });
+    a.install();
+    fw.fire('pointerdown');
+    const settle = () => new Promise((r) => setTimeout(r, 10));
+    return { a, fw, urls, settle, restore: () => { globalThis.fetch = origFetch; } };
+  }
+
+  test('an escaped enemy plays the original stage exit alarm — and no death sound (a leak is not a `die`)', async () => {
+    const { a, urls, settle, restore } = await rig();
+    try {
+      const url = manifest.audio.sfx.battle.leak;
+      assert.ok(url, '前提：清单里有 sfx.battle.leak');
+      assert.match(url, /b_ui_alarmenter\.mp3$/, '就是原版关卡里怪进蓝门那一声');
+      a.handleBattleEvents([['leak', 7]]);
+      await settle();
+      assert.ok(asked(urls, url), `漏怪 plays ${url}`);
+      assert.equal(askedCount(urls, manifest.audio.sfx.battle.enemyDie), 0, 'a leak is not a death — no death sound');
+    } finally { restore(); }
+  });
+
+  test('leaks of one disaster are ONE alarm (the cue is 1.44 s long), a later one rings again', async () => {
+    const { a, fw, urls, settle, restore } = await rig();
+    try {
+      const url = manifest.audio.sfx.battle.leak;
+      a.handleBattleEvents([['leak', 1]]);
+      await settle();
+      assert.equal(askedCount(urls, url), 1, 'the first escape rings');
+      // the plays themselves, not the fetches: the buffer is cached after the first one
+      const before = fw.made.started;
+      // six more at once — a wiped board, or a 联防 the helpers could not hold
+      a.handleBattleEvents([['leak', 2], ['leak', 3], ['leak', 4], ['leak', 5], ['leak', 6], ['leak', 7]]);
+      await settle();
+      assert.equal(fw.made.started - before, 0, 'one disaster never stacks alarms (the official bank allows 1)');
+      // a genuine later leak is a new disaster and rings again, once the cue (1.44 s) has finished
+      await new Promise((r) => setTimeout(r, 1600));
+      a.handleBattleEvents([['leak', 8]]);
+      await settle();
+      assert.equal(fw.made.started - before, 1, 'a later leak rings again');
+      assert.ok(a.limiter.active <= a.limiter.maxVoices);
+    } finally { restore(); }
   });
 });

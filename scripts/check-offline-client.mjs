@@ -5,7 +5,8 @@ const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH
 try {
   const page = await browser.newPage();
   const errors = [];
-  page.on('pageerror', e => errors.push(e.message));
+  page.on('pageerror', e => {errors.push(e.message); console.error('PAGE ERROR',e.message);});
+   page.on('console', msg => {if(msg.type()==='error') console.error('BROWSER',msg.text());});
   await page.setRequestInterception(true);
   page.on('request', r => new URL(r.url()).origin === new URL(server.url).origin ? r.continue() : r.abort());
   await page.goto(server.url + '/?packaged=1&server=https://unreachable.invalid');
@@ -15,7 +16,7 @@ try {
     const { enterSession } = await import('/js/screens/title.js');
     enterSession('离线博士');
     await new Promise(r => setTimeout(r, 100));
-    await net.request('room.create', { mode: 'coop', difficulty: 'FUNNY' });
+    await net.request('room.create', { mode: 'coop', difficulty: 'FUNNY', capacity: 20 });
     for (let n = 0; n < 19; n++) await net.request('room.addBot', {});
     await net.request('room.start', {});
     await net.request('g.autoplay', { on: true });
@@ -28,9 +29,10 @@ try {
   const roster = await page.evaluate(() => {
     const list = document.querySelector('.team__list');
     list.scrollTop = list.scrollHeight;
-    const last = list.lastElementChild.getBoundingClientRect();
+    const rows = list.querySelectorAll('.team__row');
+    const last = rows[rows.length-1].getBoundingClientRect();
     const box = list.getBoundingClientRect();
-    return {rows:list.children.length,scrollable:list.scrollHeight>list.clientHeight,scrolled:list.scrollTop>0,lastVisible:last.top>=box.top&&last.bottom<=box.bottom+2};
+    return {rows:rows.length,scrollable:list.scrollHeight>list.clientHeight,scrolled:list.scrollTop>0,lastVisible:last.top>=box.top&&last.bottom<=box.bottom+2};
   });
   console.log(result, { errors, roster });
   if (roster.rows!==20||!roster.scrollable||!roster.scrolled||!roster.lastVisible) throw new Error('Roster scroll failed');

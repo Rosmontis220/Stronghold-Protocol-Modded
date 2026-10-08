@@ -103,7 +103,7 @@ describe('#7 the 联防 leak counter (HUD)', () => {
     assert.deepEqual(rowLp(b, pub, own, { uniteLocal: { b: 2 } }), own, 'the own row keeps the top bar\'s value');
     // wiring: the game screen hands the runner's per-leaker counts to the team panel, which passes them to rowLp
     assert.match(read('public/js/screens/game.js'), /const uniteLocal = phase === PHASE\.UNITE && battleState && battleState\.uniteLeft \? battleState\.uniteLeft : null;/);
-    assert.match(read('public/js/screens/game.js'), /<\$\{TeamPanel\}[^\n]*uniteLocal=\$\{uniteLocal\}/);
+    assert.match(read('public/js/screens/game.js'), /<\$\{TeamPanel\}[^>]*uniteLocal=\$\{uniteLocal\}/);
     assert.match(read('public/js/ui/teamPanel.js'), /rowLp\(p, pub, self \? selfLive : null, \{ uniteLocal, cap \}\)/);
   });
 
@@ -114,7 +114,7 @@ describe('#7 the 联防 leak counter (HUD)', () => {
     assert.equal(missTip(0, 'Doctor·B'), 'Doctor·B 漏过的敌人已全部被击倒');
     assert.equal(MissTag({ n: 5, name: 'Doctor·B' }).props.title, 'Doctor·B 漏过的敌人还剩 5 个（联防中）');
     assert.equal(MissTag({ n: 5 }).props.title, '你漏过的敌人还剩 5 个（队友正在迎战）');
-    assert.match(read('public/js/ui/teamPanel.js'), /<\$\{MissTag\} n=\$\{lp\.left\} name=\$\{self \? null : p\.name \|\| '博士'\} \/>/);
+    assert.match(read('public/js/ui/teamPanel.js'), /<\$\{MissTag\} n=\$\{lp\.left\} name=\$\{self \? null : p\.name \|\| t\('博士'\)\} \/>/);
   });
 
   test('the phase capsule carries the official runner tag ×N in 联防 only; the tag reads the uncapped number', () => {

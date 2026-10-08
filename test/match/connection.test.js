@@ -90,9 +90,10 @@ test('disconnect: the seat keeps playing; draft turns / prep auto-resolve at dea
   h.m.onDisconnect('p_1');
   assert.equal(m.publicView().players.find((p) => p.playerId === 'p_1').connected, false);
   m.handle('p_0', { t: 'g.infoReady' });
-  // p_1 never confirms: the 25 s deadline moves on; p_1 never picks: 12 s turn → 华法琳
+  // p_1 never confirms: the 25 s deadline moves on; the connected player picks first, then p_1 times out.
   h.drive(() => m.phase === PHASE.PREP && m.round === 1);
-  assert.equal(h.ps('p_1').bandId, 'band_bldsk');
+  assert.equal(h.ps('p_0').bandId, 'band_bldsk');
+  assert.equal(h.ps('p_1').bandId, 'band_amiya', 'the offline seat gets the next free strategy');
   const sentBefore = h.sent.length;
   // p_0 readies; p_1 is auto-readied at the prep deadline
   m.handle('p_0', { t: 'g.ready', ready: true });
@@ -183,7 +184,7 @@ test('onLeave: a quitter has no place in the Final Assault pairing or the boss p
   h.drive(() => m.phase === PHASE.FINAL_ASSAULT);
   assert.deepEqual(m.fields.map((f) => f.players), [alive], 'one boss field for the two players left');
   assert.equal(m.bossPool.maxHp, bossPoolHp(m.gd, m.bossId, 2), 'the co-op boss pool of two alive players');
-  assert.equal(m.bossPool.maxHp, m.gd.boss(m.bossId).bloodPoint[m.gd.difficulty], 'bloodPoint, no alive-player factor (DESIGN §20.10)');
+  assert.equal(m.bossPool.maxHp, m.gd.boss(m.bossId).bloodPoint[m.gd.difficulty] * 2, 'bloodPoint × the two players left; the quitter does not count (DESIGN §25.13.4)');
   const end = h.runToEnd();
   assert.equal(end.victory, true);
   assert.equal(end.players.find((p) => p.playerId === first).roundsPassed, 0);

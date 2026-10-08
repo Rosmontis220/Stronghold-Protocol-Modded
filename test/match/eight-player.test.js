@@ -6,15 +6,10 @@ import { compactResult } from '../../server/sim/spec.js';
 import { validateC2S, RESULT_LIMITS } from '../../shared/protocol.js';
 import { MAX_SEATS } from '../../shared/constants.js';
 
-test('co-op boss pool scales from the four-player baseline above four players', () => {
+test('co-op boss pool uses the modern per-player baseline', () => {
   const gd = makeMatch({ humans: 1, fake: true }).m.gd;
-  const base = gd.bossPoolShare(4);
-  assert.equal(gd.bossPoolShare(1), base);
-  assert.equal(gd.bossPoolShare(4), base);
-  assert.equal(gd.bossPoolShare(5), base * 1.25);
-  assert.equal(gd.bossPoolShare(6), base * 1.5);
-  assert.equal(gd.bossPoolShare(7), base * 1.75);
-  assert.equal(gd.bossPoolShare(8), base * 2);
+  const base = gd.bossPoolShare(1);
+  for (const n of [1, 4, 5, 8, 20]) assert.equal(gd.bossPoolShare(n), base * n);
 });
 
 test('twenty-player battle reports and last draft index pass protocol validation', () => {
@@ -22,7 +17,8 @@ test('twenty-player battle reports and last draft index pass protocol validation
   assert.equal(RESULT_LIMITS.players, 20);
   const perPlayer = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`p_${i}`, { total: 1, killed: 1 }]));
   assert.equal(Object.keys(compactResult({ perPlayer }).perPlayer).length, 20);
-  assert.equal(validateC2S({ t: 'g.choice', idx: 19 }), null);
+  assert.equal(validateC2S({ t: 'g.choice', idx: 5 }), null);
+  assert.notEqual(validateC2S({ t: 'g.choice', idx: 6 }), null);
 });
 
 test('twenty-player drafts cover every seat, including fixed secret-shop pools', () => {
@@ -31,8 +27,8 @@ test('twenty-player drafts cover every seat, including fixed secret-shop pools',
     for (const round of [3, 6, 9, 11, 13]) {
       const draft = generateDraft(h.m.gd, h.m.rngDraft, round, { stageId: h.m.stageId, playerCount: 20 });
       if (draft) {
-        assert.ok(draft.cards.length >= 20, `R${round} ${draft.family} covers all participants`);
-        assert.equal(draft.repeatable, false);
+        assert.equal(draft.cards.length, 6, `R${round} ${draft.family} uses six independent cards per group`);
+        assert.equal(!!draft.repeatable, false);
         assert.equal(new Set(draft.cards.map((c) => c.idx)).size, draft.cards.length);
       }
     }

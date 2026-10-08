@@ -220,7 +220,7 @@ line is lost rather than clamped.
 - `shared/constants.js`: `BOND_LAYER_CAP = 999` and `BOSS_HIT_LIMIT = 300000` (0 / Infinity = off), plus
   `layerGainRoom(before, n)` = min(n, cap − before), never negative.
 - Layers: every writer clamps with it — `PlayerState.addLayers` (every prep-side gain: 特质, items, bands, 机变 cards,
-  bonds), the settle of the in-battle gains (`Match.js`), `Battle.addLayers` (the live in-battle copy, after the
+  bonds), the settle of the in-battle gains (`Match.settle`, `server/match/match/settle.js`), `Battle.addLayers` (the live in-battle copy, after the
   `layerGain` hook, as the client's `AddBondCount`); a gain at the cap adds 0 (no onLayers, no 'layer' event, no hook),
   so the per-N milestones (远见, 奇迹, 维多利亚 …) stop with the count; the client-result check (`fields.js`) bounds a
   reported gain by the room left from the bond's starting layers; `invariants.js` flags a bond above the cap. The dev
@@ -240,4 +240,7 @@ line is lost rather than clamped.
   boss_8 ABYSS 7.2M, gives 144000, which lands. A pool above 14999950 (≈ 2.08 × that; ceil(0.02 × max) = 300000)
   would turn every drone kill into a cancelled hit [ASSUMED: the official routes this loss through the same
   `_OnBossEnemyTakeDamage` check]. Any change to the pool size (an alive-scaled pool, a new difficulty) should keep this
-  in view; a real-kit test pins the line (`test/sim/playtest6_limits.test.js`, 【死亡集群】).
+  in view. The capacity fork now deliberately exempts this scripted percentage loss from the hit limit, preserving
+  the mechanism on a 20-player pool; `test/sim/playtest6_limits.test.js` covers the old boundary and the 36M pool
+  for both server and client simulation. Ordinary attacks and transferred damage keep the official limit; see
+  [PLAYER_CAPACITY.md](../PLAYER_CAPACITY.md).

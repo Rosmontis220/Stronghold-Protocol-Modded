@@ -29,6 +29,8 @@
 //
 // The handler object (implemented by server/lobby.js) receives:
 //   onHello(session, { resumed, repeat })  after `welcome` was sent
+//   welcomeInfo() → object (optional)      extra fields of every `welcome` (never one of its own keys): the lobby's
+//                                          `diyKitted` (0.2.0 自选编队 — which operators a DIY slot may field)
 //   onMessage(session, msg) → { ok: true } | { error: ERR code, detail?: string } | undefined
 //   routeGame(session, msg) → same (optional): client-side combat reports `b.progress` / `b.result` (DESIGN §14) go
 //                                          straight to the running match through it; without it they reach onMessage
@@ -60,10 +62,11 @@ export const NET_DEFAULTS = Object.freeze({
 
 /**
  * Intents that also draw from the per-connection heavy bucket: g.watch (its reply is a large state resend, m.field),
- * room.loadout (a ≤ 160-entry map validated against the game data; the client debounces its edits) and room.spectate
+ * room.loadout (a ≤ 160-entry map validated against the game data; the client debounces its edits), room.ownership
+ * (a ≤ 160-id list, the same way), room.diy (≤ 8 自选 picks checked against the data, the same way) and room.spectate
  * (taking a spectator seat in a running match resends its state like a watcher's g.watch — server/lobby.js spectate).
  */
-export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout', 'room.spectate']);
+export const HEAVY_TYPES = new Set(['g.watch', 'room.loadout', 'room.ownership', 'room.diy', 'room.spectate']);
 
 /** Close codes (see header). */
 export const CLOSE = Object.freeze({ REPLACED: 4001, HELLO_TIMEOUT: 4002, POLICY: 1008, SHUTDOWN: 1001 });
@@ -88,8 +91,10 @@ export class Session {
     this.token = token;
     /** @type {string} sanitized nickname */
     this.name = name;
-    /** @type {string|null} operator avatar the player picked (a character id like char_4040_rockr, shape-checked on hello) */
+    /** @type {string|null} operator avatar selected by the player */
     this.avatar = null;
+    /** @type {Readonly<Record<string, string>>|null} selected operator skins */
+    this.skins = null;
     /** @type {import('ws').WebSocket | null} currently bound socket */
     this.ws = null;
     /** @type {boolean} */
@@ -108,6 +113,10 @@ export class Session {
     this.resyncAt = -Infinity;
     /** @type {Record<string, { skill: number, module: string|null }> | null} checked operator loadout (lobby-owned, DESIGN §16) */
     this.loadout = null;
+    /** @type {readonly string[] | null} checked not-owned chess ids (干员持有, lobby-owned, 0.2.0 补位) */
+    this.notOwned = null;
+    /** @type {Readonly<Record<string, { charId: string, skillIndex: number, uniEquipId: string|null }>> | null} checked 自选 picks (lobby-owned, 0.2.0 自选编队) */
+    this.diy = null;
     /** @type {string} client address of the latest connection (logging) */
     this.addr = '?';
     /** @type {string | null} per-network limit key of the latest connection (null = not limited), see clientAddress */
@@ -499,21 +508,18 @@ export class Network {
   /**
    * @param {{
    *   registry: SessionRegistry,
-   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function },
+   *   handler: { onHello?: Function, onMessage: Function, onDisconnect?: Function, onExpire?: Function, welcomeInfo?: Function },
    *   log?: { info: Function, warn: Function, error: Function, debug?: Function },
    *   now?: () => number,
    *   options?: Partial<typeof NET_DEFAULTS>,
-   *   onConnect?: (conn: Connection) => void,
    * }} opts
    */
-  constructor({ registry, handler, log = noopLog, now = Date.now, options = {}, onConnect = null }) {
+  constructor({ registry, handler, log = noopLog, now = Date.now, options = {} }) {
     this.registry = registry;
     this.handler = handler;
     this.log = log;
     this.now = now;
     this.opts = { ...NET_DEFAULTS, ...options };
-    /** Called for every socket right after the upgrade (server-wide notices are sent here). */
-    this.onConnect = typeof onConnect === 'function' ? onConnect : null;
     /** @type {Map<import('ws').WebSocket, Connection>} */
     this.conns = new Map();
     /** @type {Map<string, number>} open sockets per client network key */
@@ -530,7 +536,7 @@ export class Network {
   get connectionCount() { return this.conns.size; }
 
   /**
-   * Upgrade-time admission check (server/index.js): null to accept, otherwise the reason to refuse.
+   * Upgrade-time admission check (server/http/websocket.js): null to accept, otherwise the reason to refuse.
    * @param {import('node:http').IncomingMessage} req
    * @returns {null | 'shutdown' | 'full' | 'per-address'}
    */
@@ -559,15 +565,6 @@ export class Network {
     ws.on('pong', () => { conn.alive = true; if (conn.session && conn.session.ws === ws) conn.session.lastSeen = this.now(); });
     ws.on('error', (e) => { this.log.debug?.('[net] socket error', e?.code || e?.message); });
     ws.on('close', () => { try { this.onClose(conn); } catch (e) { this.log.error('[net] close handler crashed', e); } });
-    // A socket is ready to receive the moment it is upgraded: send whatever the player should see before saying
-    // anything (server-wide notices, server/index.js). Deliberately not tied to `hello`: a client sitting on the
-    // title screen has not entered a name yet, so it never says hello — and that is exactly when a notice about an
-    // upcoming restart matters most.
-    try {
-      this.onConnect?.(conn);
-    } catch (e) {
-      this.log.error('[net] onConnect crashed', e);
-    }
   }
 
   /** @param {Connection} conn @param {object} msg */
@@ -663,15 +660,14 @@ export class Network {
       session.disconnectedAt = null;
     }
     session.name = name;
-    // A picked operator avatar (a character id like char_4040_rockr): shape only — anything else (junk, a missing
-    // field) means the default look. The lobby re-broadcasts room.state when it changes, so teammates see it at once.
     session.avatar = typeof msg.avatar === 'string' && /^char_[a-z0-9_]{1,24}$/.test(msg.avatar) ? msg.avatar : null;
     session.lastSeen = now;
     session.addr = conn.ip;
     session.limitKey = conn.key;
 
-    const welcome = { t: 'welcome', playerId: session.playerId, token: session.token, name: session.name,
-      avatar: session.avatar, serverNow: now, version: PROTOCOL_VERSION, resumed };
+    let extra = null;
+    try { extra = this.handler.welcomeInfo?.() ?? null; } catch (e) { this.log.error('[net] welcomeInfo crashed', e); }
+    const welcome = { ...(extra && typeof extra === 'object' ? extra : null), t: 'welcome', playerId: session.playerId, token: session.token, name: session.name, avatar: session.avatar, serverNow: now, version: PROTOCOL_VERSION, resumed };
     if (validRid(rid)) welcome.rid = rid;
     this.reply(conn, welcome);
     try {
@@ -679,22 +675,6 @@ export class Network {
     } catch (e) {
       this.log.error('[net] onHello crashed', e);
     }
-  }
-
-  /**
-   * Send one frame to every open socket (server-wide notices). Sockets that have not said hello yet get it too: the
-   * notice is for the title screen just as much as for a match. Never throws.
-   * @param {object} msg
-   * @returns {number} sockets the frame was written to
-   */
-  broadcast(msg) {
-    let sent = 0;
-    for (const conn of this.conns.values()) {
-      try {
-        if (send(conn.ws, msg)) sent++;
-      } catch { /* a dying socket must not stop the broadcast */ }
-    }
-    return sent;
   }
 
   /** The session moved to a new socket: unbind and close the old one without firing a disconnect. */
