@@ -5,6 +5,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import './prepare-local-runtime.mjs';
+import { writePackIndex } from '../tools/packs.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'mobile-web');
@@ -30,6 +31,8 @@ await fs.mkdir(OUT, { recursive: true });
 await copy(path.join(ROOT, 'public'), OUT);
 await copy(path.join(ROOT, 'data'), path.join(OUT, 'data'));
 await copy(path.join(ROOT, 'shared'), path.join(OUT, 'shared'));
+await copy(path.join(ROOT, 'packs'), path.join(OUT, 'packs'));
+writePackIndex(ROOT, path.join(OUT, 'packs', 'index.json'));
 // Client-side combat imports /sim/* and /data.js, which the Node server normally serves dynamically.
 // Capacitor serves only this static payload, so ship the browser modules and the same data bridge here.
 await copy(path.join(ROOT, 'server', 'sim'), path.join(OUT, 'sim'));

@@ -34,7 +34,8 @@
       "public/**",
       "data/**",
       "package.json",
-      "node_modules/**"
+      "node_modules/**",
+      "packs/**"
     ],
     "extraResources": [],
     "win": {

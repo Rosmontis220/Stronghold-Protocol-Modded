@@ -50,6 +50,7 @@ import { createResourceIndex, EMPTY_LOCAL_MANIFEST } from './resource-index.js';
 import { RESOURCE_INDEX_URL } from '../shared/resource-plan.js';
 import { createPackRegistry } from './packs.js';
 import { PACKS_URL, PACK_INDEX_FILE } from '../shared/packs.js';
+import { runMain } from './http/boot.js';
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -646,6 +647,8 @@ export async function startServer(opts = {}) {
   const publicDir = opts.publicDir || path.join(ROOT, 'public');
   const dataDir = opts.dataDir || path.join(ROOT, 'data');
   const sharedDir = opts.sharedDir || path.join(ROOT, 'shared');
+  const packsDir = opts.packsDir || path.join(ROOT, 'packs');
+  const packs = opts.packs || createPackRegistry({ publicDir, dataDir, packsDir }, { log });
 
   // The process-wide singleton serves the default data dir; a custom dir (tests) gets its own copy.
   const data = opts.dataDir ? loadData(dataDir, { log }) : getData({ dir: dataDir, log });
@@ -682,7 +685,7 @@ export async function startServer(opts = {}) {
   noticeBoard.start();
   // Operator console API (server/admin.js + public/admin.html).
   const admin = createAdminApi({ lobby, noticeBoard, noticeFile: noticeBoard.file, log });
-  const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, log });
+  const serveStatic = createStaticHandler({ publicDir, dataDir, sharedDir, packsDir, packs, log });
   const startedAt = Date.now();
   // The tag is per process (see buildTag): read the browser runtime once, here, not on every /healthz.
   resetBuildTag();
@@ -795,7 +798,7 @@ export async function startServer(opts = {}) {
     return closing;
   }
 
-  return { port: actualPort, host, url, server, wss, lobby, network, registry, notice: noticeBoard, close };
+  return { port: actualPort, host, url, server, wss, lobby, network, registry, packs, notice: noticeBoard, close };
 }
 
 // ---------------------------------------------------------------------------------------------------
@@ -841,4 +844,4 @@ async function main() {
   process.on('SIGTERM', () => stop('SIGTERM'));
 }
 
-if (isMain()) main();
+if (isMain()) runMain(startServer);
