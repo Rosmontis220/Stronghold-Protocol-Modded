@@ -89,8 +89,8 @@ test('a row\'s 潜能 / 练度 selects: the defaults quiet, a changed one marked
   assert.match(find(s, (v) => hasClass(v, 'lo-cult'))[0].props.title, /替补干员没有潜能与练度/);
 });
 
-test('the head names the four columns; CultivationSelects without an operator draws nothing', () => {
-  assert.deepEqual(find(RosterHead(), (v) => hasClass(v, 'lo-list__h')).map((v) => textOf(v)), ['干员', '技能', '模组精锐', '潜能 · 练度']);
+test('the head names the five columns; CultivationSelects without an operator draws nothing', () => {
+  assert.deepEqual(find(RosterHead(), (v) => hasClass(v, 'lo-list__h')).map((v) => textOf(v)), ['干员', '技能', '模组精锐', '潜能 · 练度', '皮肤']);
   assert.equal(CultivationSelects({ charId: null, ops: {}, onSet: () => {} }), null);
 });
 

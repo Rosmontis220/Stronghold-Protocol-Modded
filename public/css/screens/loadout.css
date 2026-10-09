@@ -140,12 +140,12 @@
 
 /* ---- roster: one list, one row per operator (0.2.2) ------------------------------------------------------------------------ */
 /* The quick choices of PR #301 (by @farridge) as ONE list instead of three columns of cards (the owner's decision of
-   2026-10-08: 「三个竖排有点乱影响观感」): every row has the same four columns — the operator (portrait, name, bonds), the
-   skills, the elite's modules, 潜能 / 练度 — aligned under a sticky head row, so the eye runs down a column. Sizes: --q a
-   quick button (a skill / module), --art the portrait; a coarse pointer gets 40 px targets. */
+   2026-10-08: 「三个竖排有点乱影响观感」): every row has the same five columns — the operator (portrait, name, bonds), the
+   skills, the elite's modules, 潜能 / 练度, 皮肤 (the fork's own quick tiles) — aligned under a sticky head row, so the eye
+   runs down a column. Sizes: --q a quick button (a skill / module / skin), --art the portrait; a coarse pointer gets 40 px targets. */
 .lo-list {
   --q: max(.4rem, 32px); --qg: max(.05rem, 4px); --art: max(.52rem, 40px);
-  --cols: minmax(max(2.2rem, 110px), max(3.2rem, 260px)) calc(3 * var(--q) + 2 * var(--qg)) calc(4 * var(--q) + 3 * var(--qg)) max(2.2rem, 160px);
+  --cols: minmax(max(2.2rem, 110px), max(3.2rem, 260px)) calc(3 * var(--q) + 2 * var(--qg)) calc(4 * var(--q) + 3 * var(--qg)) max(2.2rem, 160px) calc(3 * var(--q) + 2 * var(--qg));
   flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; touch-action: pan-y; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
   padding: 0 .06rem .2rem 0; scrollbar-width: thin; scrollbar-color: var(--line-3) transparent;
 }
@@ -185,11 +185,11 @@
 /* 0.2.0 补位: a chess marked 未持有 on the 干员持有 tab — its stand-in fights with a fixed skill and no 潜能 / 练度; the choices
    here apply once it is owned again */
 .lo-card__sub { align-self: flex-start; padding: 0 .04rem; font-size: max(.11rem, 8px); font-weight: 700; line-height: 1.4; color: var(--ice-900); background: var(--ice); }
-.lo .lo-card.is-standin .lo-card__skills, .lo .lo-card.is-standin .lo-card__mods, .lo .lo-card.is-standin .lo-cult { opacity: .55; }
+.lo .lo-card.is-standin .lo-card__skills, .lo .lo-card.is-standin .lo-card__mods, .lo .lo-card.is-standin .lo-card__skins, .lo .lo-card.is-standin .lo-cult { opacity: .55; }
 .lo-locknote--standin { color: var(--ice); }
 
-.lo-card__skills, .lo-card__mods { display: flex; align-items: center; gap: var(--qg); min-width: 0; }
-.lo-card__mods { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.lo-card__skills, .lo-card__mods, .lo-card__skins { display: flex; align-items: center; gap: var(--qg); min-width: 0; }
+.lo-card__mods, .lo-card__skins { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
 .lo-q {
   position: relative; flex: none; display: grid; place-items: center; width: var(--q); height: var(--q); padding: 0;
   font: inherit; color: var(--text-lo); background: none; border: 0; cursor: pointer; touch-action: manipulation;
@@ -199,6 +199,12 @@
 .lo-q:not(.is-on):not(.lo-q--empty):hover { opacity: 1; }
 .lo-q__type { position: absolute; left: 0; bottom: 0; padding: 0 2px; font-size: max(.11rem, 8px); line-height: 1.3; color: var(--text-hi); background: rgba(0, 0, 0, .7); pointer-events: none; }
 .lo-q--mod.is-on .lo-mglyph { border-color: var(--gold-2); box-shadow: 0 0 .08rem rgba(255, 198, 0, .35); }
+/* 皮肤 (screens/loadout.js QuickSkin): the row's last column — 默认 first, then one avatar per installed skin; the worn
+   one ringed like the detail's 换装 tab. An operator without skins leaves the column empty. */
+.lo-q--skin { overflow: hidden; background: rgba(0, 0, 0, .4); border: 1px solid var(--line); border-radius: 2px; }
+.lo-q--skin.is-on { border-color: rgba(78, 216, 175, .75); box-shadow: 0 0 max(.05rem, 4px) rgba(78, 216, 175, .35); }
+.lo-q__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.lo-q__img--none { width: 100%; height: 100%; background: repeating-linear-gradient(45deg, rgba(255, 255, 255, .06) 0 3px, transparent 3px 7px); }
 
 /* 潜能 / 练度 (screens/cultivation.js): two compact selects side by side in the row's last column; at the defaults (潜能 6,
    精英2 Lv.60 — the same on every row) they stay quiet, a changed one is mint */
@@ -617,9 +623,12 @@
   }
   .lo-detail-back .icon { width: .2rem; height: .2rem; }
 }
-/* narrow phones: the row's bonds give their line to the name, the columns keep their place */
+/* narrow phones: the row's bonds give their line to the name, the columns keep their place; the 皮肤 column gives its
+   place back to the four (a phone taps the portrait → 换装 instead) */
 @media (max-width: 700px) {
   .lo-card__bonds { display: none; }
+  .lo-list__h--skin, .lo-card__skins { display: none; }
+  .lo-list { --cols: minmax(max(2.2rem, 110px), max(3.2rem, 260px)) calc(3 * var(--q) + 2 * var(--qg)) calc(4 * var(--q) + 3 * var(--qg)) max(2.2rem, 160px); }
 }
 @media (max-height: 520px) {
   .lo-note { display: none; }
@@ -759,70 +768,5 @@
   color: var(--mint-400);
   border: 1px solid rgba(78, 216, 175, .4);
 }
-
-/* ---- 皮肤快捷栏 (潜能 / 练度下面的一排头像，ui/skinPicker.js SkinQuickBar) ------------------------------------
-   左侧标签、右侧一行方形头像缩略图：点按直接装配，不用切到「换装」；选中的一项亮边加勾。兼容旧机型 (Chromium 80-84)。 */
-.lo-skinbar {
-  display: flex;
-  align-items: flex-start;
-  gap: max(.1rem, 8px);
-  width: 100%;
-  padding-top: max(.06rem, 4px);
-}
-.lo-skinbar__label {
-  flex: 0 0 auto;
-  font-size: max(.17rem, 12px);
-  font-weight: 700;
-  color: var(--text-hi);
-  line-height: max(.48rem, 36px);
-  white-space: nowrap;
-}
-.lo-skinbar__row {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: max(.06rem, 5px);
-}
-.lo-skinbar__tile {
-  position: relative;
-  flex: 0 0 auto;
-  width: max(.48rem, 36px);
-  height: max(.48rem, 36px);
-  padding: 0;
-  font: inherit;
-  cursor: pointer;
-  background: rgba(0, 0, 0, .4);
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  overflow: hidden;
-  transition: border-color var(--t-fast), box-shadow var(--t-fast);
-  touch-action: manipulation;
-}
-.lo-skinbar__tile:hover { border-color: var(--line-3); }
-.lo-skinbar__tile.is-on {
-  border-color: rgba(78, 216, 175, .75);
-  box-shadow: 0 0 max(.06rem, 4px) rgba(78, 216, 175, .35);
-}
-.lo-skinbar__tile img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center top;
-}
-.lo-skinbar__check {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  font-size: max(.11rem, 9px);
-  font-weight: 700;
-  line-height: 1;
-  padding: max(.02rem, 1px) max(.03rem, 3px);
-  color: var(--text-hi);
-  background: rgba(78, 216, 175, .85);
-  border-radius: 2px 0 0 0;
-}
-.lo-skinbar__tile:not(.is-on) .lo-skinbar__check { display: none; }
 
 

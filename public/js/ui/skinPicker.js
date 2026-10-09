@@ -1,5 +1,5 @@
-// 皮肤选择器 (docs/SKINS.md) — the 皮肤 section of the 干员调配 screen's detail panel, plus the compact quick bar
-// under the 潜能 / 练度 selects.
+// 皮肤选择器 (docs/SKINS.md) — the 皮肤 section of the 干员调配 screen's detail panel, plus the roster rows' skin avatar
+// lookup (the rows' quick tiles live in screens/loadout.js).
 //
 // All 174 skins are built-in. Operators without skins return null silently.
 // Outside match only: changes are persisted to localStorage and mirrored via room.skins.
@@ -13,11 +13,11 @@ import { skinsStore, availableSkins, loadSkinData, setSkin, clearSkin } from './
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
- * The installed skin's 180×180 avatar URL, or null.
+ * A skin's avatar URL, or null.
  *
  * Keyed by OPERATOR id, not by chess id: data/assets.json groups everything under `chars[charId]`.
  */
-function skinAvatar(charId, skinId) {
+export function skinAvatar(charId, skinId) {
   return data.get('assets')?.chars?.[charId]?.skins?.[skinId]?.avatar || null;
 }
 
@@ -109,41 +109,3 @@ export function SkinSection({ chess }) {
   </section>`;
 }
 
-/**
- * The quick bar under the 潜能 / 练度 selects: one avatar per installed skin of this operator, tap to wear,
- * tap the worn one (or 默认) to take it off. Null without skins or before the config arrives — the full
- * 换装 tab stays the way to read names and series.
- * @param {{ chess: any }} props `chess` is the chess record of the detail panel
- */
-export function SkinQuickBar({ chess }) {
-  const s = useStore((v) => v, shallowEqual, skinsStore);
-  useSkinData(chess && chess.chessId);
-
-  const chessId = chess && chess.chessId;
-  const charId = chess && chess.charId;
-  if (!chessId || !charId) return null;
-  if (data.status('skins') !== 'ready') return null;
-
-  const list = availableSkins(charId);
-  if (!list.length) return null;
-
-  const chosen = s.entries[chessId] || null;
-  const defaultArt = data.get('assets')?.chars?.[charId]?.avatar || null;
-  const tile = (id, art, name, isOn, pick) => html`<button key=${id} type="button" role="radio"
-      aria-checked=${isOn ? 'true' : 'false'} data-skin=${id} title=${name}
-      class=${cx('lo-skinbar__tile', isOn && 'is-on')} onClick=${pick}>
-    ${art ? html`<img src=${art} alt="" loading="lazy" onError=${(e) => {
-      if (defaultArt && e.currentTarget.src !== defaultArt) e.currentTarget.src = defaultArt;
-    }} />` : html`<span class="lo-skin__art--none"></span>`}
-    <span class="lo-skinbar__check">${'✓'}</span>
-  </button>`;
-
-  return html`<section class="lo-skinbar" data-testid="skin-quickbar" aria-label=${'皮肤快捷更换'}>
-    <span class="lo-skinbar__label">皮肤<${MicroLabel}>SKIN<//></span>
-    <div class="lo-skinbar__row" role="radiogroup" aria-label=${'选择皮肤'}>
-      ${tile('', defaultArt, '默认', !chosen, () => clearSkin(chessId))}
-      ${list.map((x) => tile(x.id, skinAvatar(charId, x.id) || defaultArt, x.name, chosen === x.id,
-        () => setSkin(chessId, x.id)))}
-    </div>
-  </section>`;
-}

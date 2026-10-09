@@ -37,8 +37,8 @@ import {
   opsOf, setOps, resetOps, moduleRecord,
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
-import { skinsStore, setSkins } from '../ui/skins.js';
-import { SkinSection, SkinQuickBar } from '../ui/skinPicker.js';
+import { skinsStore, setSkins, setSkin, clearSkin, availableSkins, loadSkinData } from '../ui/skins.js';
+import { SkinSection, skinAvatar } from '../ui/skinPicker.js';
 import { CultivationSelects, CultivationSection } from './cultivation.js';
 import { cultivationCharIds } from '../../../shared/protocol.js';
 import { atPotential } from '../../../shared/potential.js';
@@ -178,6 +178,16 @@ function QuickModule({ m, opt, on, onPick }) {
   </button>`;
 }
 
+/** One skin's avatar to tap: the skin's own art, else the operator's default; the worn one ringed. */
+function QuickSkin({ charId, skin, defaultArt, on, onPick }) {
+  const label = `${skin.name}（${skin.group || '皮肤'}）`;
+  const art = skinAvatar(charId, skin.id) || defaultArt;
+  return html`<button type="button" class=${cx('lo-q', 'lo-q--skin', on && 'is-on')} data-skin=${skin.id} aria-pressed=${on ? 'true' : 'false'}
+      aria-label=${label} title=${label} onClick=${() => onPick(skin.id)}>
+    ${art ? html`<img class="lo-q__img" src=${art} alt="" loading="lazy" />` : html`<span class="lo-q__img lo-q__img--none" aria-hidden="true"></span>`}
+  </button>`;
+}
+
 /** The list's column heads (the rows share its grid). */
 export function RosterHead() {
   return html`<div class="lo-list__head" aria-hidden="true">
@@ -185,16 +195,18 @@ export function RosterHead() {
     <span class="lo-list__h lo-list__h--skills">${'技能'}</span>
     <span class="lo-list__h lo-list__h--mods" title=${'模组仅在精锐形态生效'}>${'模组'}<small>${'精锐'}</small></span>
     <span class="lo-list__h lo-list__h--cult">${'潜能'} · ${'练度'}</span>
+    <span class="lo-list__h lo-list__h--skin">${'皮肤'}</span>
   </div>`;
 }
 
 /**
  * One operator's row (`.lo-card`, like the cards before it): portrait + name + bonds (`.lo-card__pick`: selects it, opens
- * the detail), three skill slots (an empty one when the chess has two skills), the elite's modules, the 潜能 / 练度 selects.
- * `level` 'elite': the skills' details at 精锐 Lv.7 (the shared preview). A chess marked not owned (干员持有) shows the
+ * the detail), three skill slots (an empty one when the chess has two skills), the elite's modules, the 潜能 / 练度 selects,
+ * and the skins column (the fork's own: 默认 + one avatar per installed skin, tap to wear; the quick choices of PR #301
+ * without its three columns of cards). Hook-free (the tests draw it).
  * 「替补」 tag: its stand-in fights with a fixed skill and no 潜能 / 练度, the choices here apply once it is owned again.
  */
-export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPick, onChange, onOps, level = 'normal', notOwned = false }) {
+export function RosterRow({ m, chess, golden, entries, ops = {}, skins = {}, selected, onPick, onChange, onOps, level = 'normal', notOwned = false }) {
   const choice = effectiveChoice(entries, chess, golden);
   const opt = chessOptions(chess, golden);
   const cv = opsOf(ops, chess.charId);
@@ -203,6 +215,9 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
   const elite = level === 'elite' && !!golden;
   const slots = [0, 1, 2].map((i) => opt.skillOptions[i] || null);
   const standInNote = notOwned ? '未持有（干员持有）：由替补干员上场，替补干员没有潜能与练度' : null;
+  const skinList = availableSkins(chess.charId);
+  const chosenSkin = skins[chess.chessId] || null;
+  const defaultArt = data.get('assets')?.chars?.[chess.charId]?.avatar || null;
   return html`<div role="listitem" data-chess=${chess.chessId} data-variant=${elite ? 'elite' : 'normal'}
       class=${cx('lo-card', `lo-card--t${chess.tier}`, selected && 'is-sel', changed && 'is-changed', notOwned && 'is-standin')}>
     <button type="button" class="lo-card__pick" aria-pressed=${selected ? 'true' : 'false'} title=${chess.name} onClick=${() => onPick(chess.chessId)}>
@@ -227,6 +242,15 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
         onPick=${(module) => onChange(chess.chessId, { module })} />`) : null}
     </div>
     <${CultivationSelects} charId=${chess.charId} ops=${ops} onSet=${onOps} note=${standInNote} />
+    <div class="lo-card__skins lo-quick" role="group" aria-label=${'选择皮肤'} title=${'点头像换装，点「默认」恢复'}>
+      ${skinList.length ? html`<button type="button" class=${cx('lo-q', 'lo-q--skin', !chosenSkin && 'is-on')} data-skin=""
+          aria-pressed=${!chosenSkin ? 'true' : 'false'} aria-label=${'默认立绘'} title=${'默认'}
+          onClick=${() => clearSkin(chess.chessId)}>
+        ${defaultArt ? html`<img class="lo-q__img" src=${defaultArt} alt="" loading="lazy" />` : html`<span class="lo-q__img lo-q__img--none" aria-hidden="true"></span>`}
+      </button>` : null}
+      ${skinList.map((sk) => html`<${QuickSkin} key=${sk.id} charId=${chess.charId} skin=${sk} defaultArt=${defaultArt}
+        on=${chosenSkin === sk.id} onPick=${(skinId) => setSkin(chess.chessId, skinId)} />`)}
+    </div>
   </div>`;
 }
 
@@ -399,7 +423,6 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
     </div>
     <div class="lo-detail__body" ref=${bodyRef}>
       ${activeTab === 'skin' ? null : html`<${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
-      <${SkinQuickBar} chess=${chess} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />`}
       ${activeTab === 'skill' ? html`<section class="lo-sec">
         <header class="lo-sec__head">
@@ -546,6 +569,7 @@ function LoadoutScreen({ st }) {
   const nChanged = changedCount(st.entries, getChess, st.ops, roster);
   const skins = useStore((s) => s.entries, Object.is, skinsStore);
   const nSkins = Object.keys(skins).length;
+  useEffect(() => { loadSkinData(); }, []); // the roster rows' skin tiles: the catalogue + the manifest
   const locked = (inMatch && phase && phase !== PHASE.INFO_CHECK && phase !== PHASE.LOBBY) || st.sync === 'locked';
   const gridRef = useRef(null);
   const fileRef = useRef(null);                            // hidden <input type=file> of the 导入 dialog
@@ -768,7 +792,7 @@ function LoadoutScreen({ st }) {
           <${RosterHead} />
           <div class="lo-list__rows" role="list" aria-label=${'干员列表'}>
             ${list.length ? list.map((c) => html`<${RosterRow} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
-              entries=${st.entries} ops=${st.ops} selected=${c.chessId === selId} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
+              entries=${st.entries} ops=${st.ops} skins=${skins} selected=${c.chessId === selId} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
               level=${previewLevel} notOwned=${(st.notOwned || []).includes(c.chessId)} />`) : html`<p class="lo-empty t-dim">${'没有符合条件的干员'}</p>`}
           </div>
         </div>
