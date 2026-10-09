@@ -38,7 +38,7 @@ import {
 } from '../ui/loadoutModel.js';
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
 import { skinsStore, setSkins } from '../ui/skins.js';
-import { SkinSection } from '../ui/skinPicker.js';
+import { SkinSection, SkinQuickBar } from '../ui/skinPicker.js';
 import { CultivationSelects, CultivationSection } from './cultivation.js';
 import { cultivationCharIds } from '../../../shared/protocol.js';
 import { atPotential } from '../../../shared/potential.js';
@@ -46,7 +46,7 @@ import { setOwned, notOwnedCount, serializeOwnership, parseOwnershipImport, OWNE
 import { OwnershipPanel, useOwnershipRoster } from './ownership.js';
 import { DiyPanel, diyData } from './diy.js';
 import { diyCount, sanitizeDiyPicks, setPick, serializeDiy, parseDiyImport, DIY_IMPORT_MAX_BYTES } from '../ui/diyModel.js';
-import { t, tParts, N_ } from '../../../shared/i18n.js';
+
 import { copyText } from '../ui/clipboard.js';
 import { toast } from '../ui/toasts.js';
 
@@ -161,7 +161,7 @@ export function ModuleGlyph({ m, rec, id, size = 'md' }) {
 function QuickSkill({ m, opt, on, elite, onPick }) {
   const rec = elite ? opt.elite || opt.normal : opt.normal || opt.elite;
   const tags = quickSkillTags(rec);
-  const label = `${skillLabel(opt.index)} · ${rec?.name || t('未知技能')} · ${tags.sp} · ${t('初始')} ${tags.init ?? '—'} / ${t('消耗')} ${tags.cost ?? '—'} · ${t('持续')} ${tags.duration}`;
+  const label = `${skillLabel(opt.index)} · ${rec?.name || '未知技能'} · ${tags.sp} · ${'初始'} ${tags.init ?? '—'} / ${'消耗'} ${tags.cost ?? '—'} · ${'持续'} ${tags.duration}`;
   return html`<button type="button" class=${cx('lo-q', 'lo-q--skill', on && 'is-on')} data-skill=${opt.index} aria-pressed=${on ? 'true' : 'false'}
       aria-label=${label} title=${label} onClick=${() => onPick(opt.index)}>
     <${SkillIcon} m=${m} rec=${rec} index=${opt.index} on=${on} size="q" />
@@ -170,7 +170,7 @@ function QuickSkill({ m, opt, on, elite, onPick }) {
 
 /** One module to tap (不装备 first): the type icon with its letter in the corner; the elite's equipped one ringed. */
 function QuickModule({ m, opt, on, onPick }) {
-  const label = opt.id === MODULE_NONE ? t('不装备模组') : `${opt.rec?.typeName || ''} · ${opt.rec?.name || opt.id}`;
+  const label = opt.id === MODULE_NONE ? '不装备模组' : `${opt.rec?.typeName || ''} · ${opt.rec?.name || opt.id}`;
   return html`<button type="button" class=${cx('lo-q', 'lo-q--mod', on && 'is-on')} data-module=${opt.id} aria-pressed=${on ? 'true' : 'false'}
       aria-label=${label} title=${label} onClick=${() => onPick(opt.id)}>
     <${ModuleGlyph} m=${m} rec=${opt.rec} id=${opt.id} size="q" />
@@ -181,10 +181,10 @@ function QuickModule({ m, opt, on, onPick }) {
 /** The list's column heads (the rows share its grid). */
 export function RosterHead() {
   return html`<div class="lo-list__head" aria-hidden="true">
-    <span class="lo-list__h lo-list__h--op">${t('干员')}</span>
-    <span class="lo-list__h lo-list__h--skills">${t('技能')}</span>
-    <span class="lo-list__h lo-list__h--mods" title=${t('模组仅在精锐形态生效')}>${t('模组')}<small>${t('精锐')}</small></span>
-    <span class="lo-list__h lo-list__h--cult">${t('潜能')} · ${t('练度')}</span>
+    <span class="lo-list__h lo-list__h--op">${'干员'}</span>
+    <span class="lo-list__h lo-list__h--skills">${'技能'}</span>
+    <span class="lo-list__h lo-list__h--mods" title=${'模组仅在精锐形态生效'}>${'模组'}<small>${'精锐'}</small></span>
+    <span class="lo-list__h lo-list__h--cult">${'潜能'} · ${'练度'}</span>
   </div>`;
 }
 
@@ -202,7 +202,7 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
   const modules = [...opt.moduleOptions].sort((a, b) => Number(b.id === MODULE_NONE) - Number(a.id === MODULE_NONE));
   const elite = level === 'elite' && !!golden;
   const slots = [0, 1, 2].map((i) => opt.skillOptions[i] || null);
-  const standInNote = notOwned ? t('未持有（干员持有）：由替补干员上场，替补干员没有潜能与练度') : null;
+  const standInNote = notOwned ? '未持有（干员持有）：由替补干员上场，替补干员没有潜能与练度' : null;
   return html`<div role="listitem" data-chess=${chess.chessId} data-variant=${elite ? 'elite' : 'normal'}
       class=${cx('lo-card', `lo-card--t${chess.tier}`, selected && 'is-sel', changed && 'is-changed', notOwned && 'is-standin')}>
     <button type="button" class="lo-card__pick" aria-pressed=${selected ? 'true' : 'false'} title=${chess.name} onClick=${() => onPick(chess.chessId)}>
@@ -214,15 +214,15 @@ export function RosterRow({ m, chess, golden, entries, ops = {}, selected, onPic
         <span class="lo-card__name">${chess.name}</span>
         <span class="lo-card__bonds">${(chess.bonds || []).map((b) => html`<${Img} key=${b} src=${bondIconUrl(m, b)} class="lo-card__bond"
           alt=${data.lookup('bonds', b)?.name || b} fallback=${html`<i class="lo-bond__dot" title=${data.lookup('bonds', b)?.name || b}></i>`} />`)}</span>
-        ${notOwned ? html`<span class="lo-card__sub" title=${t('未持有（干员持有）：由替补干员上场')}>${t('替补')}</span>` : null}
+        ${notOwned ? html`<span class="lo-card__sub" title=${'未持有（干员持有）：由替补干员上场'}>${'替补'}</span>` : null}
       </span>
     </button>
-    ${changed ? html`<span class="lo-card__flag" aria-label=${t('已调整')}></span>` : null}
-    <div class="lo-card__skills lo-quick" role="group" aria-label=${t('选择技能')}>
+    ${changed ? html`<span class="lo-card__flag" aria-label=${'已调整'}></span>` : null}
+    <div class="lo-card__skills lo-quick" role="group" aria-label=${'选择技能'}>
       ${slots.map((sk, i) => (sk ? html`<${QuickSkill} key=${sk.index} m=${m} opt=${sk} elite=${elite} on=${sk.index === choice.skill}
         onPick=${(skill) => onChange(chess.chessId, { skill })} />` : html`<span key=${`e${i}`} class="lo-q lo-q--empty" aria-hidden="true"></span>`))}
     </div>
-    <div class="lo-card__mods lo-quick" role="group" aria-label=${t('选择模组')} title=${t('模组仅在精锐形态生效')}>
+    <div class="lo-card__mods lo-quick" role="group" aria-label=${'选择模组'} title=${'模组仅在精锐形态生效'}>
       ${golden ? modules.map((mo) => html`<${QuickModule} key=${mo.id} m=${m} opt=${mo} on=${mo.id === choice.module}
         onPick=${(module) => onChange(chess.chessId, { module })} />`) : null}
     </div>
@@ -250,16 +250,16 @@ function SkillOption({ m, opt, on, level, onPick }) {
     <span class="lo-skill__body">
       <span class="lo-skill__head">
         <span class="lo-skill__slot num">${skillLabel(opt.index)}</span>
-        <b class="lo-skill__name">${rec?.name || t('未知技能')}</b>
-        ${opt.isDefault ? html`<span class="lo-badge lo-badge--def">${t('默认')}</span>` : null}
-        ${on ? html`<span class="lo-badge lo-badge--on"><${Icon} name="check" />${t('已装备')}</span>` : null}
+        <b class="lo-skill__name">${rec?.name || '未知技能'}</b>
+        ${opt.isDefault ? html`<span class="lo-badge lo-badge--def">${'默认'}</span>` : null}
+        ${on ? html`<span class="lo-badge lo-badge--on"><${Icon} name="check" />${'已装备'}</span>` : null}
       </span>
       <span class="lo-skill__tags">
         <span class=${cx('lo-sp', `lo-sp--${tags.spKind}`)}>${tags.sp}</span>
-        ${tags.init != null ? html`<span class="lo-tag">${t('初始')} <b class="num">${tags.init}</b></span>` : null}
-        ${tags.cost != null ? html`<span class="lo-tag">${t('消耗')} <b class="num">${tags.cost}</b></span>` : null}
-        ${tags.duration ? html`<span class="lo-tag">${t('持续')} <b class="num">${tags.duration}</b></span>` : null}
-        ${tags.charges ? html`<span class="lo-tag">${t('充能')} <b class="num">${tags.charges}</b></span>` : null}
+        ${tags.init != null ? html`<span class="lo-tag">${'初始'} <b class="num">${tags.init}</b></span>` : null}
+        ${tags.cost != null ? html`<span class="lo-tag">${'消耗'} <b class="num">${tags.cost}</b></span>` : null}
+        ${tags.duration ? html`<span class="lo-tag">${'持续'} <b class="num">${tags.duration}</b></span>` : null}
+        ${tags.charges ? html`<span class="lo-tag">${'充能'} <b class="num">${tags.charges}</b></span>` : null}
       </span>
       <${RichText} as="span" class="lo-skill__desc" text=${rec?.descRaw || rec?.desc || ''} />
     </span>
@@ -279,8 +279,8 @@ export function ModuleInfo({ m, golden, opt, potential = null }) {
   if (!rec) {
     const traitBase = golden.traitBase || null;
     return html`<div class="lo-minfo lo-minfo--none">
-      <p class="lo-minfo__lead">${t('不装备模组：精锐干员以基础属性、特性与天赋作战。')}</p>
-      ${traitBase?.desc ? html`<div class="lo-minfo__row"><span class="lo-minfo__k">${t('特性')}</span><${RichText} class="lo-minfo__v" text=${traitBase.descRaw || traitBase.desc} /></div>` : null}
+      <p class="lo-minfo__lead">${'不装备模组：精锐干员以基础属性、特性与天赋作战。'}</p>
+      ${traitBase?.desc ? html`<div class="lo-minfo__row"><span class="lo-minfo__k">${'特性'}</span><${RichText} class="lo-minfo__v" text=${traitBase.descRaw || traitBase.desc} /></div>` : null}
     </div>`;
   }
   const rows = attrRows(rec.attr);
@@ -290,14 +290,14 @@ export function ModuleInfo({ m, golden, opt, potential = null }) {
   const talents = (Array.isArray(rec.talentChanges) ? rec.talentChanges : []).filter((t) => t && (t.name || t.desc) && !t.hidden);
   return html`<div class="lo-minfo">
     <div class="lo-minfo__title"><${Img} src=${moduleIconOf(m, rec)} class="lo-minfo__icon" /><span class="lo-minfo__type num">${rec.typeName || ''}</span><b>${rec.name || rec.uniEquipId}</b>
-      ${opt.isDefault ? html`<span class="lo-badge lo-badge--def">${t('默认')}</span>` : null}</div>
+      ${opt.isDefault ? html`<span class="lo-badge lo-badge--def">${'默认'}</span>` : null}</div>
     <div class="lo-minfo__row">
-      <span class="lo-minfo__k">${t('属性')}</span>
-      <span class="lo-minfo__v lo-attrs">${rows.length ? rows.map((r) => html`<span key=${r.key} class=${cx('lo-attr', r.positive ? 'is-up' : 'is-down')}>${r.label}<b class="num">${r.text}</b></span>`) : html`<span class="t-dim">${t('无属性加成')}</span>`}</span>
+      <span class="lo-minfo__k">${'属性'}</span>
+      <span class="lo-minfo__v lo-attrs">${rows.length ? rows.map((r) => html`<span key=${r.key} class=${cx('lo-attr', r.positive ? 'is-up' : 'is-down')}>${r.label}<b class="num">${r.text}</b></span>`) : html`<span class="t-dim">${'无属性加成'}</span>`}</span>
     </div>
-    ${lines.base ? html`<div class="lo-minfo__row" data-trait="base"><span class="lo-minfo__k">${t('特性')}</span><${RichText} class="lo-minfo__v" text=${lines.base} /></div>` : null}
-    ${lines.added ? html`<div class="lo-minfo__row" data-trait="added"><span class="lo-minfo__k">${t('特性追加')}</span><${RichText} class="lo-minfo__v" text=${lines.added} /></div>` : null}
-    ${talents.map((tal, i) => html`<div key=${i} class="lo-minfo__row"><span class="lo-minfo__k">${t('天赋')}</span>
+    ${lines.base ? html`<div class="lo-minfo__row" data-trait="base"><span class="lo-minfo__k">${'特性'}</span><${RichText} class="lo-minfo__v" text=${lines.base} /></div>` : null}
+    ${lines.added ? html`<div class="lo-minfo__row" data-trait="added"><span class="lo-minfo__k">${'特性追加'}</span><${RichText} class="lo-minfo__v" text=${lines.added} /></div>` : null}
+    ${talents.map((tal, i) => html`<div key=${i} class="lo-minfo__row"><span class="lo-minfo__k">${'天赋'}</span>
       <span class="lo-minfo__v">${tal.name ? html`<b class="lo-minfo__tname">${tal.name}</b>` : null}<${RichText} text=${tal.descRaw || tal.desc || ''} /></span></div>`)}
   </div>`;
 }
@@ -340,21 +340,21 @@ export function LoadoutStats({ base, golden, entries, level, onLevel, getChess =
   const pv = statsPreview(base, golden, entries, level, getChess, ops);
   if (!pv) return null;
   // (the caption names 潜能 / 练度 when the numbers carry both — the 练度 multiplier needs effects.json)
-  return html`<section class="lo-sec lo-sec--stats" aria-label=${t('局内数值')} data-variant=${pv.elite ? 'elite' : 'normal'}>
+  return html`<section class="lo-sec lo-sec--stats" aria-label=${'局内数值'} data-variant=${pv.elite ? 'elite' : 'normal'}>
     <header class="lo-sec__head">
-      <h3>${t('局内数值')}<${MicroLabel}>STATS<//></h3>
-      <div class="lo-seg" role="tablist" aria-label=${t('数值版本')}>
-        <button type="button" role="tab" aria-selected=${pv.elite ? 'false' : 'true'} class=${cx(!pv.elite && 'is-on')} data-variant="normal" onClick=${() => onLevel('normal')}>${t('普通')}</button>
-        <button type="button" role="tab" aria-selected=${pv.elite ? 'true' : 'false'} class=${cx(pv.elite && 'is-on')} data-variant="elite" disabled=${!golden} onClick=${() => onLevel('elite')}>${t('精锐')}</button>
+      <h3>${'局内数值'}<${MicroLabel}>STATS<//></h3>
+      <div class="lo-seg" role="tablist" aria-label=${'数值版本'}>
+        <button type="button" role="tab" aria-selected=${pv.elite ? 'false' : 'true'} class=${cx(!pv.elite && 'is-on')} data-variant="normal" onClick=${() => onLevel('normal')}>${'普通'}</button>
+        <button type="button" role="tab" aria-selected=${pv.elite ? 'true' : 'false'} class=${cx(pv.elite && 'is-on')} data-variant="elite" disabled=${!golden} onClick=${() => onLevel('elite')}>${'精锐'}</button>
       </div>
     </header>
     ${chessStatsBlock({ rec: pv.record, chess: pv.chess })}
     ${pv.trait || pv.talents.length ? html`<div class="lo-minfo lo-minfo--kit">
-      ${pv.trait ? html`<div class="lo-minfo__row"><span class="lo-minfo__k">${t('特性')}</span><${RichText} class="lo-minfo__v" text=${pv.trait} /></div>` : null}
-      ${pv.talents.map((tal, i) => html`<div key=${i} class="lo-minfo__row"><span class="lo-minfo__k">${t('天赋')}</span>
+      ${pv.trait ? html`<div class="lo-minfo__row"><span class="lo-minfo__k">${'特性'}</span><${RichText} class="lo-minfo__v" text=${pv.trait} /></div>` : null}
+      ${pv.talents.map((tal, i) => html`<div key=${i} class="lo-minfo__row"><span class="lo-minfo__k">${'天赋'}</span>
         <span class="lo-minfo__v"><b class="lo-minfo__tname">${tal.name}</b><${RichText} text=${tal.descRaw || tal.desc || ''} /></span></div>`)}
     </div>` : null}
-    <p class="lo-stats__cap">${pv.elite ? t('数值含所选模组；') : golden ? t('普通干员没有模组，所选模组在「精锐」中生效；') : ''}${pv.lo?.cultivation && data.get('effects') ? t('含潜能与练度；') : ''}${t('不含技能发动、装备、盟约等局内加成')}</p>
+    <p class="lo-stats__cap">${pv.elite ? '数值含所选模组；' : golden ? '普通干员没有模组，所选模组在「精锐」中生效；' : ''}${pv.lo?.cultivation && data.get('effects') ? '含潜能与练度；' : ''}${'不含技能发动、装备、盟约等局内加成'}</p>
   </section>`;
 }
 
@@ -369,46 +369,47 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
   const hasMod = !!golden && (opt?.moduleOptions?.length || 0) > 0;
   const activeTab = tab === 'mod' && !hasMod ? 'skill' : tab;
   useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [chess?.chessId, activeTab]);
-  if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${t('没有符合条件的干员')}</p></aside>`;
+  if (!chess) return html`<aside class="lo-detail lo-detail--empty"><p class="t-dim">${'没有符合条件的干员'}</p></aside>`;
   const changed = choice.changed || opsOf(ops, chess.charId).changed;
   const lv = (c) => c?.status?.skillLevel ?? '—';
-  return html`<aside class="lo-detail" aria-label=${t('{name} 调配', { name: chess.name })}>
+  return html`<aside class="lo-detail" aria-label=${`${(chess.name) ?? ''} 调配`}>
     <div class="lo-dhead">
       <div class=${cx('lo-dhead__art', `lo-dhead__art--t${chess.tier}`)}>
         <${Img} src=${chessPortraitUrl(m, golden || chess)} fallback=${html`<${UnitThumb} kind="chess" id=${chess.chessId} size="lg" />`} />
       </div>
       <div class="lo-dhead__info">
         <div class="lo-dhead__chips"><${TierChip} tier=${chess.tier} size="md" />
-          ${changed ? html`<span class="lo-badge lo-badge--changed">${t('已调整')}</span>` : html`<span class="lo-badge lo-badge--plain">${t('默认配置')}</span>`}</div>
+          ${changed ? html`<span class="lo-badge lo-badge--changed">${'已调整'}</span>` : html`<span class="lo-badge lo-badge--plain">${'默认配置'}</span>`}</div>
         <h2 class="lo-dhead__name">${chess.name}</h2>
         <span class="lo-dhead__en">${chess.appellation || ''}</span>
         <span class="lo-dhead__class">
-          <${Img} src=${profGlyphUrl(m, chess.profession)} class="lo-dhead__prof lo-profglyph" />${t(PROF_NAME[chess.profession] || '')}
+          <${Img} src=${profGlyphUrl(m, chess.profession)} class="lo-dhead__prof lo-profglyph" />${(PROF_NAME[chess.profession] || '')}
           <i class="lo-sep"></i><${Img} src=${subProfIconUrl(m, chess)} class="lo-dhead__prof" />${chess.subProfessionName || ''}
         </span>
         <span class="lo-dhead__bonds">${(chess.bonds || []).map((b) => html`<span key=${b} class="lo-bond">
           <${Img} src=${bondIconUrl(m, b)} class="lo-bond__icon" fallback=${html`<i class="lo-bond__dot"></i>`} />${data.lookup('bonds', b)?.name || b}</span>`)}</span>
       </div>
-      <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${t('恢复默认')}<//>
+      <${Button} variant="ghost" size="sm" icon="refresh" class="lo-dhead__reset" disabled=${!changed} onClick=${onReset}>${'恢复默认'}<//>
     </div>
-    <div class="lo-dtabs" role="tablist" aria-label=${t('调配项目')}>
-      <button type="button" role="tab" aria-selected=${activeTab === 'skill'} class=${cx('lo-dtab', activeTab === 'skill' && 'is-on')} onClick=${() => setTab('skill')}>${t('技能')} <span class="lo-dtab__en num">SKILL</span></button>
-      ${hasMod ? html`<button type="button" role="tab" aria-selected=${activeTab === 'mod'} class=${cx('lo-dtab', activeTab === 'mod' && 'is-on')} onClick=${() => setTab('mod')}>${t('模组')} <span class="lo-dtab__en num">MODULE</span></button>` : null}
-      <button type="button" role="tab" aria-selected=${activeTab === 'stats'} class=${cx('lo-dtab', activeTab === 'stats' && 'is-on')} onClick=${() => setTab('stats')}>${t('数值')} <span class="lo-dtab__en num">STATS</span></button>
-      <button type="button" role="tab" aria-selected=${activeTab === 'skin'} class=${cx('lo-dtab', activeTab === 'skin' && 'is-on')} onClick=${() => setTab('skin')}>${t('换装')} <span class="lo-dtab__en num">SKIN</span></button>
+    <div class="lo-dtabs" role="tablist" aria-label=${'调配项目'}>
+      <button type="button" role="tab" aria-selected=${activeTab === 'skill'} class=${cx('lo-dtab', activeTab === 'skill' && 'is-on')} onClick=${() => setTab('skill')}>${'技能'} <span class="lo-dtab__en num">SKILL</span></button>
+      ${hasMod ? html`<button type="button" role="tab" aria-selected=${activeTab === 'mod'} class=${cx('lo-dtab', activeTab === 'mod' && 'is-on')} onClick=${() => setTab('mod')}>${'模组'} <span class="lo-dtab__en num">MODULE</span></button>` : null}
+      <button type="button" role="tab" aria-selected=${activeTab === 'stats'} class=${cx('lo-dtab', activeTab === 'stats' && 'is-on')} onClick=${() => setTab('stats')}>${'数值'} <span class="lo-dtab__en num">STATS</span></button>
+      <button type="button" role="tab" aria-selected=${activeTab === 'skin'} class=${cx('lo-dtab', activeTab === 'skin' && 'is-on')} onClick=${() => setTab('skin')}>${'换装'} <span class="lo-dtab__en num">SKIN</span></button>
     </div>
     <div class="lo-detail__body" ref=${bodyRef}>
       ${activeTab === 'skin' ? null : html`<${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
+      <${SkinQuickBar} chess=${chess} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />`}
       ${activeTab === 'skill' ? html`<section class="lo-sec">
         <header class="lo-sec__head">
-          <h3>${t('技能')}<${MicroLabel}>SKILL<//></h3>
-          <div class="lo-seg" role="tablist" aria-label=${t('技能等级')}>
-            <button type="button" role="tab" aria-selected=${level === 'normal' ? 'true' : 'false'} class=${cx(level === 'normal' && 'is-on')} onClick=${() => setLevel('normal')}>${t('普通')} <span class="num">Lv.${lv(chess)}</span></button>
-            <button type="button" role="tab" aria-selected=${level === 'elite' ? 'true' : 'false'} class=${cx(level === 'elite' && 'is-on')} disabled=${!golden} onClick=${() => setLevel('elite')}>${t('精锐')} <span class="num">Lv.${lv(golden)}</span></button>
+          <h3>${'技能'}<${MicroLabel}>SKILL<//></h3>
+          <div class="lo-seg" role="tablist" aria-label=${'技能等级'}>
+            <button type="button" role="tab" aria-selected=${level === 'normal' ? 'true' : 'false'} class=${cx(level === 'normal' && 'is-on')} onClick=${() => setLevel('normal')}>${'普通'} <span class="num">Lv.${lv(chess)}</span></button>
+            <button type="button" role="tab" aria-selected=${level === 'elite' ? 'true' : 'false'} class=${cx(level === 'elite' && 'is-on')} disabled=${!golden} onClick=${() => setLevel('elite')}>${'精锐'} <span class="num">Lv.${lv(golden)}</span></button>
           </div>
         </header>
-        <div class="lo-skills" role="radiogroup" aria-label=${t('选择技能')}>
+        <div class="lo-skills" role="radiogroup" aria-label=${'选择技能'}>
           ${opt.skillOptions.map((s) => html`<${SkillOption} key=${s.index} m=${m} opt=${s} level=${level} on=${s.index === choice.skill}
             onPick=${(i) => onChange({ skill: i })} />`)}
         </div>
@@ -416,27 +417,27 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
       ${activeTab === 'stats' ? html`<${LoadoutStats} base=${chess} golden=${golden} entries=${entries} ops=${ops} level=${statLevel} onLevel=${setStatLevel} />` : null}
       ${activeTab === 'mod' && golden ? html`<section class="lo-sec lo-sec--mod">
         <header class="lo-sec__head">
-          <h3>${t('模组')}<${MicroLabel}>MODULE<//></h3>
-          <span class="lo-sec__note">${t('仅精锐干员装备 · 模组等级')} <b class="num">${golden.status?.equipLevel ?? 1}</b></span>
+          <h3>${'模组'}<${MicroLabel}>MODULE<//></h3>
+          <span class="lo-sec__note">${'仅精锐干员装备 · 模组等级'} <b class="num">${golden.status?.equipLevel ?? 1}</b></span>
         </header>
-        <div class="lo-mods" role="radiogroup" aria-label=${t('选择模组')}>
+        <div class="lo-mods" role="radiogroup" aria-label=${'选择模组'}>
           ${opt.moduleOptions.map((mo) => html`<button key=${mo.id} type="button" role="radio" aria-checked=${mo.id === choice.module ? 'true' : 'false'}
               data-module=${mo.id} class=${cx('lo-mod', mo.id === choice.module && 'is-on', mo.id === MODULE_NONE && 'lo-mod--none')}
               onClick=${() => onChange({ module: mo.id })}>
             <${ModuleGlyph} m=${m} rec=${mo.rec} id=${mo.id} />
             <span class="lo-mod__text">
               <span class="lo-mod__type num">${mo.id === MODULE_NONE ? 'NONE' : mo.rec?.typeName || ''}</span>
-              <b class="lo-mod__name">${mo.id === MODULE_NONE ? t('不装备') : mo.rec?.name || mo.id}</b>
+              <b class="lo-mod__name">${mo.id === MODULE_NONE ? '不装备' : mo.rec?.name || mo.id}</b>
             </span>
-            ${mo.isDefault ? html`<span class="lo-badge lo-badge--def lo-mod__def">${t('默认')}</span>` : null}
+            ${mo.isDefault ? html`<span class="lo-badge lo-badge--def lo-mod__def">${'默认'}</span>` : null}
           </button>`)}
         </div>
         ${modOpt ? html`<${ModuleInfo} m=${m} golden=${golden} opt=${modOpt} potential=${opsOf(ops, chess.charId).potential} />` : null}
       </section>` : null}
       ${activeTab === 'skin' ? html`<${SkinSection} chess=${chess} />` : null}
-      ${notOwned ? html`<p class="lo-locknote lo-locknote--standin" data-testid="loadout-standin-note"><${Icon} name="info" />${standInName(chess) ? t('干员持有中标记为未持有：此棋子由替补干员 {name} 上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效', { name: standInName(chess) })
-        : t('干员持有中标记为未持有：此棋子由替补干员上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效')}</p>` : null}
-      ${locked ? html`<p class="lo-locknote"><${Icon} name="info" />${t('本局的调配已锁定，修改将在下一局生效')}</p>` : null}
+      ${notOwned ? html`<p class="lo-locknote lo-locknote--standin" data-testid="loadout-standin-note"><${Icon} name="info" />${standInName(chess) ? `干员持有中标记为未持有：此棋子由替补干员 ${(standInName(chess)) ?? ''} 上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效`
+        : '干员持有中标记为未持有：此棋子由替补干员上场，技能与模组固定（补位干员技能不可更改）；这里的调配在改回「持有」后生效'}</p>` : null}
+      ${locked ? html`<p class="lo-locknote"><${Icon} name="info" />${'本局的调配已锁定，修改将在下一局生效'}</p>` : null}
     </div>
   </aside>`;
 }
@@ -447,29 +448,29 @@ function Filters({ m, filters, onFilters, bonds }) {
   const set = (patch) => onFilters({ ...filters, ...patch });
   return html`<div class="lo-filters">
     <div class="lo-frow">
-      <div class="lo-chips" role="group" aria-label=${t('阶级')}>
-        <button type="button" class=${cx('lo-chip', !filters.tier && 'is-on')} onClick=${() => set({ tier: null })}>${t('全部')}</button>
+      <div class="lo-chips" role="group" aria-label=${'阶级'}>
+        <button type="button" class=${cx('lo-chip', !filters.tier && 'is-on')} onClick=${() => set({ tier: null })}>${'全部'}</button>
         ${[1, 2, 3, 4, 5, 6].map((tier) => html`<button key=${tier} type="button" class=${cx('lo-chip', 'lo-chip--tier', `lo-chip--t${tier}`, filters.tier === tier && 'is-on')}
-          aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${t('{tier}阶', { tier })} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num">${ROMAN[tier]}</span></button>`)}
+          aria-pressed=${filters.tier === tier ? 'true' : 'false'} title=${`${(tier) ?? ''}阶`} onClick=${() => set({ tier: filters.tier === tier ? null : tier })}><span class="num">${ROMAN[tier]}</span></button>`)}
       </div>
-      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${t('搜索干员 / 职业 / 盟约')} class="lo-search"
+      <${TextField} size="sm" icon="search" value=${filters.query} placeholder=${'搜索干员 / 职业 / 盟约'} class="lo-search"
         onInput=${(v) => set({ query: String(v).slice(0, 24) })} />
     </div>
     <div class="lo-frow">
-      <div class="lo-chips lo-chips--prof" role="group" aria-label=${t('职业')}>
+      <div class="lo-chips lo-chips--prof" role="group" aria-label=${'职业'}>
         ${PROF_ORDER.map((p) => html`<button key=${p} type="button" class=${cx('lo-chip', 'lo-chip--prof', filters.prof === p && 'is-on')}
-          aria-pressed=${filters.prof === p ? 'true' : 'false'} title=${t(PROF_NAME[p])} onClick=${() => set({ prof: filters.prof === p ? null : p })}>
-          <${Img} src=${profGlyphUrl(m, p)} class="lo-chip__icon lo-profglyph" fallback=${html`<span>${t(PROF_NAME[p])[0]}</span>`} /><span class="lo-chip__lbl">${t(PROF_NAME[p])}</span></button>`)}
+          aria-pressed=${filters.prof === p ? 'true' : 'false'} title=${(PROF_NAME[p])} onClick=${() => set({ prof: filters.prof === p ? null : p })}>
+          <${Img} src=${profGlyphUrl(m, p)} class="lo-chip__icon lo-profglyph" fallback=${html`<span>${(PROF_NAME[p])[0]}</span>`} /><span class="lo-chip__lbl">${(PROF_NAME[p])}</span></button>`)}
       </div>
       <label class="lo-select">
-        <span class="lo-select__k">${t('盟约')}</span>
-        <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${t('按盟约筛选')}>
-          <option value="">${t('全部盟约')}</option>
+        <span class="lo-select__k">${'盟约'}</span>
+        <select value=${filters.bond || ''} onChange=${(e) => set({ bond: e.currentTarget.value || null })} aria-label=${'按盟约筛选'}>
+          <option value="">${'全部盟约'}</option>
           ${bonds.map((b) => html`<option key=${b.bondId} value=${b.bondId}>${b.name}</option>`)}
         </select>
       </label>
       <button type="button" class=${cx('lo-toggle', filters.changedOnly && 'is-on')} aria-pressed=${filters.changedOnly ? 'true' : 'false'}
-        onClick=${() => set({ changedOnly: !filters.changedOnly })}><i class="lo-toggle__box"><${Icon} name="check" /></i>${t('仅看已调整')}</button>
+        onClick=${() => set({ changedOnly: !filters.changedOnly })}><i class="lo-toggle__box"><${Icon} name="check" /></i>${'仅看已调整'}</button>
     </div>
   </div>`;
 }
@@ -477,12 +478,12 @@ function Filters({ m, filters, onFilters, bonds }) {
 // ---- screen -------------------------------------------------------------------------------------------------------------
 
 const SYNC_TEXT = {
-  idle: ['', ''], pending: [N_('保存中…'), 'is-busy'], sending: [N_('同步中…'), 'is-busy'], synced: [N_('已同步'), 'is-ok'],
-  locked: [N_('本局已锁定 · 下一局生效'), 'is-warn'], error: [N_('同步失败'), 'is-bad'],
+  idle: ['', ''], pending: ['保存中…', 'is-busy'], sending: ['同步中…', 'is-busy'], synced: ['已同步', 'is-ok'],
+  locked: ['本局已锁定 · 下一局生效', 'is-warn'], error: ['同步失败', 'is-bad'],
 };
 /** The 干员持有 tab's status line: the setting never applies to a running match. */
-const OWN_SYNC_TEXT = { ...SYNC_TEXT, locked: [N_('下一局生效'), 'is-warn'] };
-/** The 自选编队 tab's status line (msgids, translated where shown): out of match, like 干员持有. */
+const OWN_SYNC_TEXT = { ...SYNC_TEXT, locked: ['下一局生效', 'is-warn'] };
+/** The 自选编队 tab's status line: out of match, like 干员持有. */
 const DIY_SYNC_TEXT = { ...OWN_SYNC_TEXT };
 
 /**
@@ -507,8 +508,8 @@ export function missingGameData(tab, status = data.status) {
  * @returns {{ text: string, tone: 'warn'|'error' } | null}
  */
 export function importRefusal(kind, ready, status = data.status) {
-  if (!ready) return { text: t('干员数据仍在载入，请稍候再导入'), tone: 'warn' };
-  if (missingGameData(kind, status).length) return { text: t('导入失败：游戏数据没有载入，未做任何改动。请刷新页面；仍不行时，请检查广告拦截插件和网络'), tone: 'error' };
+  if (!ready) return { text: '干员数据仍在载入，请稍候再导入', tone: 'warn' };
+  if (missingGameData(kind, status).length) return { text: '导入失败：游戏数据没有载入，未做任何改动。请刷新页面；仍不行时，请检查广告拦截插件和网络', tone: 'error' };
   return null;
 }
 
@@ -517,8 +518,8 @@ export function DataMissing({ files }) {
   const urls = files.map((name) => `/data/${DATA_FILES[name] || `${name}.json`}`);
   return html`<div class="lo-loading lo-missing" role="alert" data-testid="loadout-data-missing">
     <${Icon} name="warn" />
-    <b>${t('游戏数据没有载入')}</b>
-    <p>${t('{files} 没有下载成功，这一页无法显示；已保存的设置不受影响。请刷新页面；仍不行时，请检查广告拦截插件和网络。', { files: urls })}</p>
+    <b>${'游戏数据没有载入'}</b>
+    <p>${`${urls.filter((s) => s !== '').join('、')} 没有下载成功，这一页无法显示；已保存的设置不受影响。请刷新页面；仍不行时，请检查广告拦截插件和网络。`}</p>
   </div>`;
 }
 
@@ -563,14 +564,14 @@ function LoadoutScreen({ st }) {
   const setDiySlot = (slotId, pick) => setDiyPicks(setPick(loadoutStore.get().diy, slotId, pick));
   const clearDiy = async () => {
     if (!nDiy) return;
-    const ok = await confirmDialog({ title: t('全部清空'), text: t('清空全部 {n} 个自选名额？', { n: nDiy }), okText: t('全部清空') });
+    const ok = await confirmDialog({ title: '全部清空', text: `清空全部 ${(nDiy) ?? ''} 个自选名额？`, okText: '全部清空' });
     if (ok) setDiyPicks({});
   };
   const setTab = (t) => loadoutStore.set({ tab: t });
   const toggleOwned = (id, owned) => setNotOwned(setOwned(loadoutStore.get().notOwned, id, owned));
   const ownAll = async () => {
     if (!nNotOwned) return;
-    const ok = await confirmDialog({ title: t('全部持有'), text: t('将 {nNotOwned} 名未持有的干员恢复为持有（由本人上场）？', { nNotOwned }), okText: t('全部持有') });
+    const ok = await confirmDialog({ title: '全部持有', text: `将 ${(nNotOwned) ?? ''} 名未持有的干员恢复为持有（由本人上场）？`, okText: '全部持有' });
     if (ok) setNotOwned([]);
   };
   const pick = (id) => { loadoutStore.set({ sel: id }); setNarrowDetail(true); };
@@ -590,7 +591,7 @@ function LoadoutScreen({ st }) {
   };
   const resetAll = async () => {
     if (!nChanged) return;
-    const ok = await confirmDialog({ title: t('全部恢复默认'), text: t('将 {nChanged} 名干员的技能、模组、潜能与练度恢复为默认配置？', { nChanged }), okText: t('恢复默认'), danger: true });
+    const ok = await confirmDialog({ title: '全部恢复默认', text: `将 ${(nChanged) ?? ''} 名干员的技能、模组、潜能与练度恢复为默认配置？`, okText: '恢复默认', danger: true });
     if (!ok) return;
     // the roster's operators only: a 自选 pick's settings belong to the 自选编队 tab
     const rosterChars = new Set(roster.map((c) => c.charId));
@@ -612,7 +613,7 @@ function LoadoutScreen({ st }) {
   const openImport = () => setIo({ mode: 'import', kind: tab, text: '' });
   const ioCopy = async () => {
     const ok = await copyText(ioText);
-    toast(ok ? t('已复制到剪贴板') : t('复制失败，请在文本框中手动全选复制'), ok ? 'success' : 'warn');
+    toast(ok ? '已复制到剪贴板' : '复制失败，请在文本框中手动全选复制', ok ? 'success' : 'warn');
   };
   const ioDownload = () => downloadText(exportFilename(new Date(), ioOwn ? 'ownership' : ioDiy ? 'diy' : 'loadout'), ioText);
   const ioPick = () => fileRef.current?.click();
@@ -621,9 +622,9 @@ function LoadoutScreen({ st }) {
     e.currentTarget.value = ''; // picking the same file twice must fire again
     if (!f) return;
     // refuse a huge pick before reading it into memory (a real payload is a few KB)
-    if (ioDiy && f.size > DIY_IMPORT_MAX_BYTES) { toast(t('文件过大，请选择「导出」下载的自选编队文件'), 'error'); return; }
-    if (f.size > (ioOwn ? OWNERSHIP_IMPORT_MAX_BYTES : LOADOUT_IMPORT_MAX_BYTES)) { toast(ioOwn ? t('文件过大，请选择「导出」下载的干员持有文件') : t('文件过大，请选择「导出」下载的调配文件'), 'error'); return; }
-    try { setIo({ ...io, mode: 'import', text: await readFileText(f) }); } catch { toast(t('读取文件失败'), 'error'); }
+    if (ioDiy && f.size > DIY_IMPORT_MAX_BYTES) { toast('文件过大，请选择「导出」下载的自选编队文件', 'error'); return; }
+    if (f.size > (ioOwn ? OWNERSHIP_IMPORT_MAX_BYTES : LOADOUT_IMPORT_MAX_BYTES)) { toast(ioOwn ? '文件过大，请选择「导出」下载的干员持有文件' : '文件过大，请选择「导出」下载的调配文件', 'error'); return; }
+    try { setIo({ ...io, mode: 'import', text: await readFileText(f) }); } catch { toast('读取文件失败', 'error'); }
   };
   const ioApply = () => {
     // an import before chess.json is loaded, or when it never arrived, would sanitise every entry away — refuse instead
@@ -632,23 +633,23 @@ function LoadoutScreen({ st }) {
     if (refused) { toast(refused.text, refused.tone); return; }
     if (ioDiy) {
       const r = parseDiyImport(ioText);
-      if (!r.ok) { toast(t('导入失败：{error}', { error: t(r.error, r.params) }), 'error'); return; }
+      if (!r.ok) { toast(`导入失败：${(r.error) ?? ''}`, 'error'); return; }
       const { applied, dropped } = applyDiyImport(r.picks, diyData(), loadoutStore.get().diyKitted || []);
       setIo(null);
-      toast(applied ? t('已导入 {n} 个自选名额', { n: applied }) + (dropped ? t('（另有 {n} 项不可用，未导入）', { n: dropped }) : '') : t('已导入：全部名额为空'), dropped ? 'warn' : 'success');
+      toast(applied ? `已导入 ${(applied) ?? ''} 个自选名额` + (dropped ? `（另有 ${(dropped) ?? ''} 项不可用，未导入）` : '') : '已导入：全部名额为空', dropped ? 'warn' : 'success');
       return;
     }
     if (ioOwn) {
       const r = parseOwnershipImport(ioText);
-      if (!r.ok) { toast(t('导入失败：{error}', { error: r.error }), 'error'); return; }
+      if (!r.ok) { toast(`导入失败：${(r.error) ?? ''}`, 'error'); return; }
       const { applied, dropped } = applyOwnershipImport(r.notOwned, getChess);
       setIo(null);
-      toast(applied ? (dropped ? t('已导入：{applied} 名干员未持有（另有 {dropped} 项无效，未导入）', { applied, dropped }) : t('已导入：{applied} 名干员未持有', { applied }))
-        : t('已导入：全部持有'), dropped ? 'warn' : 'success');
+      toast(applied ? (dropped ? `已导入：${(applied) ?? ''} 名干员未持有（另有 ${(dropped) ?? ''} 项无效，未导入）` : `已导入：${(applied) ?? ''} 名干员未持有`)
+        : '已导入：全部持有', dropped ? 'warn' : 'success');
       return;
     }
     const res = parseImport(ioText);
-    if (!res.ok) { toast(t('导入失败：{error}', { error: res.error }), 'error'); return; }
+    if (!res.ok) { toast(`导入失败：${(res.error) ?? ''}`, 'error'); return; }
     // 0.2.2: a payload with `ops` replaces the 潜能 / 练度 too (an older export leaves them alone)
     const opIds = res.ops ? cultivationCharIds(data.get('chess'), data.get('backups')) : null;
     const r = applyLoadoutEntries(res.entries, getChess, res.ops ? { ops: res.ops, isOperator: (id) => opIds.has(id) } : {});
@@ -660,13 +661,13 @@ function LoadoutScreen({ st }) {
       skinsApplied = Object.keys(res.skins).length;
     }
     // nothing survived sanitising (unknown chess, or every choice already the default): keep the current loadout
-    if (!applied && !nOps && !skinsApplied) { toast(t('导入失败：这份数据在当前版本没有可用的调配或皮肤，未做任何改动'), 'error'); return; }
+    if (!applied && !nOps && !skinsApplied) { toast('导入失败：这份数据在当前版本没有可用的调配或皮肤，未做任何改动', 'error'); return; }
     setIo(null);
     const parts = [];
-    if (applied) parts.push(t('{applied} 名干员配置', { applied }));
-    if (nOps) parts.push(t('{n} 名干员的潜能与练度', { n: nOps }));
-    if (skinsApplied) parts.push(t('{n} 款皮肤', { n: skinsApplied }));
-    toast(`${parts.join('，')}${dropped ? t('（另有 {dropped} 项未导入）', { dropped }) : ''}`, dropped ? 'warn' : 'success');
+    if (applied) parts.push(`${(applied) ?? ''} 名干员配置`);
+    if (nOps) parts.push(`${(nOps) ?? ''} 名干员的潜能与练度`);
+    if (skinsApplied) parts.push(`${(skinsApplied) ?? ''} 款皮肤`);
+    toast(`${parts.join('，')}${dropped ? `（另有 ${(dropped) ?? ''} 项未导入）` : ''}`, dropped ? 'warn' : 'success');
   };
 
   // Esc closes; ←/→ browse the filtered roster (not while typing in the search field)
@@ -703,59 +704,59 @@ function LoadoutScreen({ st }) {
 
   const [syncText, syncCls] = tab === 'ownership' ? OWN_SYNC_TEXT[st.ownSync] || OWN_SYNC_TEXT.idle
     : tab === 'diy' ? DIY_SYNC_TEXT[st.diySync] || DIY_SYNC_TEXT.idle : SYNC_TEXT[st.sync] || SYNC_TEXT.idle;
-  const fromText = st.from === 'briefing' ? t('确认本局信息阶段结束前可调整本局配置') : t('开始模拟前可调整干员携带的技能与模组，以及潜能与练度；干员的局内等级不可调整');
+  const fromText = st.from === 'briefing' ? '确认本局信息阶段结束前可调整本局配置' : '开始模拟前可调整干员携带的技能与模组，以及潜能与练度；干员的局内等级不可调整';
   // 干员持有 is out of match: a running match keeps the list its seat had at its start
   const ownLocked = inMatch && !!phase && phase !== PHASE.LOBBY;
-  const ownText = ownLocked ? t('干员持有是局外设置：本局按开局时的设置进行，修改将在下一局生效')
-    : t('局外设置，下一局生效 · 联机时只影响你自己的棋子 · 默认全部持有');
-  const diyText = ownLocked ? t('自选编队是局外设置：本局按开局时的设置进行，修改将在下一局生效')
-    : t('局外设置，下一局生效 · 联机时只进入你自己的商店');
+  const ownText = ownLocked ? '干员持有是局外设置：本局按开局时的设置进行，修改将在下一局生效'
+    : '局外设置，下一局生效 · 联机时只影响你自己的棋子 · 默认全部持有';
+  const diyText = ownLocked ? '自选编队是局外设置：本局按开局时的设置进行，修改将在下一局生效'
+    : '局外设置，下一局生效 · 联机时只进入你自己的商店';
 
   return html`<${Fragment}>
-  <div class="lo" role="dialog" aria-modal="true" aria-label=${t('干员调配')}>
+  <div class="lo" role="dialog" aria-modal="true" aria-label=${'干员调配'}>
     <div class="lo__bg" aria-hidden="true"></div>
     <header class="lo-top">
       <div class="lo-top__left">
-        <${Button} variant="ghost" size="md" icon="chevronLeft" class="lo-back" onClick=${closeLoadout} aria-label=${t('返回')} title=${t('返回 (Esc)')}>${t('返回')}<//>
+        <${Button} variant="ghost" size="md" icon="chevronLeft" class="lo-back" onClick=${closeLoadout} aria-label=${'返回'} title=${'返回 (Esc)'}>${'返回'}<//>
       </div>
       <div class="lo-top__center">
         <${MicroLabel} tone="mint">${tab === 'ownership' ? 'OPERATOR ROSTER' : tab === 'diy' ? 'SELF-SELECT SQUAD' : 'OPERATOR LOADOUT'}<//>
-        <div class="lo-tabs" role="tablist" aria-label=${t('干员调配 / 干员持有 / 自选编队')}>
+        <div class="lo-tabs" role="tablist" aria-label=${'干员调配 / 干员持有 / 自选编队'}>
           <button type="button" role="tab" aria-selected=${tab === 'loadout' ? 'true' : 'false'} data-tab="loadout" class=${cx('lo-tab', tab === 'loadout' && 'is-on')} onClick=${() => setTab('loadout')}>
-            <${Img} src=${localAsset('ui/outer', 'operator_preset')} class="lo-top__icon" fallback=${html`<${Icon} name="edit" class="lo-top__icon" />`} />${t('干员调配')}</button>
+            <${Img} src=${localAsset('ui/outer', 'operator_preset')} class="lo-top__icon" fallback=${html`<${Icon} name="edit" class="lo-top__icon" />`} />${'干员调配'}</button>
           <button type="button" role="tab" aria-selected=${tab === 'ownership' ? 'true' : 'false'} data-tab="ownership" class=${cx('lo-tab', tab === 'ownership' && 'is-on')} onClick=${() => setTab('ownership')}
-            title=${t('标记未持有的干员：由官方指定的替补干员上场')}>${t('干员持有')}${nNotOwned ? html`<span class="lo-tab__n num" aria-label=${t('{nNotOwned} 名未持有', { nNotOwned })}>${nNotOwned}</span>` : null}</button>
+            title=${'标记未持有的干员：由官方指定的替补干员上场'}>${'干员持有'}${nNotOwned ? html`<span class="lo-tab__n num" aria-label=${`${(nNotOwned) ?? ''} 名未持有`}>${nNotOwned}</span>` : null}</button>
           <button type="button" role="tab" aria-selected=${tab === 'diy' ? 'true' : 'false'} data-tab="diy" class=${cx('lo-tab', tab === 'diy' && 'is-on')} onClick=${() => setTab('diy')}
-            title=${t('5阶、6阶的自选名额：持有的 6★ 干员或原型干员')}>${t('自选编队')}${nDiy ? html`<span class="lo-tab__n num" aria-label=${t('{n} 个自选名额已选择', { n: nDiy })}>${nDiy}</span>` : null}</button>
+            title=${'5阶、6阶的自选名额：持有的 6★ 干员或原型干员'}>${'自选编队'}${nDiy ? html`<span class="lo-tab__n num" aria-label=${`${(nDiy) ?? ''} 个自选名额已选择`}>${nDiy}</span>` : null}</button>
         </div>
       </div>
       ${tab === 'diy' ? html`<div class="lo-top__right">
-        ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status" data-testid="diy-sync">${t(syncText)}</span>` : null}
-        <span class="lo-count">${t('已选')} <b class="num">${nDiy}</b><span class="num t-dim">/4</span></span>
-        <${Button} variant="ghost" size="sm" data-testid="diy-export" disabled=${!nDiy} onClick=${openExport} title=${t('导出自选编队（可复制或下载）')}>${t('导出')}<//>
-        <${Button} variant="ghost" size="sm" data-testid="diy-import" disabled=${!ready} onClick=${openImport} title=${t('导入自选编队（粘贴或选择文件）')}>${t('导入')}<//>
-        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="diy-reset" disabled=${!nDiy} onClick=${clearDiy}>${t('全部清空')}<//>
+        ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status" data-testid="diy-sync">${(syncText)}</span>` : null}
+        <span class="lo-count">${'已选'} <b class="num">${nDiy}</b><span class="num t-dim">/4</span></span>
+        <${Button} variant="ghost" size="sm" data-testid="diy-export" disabled=${!nDiy} onClick=${openExport} title=${'导出自选编队（可复制或下载）'}>${'导出'}<//>
+        <${Button} variant="ghost" size="sm" data-testid="diy-import" disabled=${!ready} onClick=${openImport} title=${'导入自选编队（粘贴或选择文件）'}>${'导入'}<//>
+        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="diy-reset" disabled=${!nDiy} onClick=${clearDiy}>${'全部清空'}<//>
       </div>` : tab === 'ownership' ? html`<div class="lo-top__right">
-        ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status" data-testid="ownership-sync">${t(syncText)}</span>` : null}
-        <span class="lo-count">${t('未持有')} <b class="num">${nNotOwned}</b><span class="num t-dim">/${ownRoster.length}</span></span>
-        <${Button} variant="ghost" size="sm" data-testid="ownership-export" disabled=${!nNotOwned} onClick=${openExport} title=${t('导出干员持有（可复制或下载）')}>${t('导出')}<//>
-        <${Button} variant="ghost" size="sm" data-testid="ownership-import" disabled=${!ready} onClick=${openImport} title=${t('导入干员持有（粘贴或选择文件）')}>${t('导入')}<//>
-        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="ownership-reset" disabled=${!nNotOwned} onClick=${ownAll}>${t('全部持有')}<//>
+        ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status" data-testid="ownership-sync">${(syncText)}</span>` : null}
+        <span class="lo-count">${'未持有'} <b class="num">${nNotOwned}</b><span class="num t-dim">/${ownRoster.length}</span></span>
+        <${Button} variant="ghost" size="sm" data-testid="ownership-export" disabled=${!nNotOwned} onClick=${openExport} title=${'导出干员持有（可复制或下载）'}>${'导出'}<//>
+        <${Button} variant="ghost" size="sm" data-testid="ownership-import" disabled=${!ready} onClick=${openImport} title=${'导入干员持有（粘贴或选择文件）'}>${'导入'}<//>
+        <${Button} variant="secondary" size="sm" icon="refresh" data-testid="ownership-reset" disabled=${!nNotOwned} onClick=${ownAll}>${'全部持有'}<//>
       </div>` : html`<div class="lo-top__right">
-        ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${t('调配截止')} class="lo-deadline" />` : null}
-        ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status">${t(syncText)}</span>` : null}
-        <span class="lo-count">${t('已调整')} <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
-        <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged && !nSkins} onClick=${openExport} title=${t('导出当前调配（可复制或下载）')}>${t('导出')}<//>
-        <${Button} variant="ghost" size="sm" data-testid="loadout-import" disabled=${!ready} onClick=${openImport} title=${t('导入调配（粘贴或选择文件）')}>${t('导入')}<//>
-        <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!nChanged} onClick=${resetAll}>${t('全部恢复默认')}<//>
+        ${inMatch && hasDeadline(infoDeadline) ? html`<${Countdown} deadline=${infoDeadline} size="sm" gauge=${false} label=${'调配截止'} class="lo-deadline" />` : null}
+        ${syncText ? html`<span class=${cx('lo-sync', syncCls)} role="status">${(syncText)}</span>` : null}
+        <span class="lo-count">${'已调整'} <b class="num">${nChanged}</b><span class="num t-dim">/${roster.length}</span></span>
+        <${Button} variant="ghost" size="sm" data-testid="loadout-export" disabled=${!nChanged && !nSkins} onClick=${openExport} title=${'导出当前调配（可复制或下载）'}>${'导出'}<//>
+        <${Button} variant="ghost" size="sm" data-testid="loadout-import" disabled=${!ready} onClick=${openImport} title=${'导入调配（粘贴或选择文件）'}>${'导入'}<//>
+        <${Button} variant="secondary" size="sm" icon="refresh" disabled=${!nChanged} onClick=${resetAll}>${'全部恢复默认'}<//>
       </div>`}
     </header>
     ${tab === 'diy'
       ? html`<p class=${cx('lo-note', ownLocked && 'is-locked')}><${Icon} name="info" />${diyText}</p>`
       : tab === 'ownership'
       ? html`<p class=${cx('lo-note', ownLocked && 'is-locked')}><${Icon} name="info" />${ownText}</p>`
-      : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? t('本局的调配已锁定（确认本局信息后无法修改），修改将在下一局生效') : fromText}</p>`}
-    ${!ready ? html`<div class="lo-loading"><${Spinner} size="sm" />${t('正在载入干员数据（打开页面后仅载入一次）…')}</div>`
+      : html`<p class=${cx('lo-note', locked && 'is-locked')}><${Icon} name="info" />${locked ? '本局的调配已锁定（确认本局信息后无法修改），修改将在下一局生效' : fromText}</p>`}
+    ${!ready ? html`<div class="lo-loading"><${Spinner} size="sm" />${'正在载入干员数据（打开页面后仅载入一次）…'}</div>`
       : lost.length ? html`<${DataMissing} files=${lost} />` : tab === 'diy'
       ? html`<${DiyPanel} m=${m} picks=${st.diy || {}} legal=${diyLegal} kitted=${st.diyKitted} onSet=${setDiySlot} ops=${st.ops} onOps=${setOpsOf} />`
       : tab === 'ownership'
@@ -765,15 +766,15 @@ function LoadoutScreen({ st }) {
         <${Filters} m=${m} filters=${st.filters} bonds=${bonds} onFilters=${(filters) => loadoutStore.set({ filters })} />
         <div class="lo-list" ref=${gridRef}>
           <${RosterHead} />
-          <div class="lo-list__rows" role="list" aria-label=${t('干员列表')}>
+          <div class="lo-list__rows" role="list" aria-label=${'干员列表'}>
             ${list.length ? list.map((c) => html`<${RosterRow} key=${c.chessId} m=${m} chess=${c} golden=${c.goldenId ? getChess(c.goldenId) : null}
               entries=${st.entries} ops=${st.ops} selected=${c.chessId === selId} onPick=${pick} onChange=${quickChange} onOps=${setOpsOf}
-              level=${previewLevel} notOwned=${(st.notOwned || []).includes(c.chessId)} />`) : html`<p class="lo-empty t-dim">${t('没有符合条件的干员')}</p>`}
+              level=${previewLevel} notOwned=${(st.notOwned || []).includes(c.chessId)} />`) : html`<p class="lo-empty t-dim">${'没有符合条件的干员'}</p>`}
           </div>
         </div>
       </section>
       <div class="lo-detail-wrap">
-        <button type="button" class="lo-detail-back tapx" onClick=${() => setNarrowDetail(false)}><${Icon} name="chevronLeft" />${t('干员列表')}</button>
+        <button type="button" class="lo-detail-back tapx" onClick=${() => setNarrowDetail(false)}><${Icon} name="chevronLeft" />${'干员列表'}</button>
         <${Detail} m=${m} chess=${base} golden=${golden} entries=${st.entries} ops=${st.ops} onChange=${change} onOps=${setOpsOf} onReset=${resetOne} locked=${locked}
           level=${golden ? previewLevel : 'normal'} onLevel=${setPreviewLevel}
           notOwned=${!!base && (st.notOwned || []).includes(base.chessId)} />
@@ -781,29 +782,29 @@ function LoadoutScreen({ st }) {
     </main>`}
   </div>
   ${io ? html`<${Modal} open=${true} onClose=${() => setIo(null)}
-      title=${ioDiy ? t(io.mode === 'export' ? '导出自选编队' : '导入自选编队')
-        : io.mode === 'export' ? (ioOwn ? t('导出干员持有') : t('导出干员调配')) : (ioOwn ? t('导入干员持有') : t('导入干员调配'))}
+      title=${ioDiy ? (io.mode === 'export' ? '导出自选编队' : '导入自选编队')
+        : io.mode === 'export' ? (ioOwn ? '导出干员持有' : '导出干员调配') : (ioOwn ? '导入干员持有' : '导入干员调配')}
       micro=${ioOwn ? 'OPERATOR ROSTER' : ioDiy ? 'SELF-SELECT SQUAD' : 'OPERATOR LOADOUT'}
       actions=${io.mode === 'export'
-        ? html`<${Button} variant="ghost" onClick=${() => setIo(null)}>${t('关闭')}<//>
-            <${Button} variant="secondary" icon="copy" data-testid="loadout-io-copy" onClick=${ioCopy}>${t('复制')}<//>
-            <${Button} variant="primary" data-testid="loadout-io-download" onClick=${ioDownload}>${t('下载文件')}<//>`
-        : html`<${Button} variant="ghost" onClick=${() => setIo(null)}>${t('取消')}<//>
-            <${Button} variant="secondary" data-testid="loadout-io-pick" onClick=${ioPick}>${t('选择文件')}<//>
-            <${Button} variant="primary" icon="check" data-testid="loadout-io-apply" disabled=${!ioText.trim() || !ready} onClick=${ioApply}>${t('导入')}<//>`}>
+        ? html`<${Button} variant="ghost" onClick=${() => setIo(null)}>${'关闭'}<//>
+            <${Button} variant="secondary" icon="copy" data-testid="loadout-io-copy" onClick=${ioCopy}>${'复制'}<//>
+            <${Button} variant="primary" data-testid="loadout-io-download" onClick=${ioDownload}>${'下载文件'}<//>`
+        : html`<${Button} variant="ghost" onClick=${() => setIo(null)}>${'取消'}<//>
+            <${Button} variant="secondary" data-testid="loadout-io-pick" onClick=${ioPick}>${'选择文件'}<//>
+            <${Button} variant="primary" icon="check" data-testid="loadout-io-apply" disabled=${!ioText.trim() || !ready} onClick=${ioApply}>${'导入'}<//>`}>
       <p class="lo-io__hint">${ioDiy
         ? (io.mode === 'export'
-          ? t('共 {n} 个自选名额已选择。复制或下载这份数据，即可在别的设备或浏览器上导入。', { n: nDiy })
-          : t('把导出的自选编队数据粘贴到下方，或点「选择文件」。导入会覆盖当前的自选编队。'))
+          ? `共 ${(nDiy) ?? ''} 个自选名额已选择。复制或下载这份数据，即可在别的设备或浏览器上导入。`
+          : '把导出的自选编队数据粘贴到下方，或点「选择文件」。导入会覆盖当前的自选编队。')
         : ioOwn
         ? (io.mode === 'export'
-          ? html`${tParts('共 {n} 名干员未持有。复制或下载这份数据，即可在别的设备或浏览器上导入。', { n: html`<b class="num">${nNotOwned}</b>`, count: nNotOwned })}`
-          : html`${tParts('把导出的干员持有数据粘贴到下方，或点「选择文件」。导入会{overwrite}当前的干员持有设置。', { overwrite: html`<strong>${t('覆盖')}</strong>` })}`)
+          ? html`${['共 ', html`<b class="num">${nNotOwned}</b>`, ' 名干员未持有。复制或下载这份数据，即可在别的设备或浏览器上导入。']}`
+          : html`${['把导出的干员持有数据粘贴到下方，或点「选择文件」。导入会', html`<strong>${'覆盖'}</strong>`, '当前的干员持有设置。']}`)
         : io.mode === 'export'
-          ? html`${tParts('共 {n} 名干员已调整。复制或下载这份数据，即可在别的设备或浏览器上导入。', { n: html`<b class="num">${nChanged}</b>`, count: nChanged })}`
-          : html`${t('把导出的内容粘贴到下方，或点「选择文件」。')}${nChanged ? html`${tParts('导入会{overwrite}当前的 {nChanged} 名干员调配。', { overwrite: html`<strong>${t('覆盖')}</strong>`, nChanged })}` : null}`}</p>
+          ? html`${['共 ', html`<b class="num">${nChanged}</b>`, ' 名干员已调整。复制或下载这份数据，即可在别的设备或浏览器上导入。']}`
+          : html`${'把导出的内容粘贴到下方，或点「选择文件」。'}${nChanged ? html`${['导入会', html`<strong>${'覆盖'}</strong>`, `当前的 ${(nChanged) ?? ''} 名干员调配。`]}` : null}`}</p>
       <textarea class="lo-io__text" data-testid="loadout-io-text" spellcheck=${false} readOnly=${io.mode === 'export'} value=${ioText}
-        placeholder=${io.mode === 'export' ? '' : ioDiy ? t('在此粘贴导出的自选编队内容…') : ioOwn ? t('在此粘贴导出的干员持有内容…') : t('在此粘贴导出的调配内容…')}
+        placeholder=${io.mode === 'export' ? '' : ioDiy ? '在此粘贴导出的自选编队内容…' : ioOwn ? '在此粘贴导出的干员持有内容…' : '在此粘贴导出的调配内容…'}
         onInput=${(e) => setIo({ ...io, text: e.currentTarget.value })}></textarea>
       <input type="file" accept=".json,application/json,text/plain" class="lo-io__file" ref=${fileRef} onChange=${ioFile} />
     <//>` : null}
@@ -855,7 +856,7 @@ export function badgeCount(entries, getChess, ops = null, roster = null) {
  * Entry button (lobby / room / briefing).
  * @param {{ from: 'lobby'|'room'|'briefing', size?: string, variant?: string, class?: string, label?: string }} props
  */
-export function LoadoutButton({ from, size = 'md', variant = 'secondary', class: cls, label = t('干员调配') }) {
+export function LoadoutButton({ from, size = 'md', variant = 'secondary', class: cls, label = '干员调配' }) {
   useData('local'); // the official preset icon (re-render once the local-art manifest arrives)
   const entries = useStore((s) => s.entries, Object.is, loadoutStore);
   const ops = useStore((s) => s.ops, Object.is, loadoutStore);
@@ -868,11 +869,11 @@ export function LoadoutButton({ from, size = 'md', variant = 'secondary', class:
   // 0.2.0 自选编队: how many DIY slots the player filled
   const nDiy = diyCount(diy);
   return html`<button type="button" class=${cx('btn', `btn--${variant}`, `btn--${size}`, 'lo-entry', cls)} data-testid="loadout-open"
-      onClick=${() => openLoadout(from)} title=${t('调整干员携带的技能与模组 · 干员持有')}>
+      onClick=${() => openLoadout(from)} title=${'调整干员携带的技能与模组 · 干员持有'}>
     <${Img} src=${localAsset('ui/outer', 'operator_preset')} class="lo-entry__icon" fallback=${html`<${Icon} name="edit" class="btn__icon" />`} />
     <span class="btn__label">${label}</span>
-    ${n ? html`<span class="lo-entry__n num" aria-label=${t('{n} 名干员已调整', { n })}>${n}</span>` : null}
-    ${off ? html`<span class="lo-entry__own" aria-label=${t('{off} 名干员未持有，由替补干员上场', { off })} title=${t('{off} 名干员未持有（由替补干员上场）', { off })}>${t('替补')} <b class="num">${off}</b></span>` : null}
-    ${nDiy ? html`<span class="lo-entry__own lo-entry__diy" aria-label=${t('{n} 个自选名额已选择', { n: nDiy })} title=${t('{n} 个自选名额已选择', { n: nDiy })}>${t('自选')} <b class="num">${nDiy}</b></span>` : null}
+    ${n ? html`<span class="lo-entry__n num" aria-label=${`${(n) ?? ''} 名干员已调整`}>${n}</span>` : null}
+    ${off ? html`<span class="lo-entry__own" aria-label=${`${(off) ?? ''} 名干员未持有，由替补干员上场`} title=${`${(off) ?? ''} 名干员未持有（由替补干员上场）`}>${'替补'} <b class="num">${off}</b></span>` : null}
+    ${nDiy ? html`<span class="lo-entry__own lo-entry__diy" aria-label=${`${(nDiy) ?? ''} 个自选名额已选择`} title=${`${(nDiy) ?? ''} 个自选名额已选择`}>${'自选'} <b class="num">${nDiy}</b></span>` : null}
   </button>`;
 }

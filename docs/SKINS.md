@@ -51,7 +51,7 @@ Three properties are load-bearing:
 | `data/skins.json` | The client's catalogue (no URLs) |
 | `data/skins-installed.json` | Which skin ids are installed — the single source of truth the build reads |
 | `public/js/ui/skins.js` | Client store + `room.skins` sync + install requests + manifest reload on `skins.changed` |
-| `public/js/ui/skinPicker.js` | The 皮肤 section of 干员调配 (self-contained: `screens/loadout.js` only names it) |
+| `public/js/ui/skinPicker.js` | The 皮肤 section of 干员调配 plus the compact quick bar under the 潜能 / 练度 selects (self-contained: `screens/loadout.js` only names them) |
 | `test/skins.test.js`, `test/skins-protocol.test.js`, `test/ui/skins.e2e.test.js` | Lookup, wire format, real-browser picker |
 
 ## Edits to existing files
@@ -82,9 +82,10 @@ Three properties are load-bearing:
 | `public/js/render/app.js` | `pieceInfo()` and `addInfo()` | `skin: piece.skin ?? skinFor(baseId) ?? null` / `skin: u.skin ?? null`; `sig` includes `skin` to drop cache on switch |
 | `public/js/data.js` | `DATA_FILES` | `skins: 'skins.json'` |
 | `public/js/ui/gameComponents.js` | `GAME_FILES` | `'skins'` — `test/ui/playtest3.test.js` requires every file the in-match UI reads to be awaited by the match screen, and 干员调配 is reachable during a match |
-| `public/js/screens/loadout.js` | imports + `Detail()` | import `SkinSection`, then `<${SkinSection} chess=${chess} />`. **Two lines** — the section itself is entirely in `ui/skinPicker.js` |
+| `public/js/screens/loadout.js` | imports + `Detail()` | import `SkinSection` and `SkinQuickBar`; `<${SkinQuickBar} chess=${chess} />` right after `<${CultivationSection}>` in the non-skin branch, `<${SkinSection} chess=${chess} />` on the 换装 tab. **A few lines** — the components themselves are entirely in `ui/skinPicker.js` |
 | `public/js/main.js` | imports + boot | `installSkinsSync({ net })` |
-| `public/css/screens/loadout.css` | end | `.lo-skins` / `.lo-skin` tiles (mirrors `.lo-mods`) |
+| `public/css/screens/loadout.css` | end | `.lo-skins` / `.lo-skin` tiles (mirrors `.lo-mods`) and the `.lo-skinbar*` quick bar |
+| `test/ui/skin-quickbar.test.js` | — | the quick bar's place in the detail, its guards and the css floors |
 | `data/assets.json` | — | regenerated; carries `chars[charId].skins` for whatever is installed |
 
 ## Regenerating the asset side

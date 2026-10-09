@@ -760,4 +760,69 @@
   border: 1px solid rgba(78, 216, 175, .4);
 }
 
+/* ---- 皮肤快捷栏 (潜能 / 练度下面的一排头像，ui/skinPicker.js SkinQuickBar) ------------------------------------
+   左侧标签、右侧一行方形头像缩略图：点按直接装配，不用切到「换装」；选中的一项亮边加勾。兼容旧机型 (Chromium 80-84)。 */
+.lo-skinbar {
+  display: flex;
+  align-items: flex-start;
+  gap: max(.1rem, 8px);
+  width: 100%;
+  padding-top: max(.06rem, 4px);
+}
+.lo-skinbar__label {
+  flex: 0 0 auto;
+  font-size: max(.17rem, 12px);
+  font-weight: 700;
+  color: var(--text-hi);
+  line-height: max(.48rem, 36px);
+  white-space: nowrap;
+}
+.lo-skinbar__row {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: max(.06rem, 5px);
+}
+.lo-skinbar__tile {
+  position: relative;
+  flex: 0 0 auto;
+  width: max(.48rem, 36px);
+  height: max(.48rem, 36px);
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  background: rgba(0, 0, 0, .4);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  transition: border-color var(--t-fast), box-shadow var(--t-fast);
+  touch-action: manipulation;
+}
+.lo-skinbar__tile:hover { border-color: var(--line-3); }
+.lo-skinbar__tile.is-on {
+  border-color: rgba(78, 216, 175, .75);
+  box-shadow: 0 0 max(.06rem, 4px) rgba(78, 216, 175, .35);
+}
+.lo-skinbar__tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+}
+.lo-skinbar__check {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  font-size: max(.11rem, 9px);
+  font-weight: 700;
+  line-height: 1;
+  padding: max(.02rem, 1px) max(.03rem, 3px);
+  color: var(--text-hi);
+  background: rgba(78, 216, 175, .85);
+  border-radius: 2px 0 0 0;
+}
+.lo-skinbar__tile:not(.is-on) .lo-skinbar__check { display: none; }
+
 
