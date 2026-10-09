@@ -2,8 +2,8 @@
 // 「全套的日配语音」): tools/assets/plan.mjs plans `audio.voiceJp` — the same slots and file names from the
 // ArknightsAssets2 `voice/` folder (the JP dub), under audio/voice/jp/ — the committed data/assets.json lists it for every
 // operator the Chinese tree has (checked against public/assets when present), the settings carry 语音语言 (中文 by
-// default, the four language packs translate the row), and tools/package.mjs FULL_ZIP_JP_VOICE decides whether the full
-// zip ships the JP files (default: yes) — held back, they are neither missing nor deleted by an update.
+// default), and tools/package.mjs FULL_ZIP_JP_VOICE decides whether the full zip ships the JP files (default: yes) —
+// held back, they are neither missing nor deleted by an update.
 // The client's choice of line and its fallback: test/ui/audio.test.js (voiceLine).
 // Run: node --test test/feedback7-voices.test.js
 
@@ -91,7 +91,7 @@ test('data/assets.json: voiceJp gives every voiced operator the JP twin of each 
   if (fs.existsSync(dir)) for (const u of lines) assert.ok(fs.statSync(path.join(ROOT, 'public', u)).size > 0, u);
 });
 
-test('settings 语音语言: 中文 by default, 日本語 kept, nothing else; the row is translated in every language pack', () => {
+test('settings 语音语言: 中文 by default, 日本語 kept, nothing else', () => {
   assert.deepEqual([...VOICE_LANGS], ['cn', 'jp']);
   assert.equal(DEFAULT_SETTINGS.voiceLang, 'cn', 'not tied to the interface language: 中文 until the player picks 日本語');
   assert.equal(sanitizeSettings({}).voiceLang, 'cn');
@@ -100,10 +100,6 @@ test('settings 语音语言: 中文 by default, 日本語 kept, nothing else; th
   const ui = fs.readFileSync(path.join(ROOT, 'public/js/ui/settings.js'), 'utf8');
   assert.match(ui, /updateSettings\(\{ voiceLang: id \}\)/);
   assert.match(ui, /const VOICE_LANG_NAMES = \{ cn: '中文', jp: '日本語' \};/, 'each dub named in its own language');
-  for (const code of ['en', 'ja', 'ko', 'zh-TW']) {
-    const pack = readJson(`public/i18n/${code}.json`);
-    assert.ok(typeof pack['语音语言'] === 'string' && pack['语音语言'] && pack['语音语言'] !== '语音语言', `${code}: 语音语言`);
-  }
 });
 
 test('package: the full zip ships the JP dub by default; FULL_ZIP_JP_VOICE off holds it back (not missing, not an orphan, never removed by an update); the lite zip has no art', () => {

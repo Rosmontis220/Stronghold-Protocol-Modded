@@ -433,14 +433,7 @@ describe('user playtest #2 item 10 — boss-round prep on the boss field (real s
       await host.page.waitForSelector('.spov[aria-label="教鞭选择"]', { timeout: 20000 });
       assert.deepEqual(await choiceOf(host), hostChoice, 'refresh reuses the ID and cards');
       assert.deepEqual(await choiceOf(guest), guestChoice, 'the teammate keeps its own candidates');
-      await host.page.evaluate(async () => { await (await import('/js/ui/lang.js')).switchLang('en'); });
-      await host.page.waitForSelector('.spov[aria-label="Pointing Stick Choice"]');
-      assert.match(await host.page.$eval('.spov__title', (el) => el.textContent), /Pointing Stick · Tactical Training/);
-      assert.equal(await host.page.$eval('[data-testid="ready-why"]', (el) => el.textContent), 'Complete the Pointing Stick choice first');
-      assert.equal(await guest.page.$eval('.spov', (el) => el.getAttribute('aria-label')), '教鞭选择', 'language stays per client');
-      assert.deepEqual(await choiceOf(host), hostChoice, 'language switch does not replace the offer');
-      await host.page.evaluate(async () => { await (await import('/js/ui/lang.js')).switchLang('zh'); });
-      await host.page.waitForSelector('.spov[aria-label="教鞭选择"]');
+      assert.equal(await guest.page.$eval('.spov', (el) => el.getAttribute('aria-label')), '教鞭选择');
       const refused = await host.page.evaluate(async (id) => {
         try { await globalThis.__SP__.net.request('g.choice', { idx: 0, choiceId: id }); return null; }
         catch (e) { return e.code; }

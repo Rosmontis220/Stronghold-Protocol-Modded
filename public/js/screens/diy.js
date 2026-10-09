@@ -17,7 +17,6 @@ import { data } from '../data.js';
 import { PROF_NAME, skillLabel, moduleBadge, fullTraitText } from '../ui/loadoutModel.js';
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
 import { CultivationSelects } from './cultivation.js';
-import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI'];
@@ -27,12 +26,12 @@ export const diyData = () => ({ chess: data.get('chess'), backups: data.get('bac
 
 /** A unit summary's avatar / portrait URL (a backups.json unit or a composed record). */
 const avatarOf = (m, unit, elite = false) => chessAvatarUrl(m, unit && { charId: unit.charId, assets: { avatar: elite ? unit.assets?.avatarGolden : unit.assets?.avatar } });
-const classLine = (u) => `${t(PROF_NAME[u?.profession] || '') || ''}${u?.subProfessionName ? ` · ${u.subProfessionName}` : ''}`;
+const classLine = (u) => `${(PROF_NAME[u?.profession] || '') || ''}${u?.subProfessionName ? ` · ${u.subProfessionName}` : ''}`;
 const bondName = (id) => data.lookup('bonds', id)?.name || id;
 
 /** The 原型 / 已持有 tag of a pick. */
 function KindTag({ proto }) {
-  return html`<span class=${cx('diy-tag', proto ? 'diy-tag--proto' : 'diy-tag--own')}>${proto ? t('原型') : t('已持有')}</span>`;
+  return html`<span class=${cx('diy-tag', proto ? 'diy-tag--proto' : 'diy-tag--own')}>${proto ? '原型' : '已持有'}</span>`;
 }
 
 /** Bond chips (the bonds derived from the operator's factions; 协防 when none matches). */
@@ -45,16 +44,16 @@ function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = n
   const D = diyData();
   const rec = pick ? slotRecord(slot.slotId, pick, D) : null;
   const elite = pick ? slotRecord(slot.slotId, pick, D, { elite: true }) : null;
-  const label = t('{tier}阶 自选', { tier: slot.tier });
+  const label = `${(slot.tier) ?? ''}阶 自选`;
   if (!rec) {
     return html`<div class=${cx('diy-slot', `diy-slot--t${slot.tier}`, 'is-empty', pick && 'is-bad')} data-slot=${slot.slotId}>
-      <button type="button" class="diy-slot__fill" onClick=${() => onOpen(slot.slotId)} aria-label=${t('{slot}：选择干员', { slot: label })}>
+      <button type="button" class="diy-slot__fill" onClick=${() => onOpen(slot.slotId)} aria-label=${`${(label) ?? ''}：选择干员`}>
         <${TierChip} tier=${slot.tier} size="sm" />
         <span class="diy-slot__plus"><${Icon} name="plus" /></span>
-        <b>${t('选择干员')}</b>
-        <small>${t('调度中心等级 {level} 起出现在商店', { level: slot.shopLevel })}</small>
+        <b>${'选择干员'}</b>
+        <small>${`调度中心等级 ${(slot.shopLevel) ?? ''} 起出现在商店`}</small>
       </button>
-      ${pick ? html`<p class="diy-slot__bad"><${Icon} name="warn" />${t('这项自选在当前版本不可用，开局时会被移除')}</p>` : null}
+      ${pick ? html`<p class="diy-slot__bad"><${Icon} name="warn" />${'这项自选在当前版本不可用，开局时会被移除'}</p>` : null}
     </div>`;
   }
   const proto = !!pick && D.backups?.diy?.prototypes?.[slot.tier]?.includes(pick.charId);
@@ -69,19 +68,19 @@ function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = n
       <${Bonds} bonds=${rec.bonds} />
       <span class="diy-slot__kit" data-skill=${sk?.index ?? ''}>
         <${Img} src=${skillRecordIconUrl(m, sk, { empty: false })} class="diy-slot__sicon" fallback=${html`<b class="num">${skillLabel(sk?.index)}</b>`} />
-        <span><b class="num">${skillLabel(sk?.index)}</b> ${sk?.name || ''}${proto ? html` <small class="t-dim">${t('（锁定）')}</small>` : null}</span>
+        <span><b class="num">${skillLabel(sk?.index)}</b> ${sk?.name || ''}${proto ? html` <small class="t-dim">${'（锁定）'}</small>` : null}</span>
       </span>
       <span class="diy-slot__kit" data-module=${mod ? mod.id : 'none'}>
         ${mod ? html`<${Img} src=${moduleTypeIconUrl(data.get('local'), mod.type)} class="diy-slot__micon" fallback=${html`<b class="num">${moduleBadge({ typeName: mod.type })}</b>`} />` : html`<span class="diy-slot__micon diy-slot__micon--none">—</span>`}
-        <span>${mod ? html`<b class="num">${mod.type || ''}</b> ${mod.name || ''}` : t('不装备模组')} <small class="t-dim">${t('（精锐时生效）')}</small></span>
+        <span>${mod ? html`<b class="num">${mod.type || ''}</b> ${mod.name || ''}` : '不装备模组'} <small class="t-dim">${'（精锐时生效）'}</small></span>
       </span>
-      ${proto ? html`<small class="diy-slot__cult t-dim">${t('原型干员没有潜能与练度')}</small>`
+      ${proto ? html`<small class="diy-slot__cult t-dim">${'原型干员没有潜能与练度'}</small>`
         : onOps ? html`<span class="diy-slot__cult"><${CultivationSelects} charId=${rec.charId} ops=${ops} onSet=${onOps} /></span>` : null}
-      ${illegal ? html`<p class="diy-slot__bad"><${Icon} name="warn" />${t('这项自选在当前版本不可用，开局时会被移除')}</p>` : null}
+      ${illegal ? html`<p class="diy-slot__bad"><${Icon} name="warn" />${'这项自选在当前版本不可用，开局时会被移除'}</p>` : null}
     </div>
     <div class="diy-slot__acts">
-      <${Button} variant="secondary" size="sm" icon="refresh" data-testid="diy-change" onClick=${() => onOpen(slot.slotId)}>${t('更换')}<//>
-      <${Button} variant="ghost" size="sm" icon="close" data-testid="diy-clear" onClick=${() => onClear(slot.slotId)}>${t('清空')}<//>
+      <${Button} variant="secondary" size="sm" icon="refresh" data-testid="diy-change" onClick=${() => onOpen(slot.slotId)}>${'更换'}<//>
+      <${Button} variant="ghost" size="sm" icon="close" data-testid="diy-clear" onClick=${() => onClear(slot.slotId)}>${'清空'}<//>
     </div>
   </div>`;
 }
@@ -93,14 +92,14 @@ function OptionCard({ m, opt, selected, onSel }) {
   const takenBy = opt.taken ? diySlotList(diyData()).find((s) => s.slotId === opt.taken) : null;
   return html`<button type="button" role="option" aria-selected=${selected ? 'true' : 'false'} data-char=${opt.charId}
       class=${cx('diy-opt', selected && 'is-sel', opt.taken && 'is-taken')} disabled=${!!opt.taken} onClick=${() => onSel(opt.charId)}
-      title=${takenBy ? t('已在{tier}阶自选中', { tier: takenBy.tier }) : name}>
+      title=${takenBy ? `已在${(takenBy.tier) ?? ''}阶自选中` : name}>
     <span class="diy-opt__ava"><${Img} src=${avatarOf(m, u)} fallback=${html`<b>${[...name][0]}</b>`} /></span>
     <span class="diy-opt__txt">
       <span class="diy-opt__top"><b class="diy-opt__name">${name}</b><${KindTag} proto=${opt.proto} /></span>
       <small class="diy-opt__class"><${Img} src=${profIconUrl(m, u?.profession)} class="diy-opt__prof" />${classLine(u)}</small>
       <${Bonds} bonds=${opt.bonds} />
     </span>
-    ${takenBy ? html`<span class="diy-opt__taken">${t('已在{tier}阶自选中', { tier: takenBy.tier })}</span>` : null}
+    ${takenBy ? html`<span class="diy-opt__taken">${`已在${(takenBy.tier) ?? ''}阶自选中`}</span>` : null}
   </button>`;
 }
 
@@ -111,7 +110,7 @@ function SkillRow({ m, s, on, locked, onPick }) {
       class=${cx('diy-choice', on && 'is-on')} onClick=${() => onPick(s.index)}>
     <span class="diy-choice__icon"><${Img} src=${skillRecordIconUrl(m, rec, { empty: false })} fallback=${html`<b class="num">${skillLabel(s.index)}</b>`} /></span>
     <span class="diy-choice__body">
-      <span class="diy-choice__head"><b class="num">${skillLabel(s.index)}</b><b>${rec?.name || ''}</b>${on ? html`<span class="lo-badge lo-badge--on"><${Icon} name="check" />${locked ? t('锁定') : t('已选择')}</span>` : null}</span>
+      <span class="diy-choice__head"><b class="num">${skillLabel(s.index)}</b><b>${rec?.name || ''}</b>${on ? html`<span class="lo-badge lo-badge--on"><${Icon} name="check" />${locked ? '锁定' : '已选择'}</span>` : null}</span>
       <${RichText} as="span" class="diy-choice__desc" text=${s.normal?.descRaw || s.normal?.desc || ''} />
     </span>
   </button>`;
@@ -127,7 +126,7 @@ function ModuleRow({ id, rec, on, locked, onPick }) {
       class=${cx('diy-choice', 'diy-choice--mod', on && 'is-on')} onClick=${() => onPick(id)}>
     <span class="diy-choice__icon">${none ? html`<b>—</b>` : html`<${Img} src=${moduleTypeIconUrl(data.get('local'), rec.typeName)} fallback=${html`<b class="num">${moduleBadge(rec)}</b>`} />`}</span>
     <span class="diy-choice__body">
-      <span class="diy-choice__head">${none ? html`<b>${t('不装备')}</b>` : html`<b class="num">${rec.typeName || ''}</b><b>${rec.name || id}</b>`}${on ? html`<span class="lo-badge lo-badge--on"><${Icon} name="check" />${locked ? t('锁定') : t('已选择')}</span>` : null}</span>
+      <span class="diy-choice__head">${none ? html`<b>${'不装备'}</b>` : html`<b class="num">${rec.typeName || ''}</b><b>${rec.name || id}</b>`}${on ? html`<span class="lo-badge lo-badge--on"><${Icon} name="check" />${locked ? '锁定' : '已选择'}</span>` : null}</span>
       ${trait ? html`<${RichText} as="span" class="diy-choice__desc" text=${trait} />` : null}
       ${talents.map((x, i) => html`<${RichText} key=${i} as="span" class="diy-choice__desc" text=${x.descRaw || x.desc} />`)}
     </span>
@@ -172,7 +171,7 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
   const options = pickOptions(slot.slotId, picks, D, kitted);
   const q = query.trim().toLowerCase();
   const list = options.filter((o) => (filter === 'all' || (filter === 'proto') === o.proto)
-    && (!q || [o.unit?.name, o.unit?.appellation, o.unit?.subProfessionName, t(PROF_NAME[o.unit?.profession] || ''), ...o.bonds.map(bondName)].some((x) => typeof x === 'string' && x.toLowerCase().includes(q))));
+    && (!q || [o.unit?.name, o.unit?.appellation, o.unit?.subProfessionName, (PROF_NAME[o.unit?.profession] || ''), ...o.bonds.map(bondName)].some((x) => typeof x === 'string' && x.toLowerCase().includes(q))));
   const ch = draft ? pickChoices(draft.charId, slot.slotId, D) : null;
   const sel = (charId) => {
     if (draft?.charId === charId) return;
@@ -182,26 +181,26 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
   const skillOn = ch ? (ch.proto ? lk?.skillIndex : draft.skillIndex) : null;
   const modOn = ch ? (ch.proto ? lk?.uniEquipId ?? null : draft.uniEquipId ?? null) : null;
   const unit = draft ? D.backups?.units?.[draft.charId] : null;
-  const label = t('{tier}阶 自选', { tier: slot.tier });
-  return html`<section class="diy-pick" role="dialog" aria-label=${t('{slot}：选择干员', { slot: label })} data-testid="diy-picker" data-slot=${slot.slotId}>
+  const label = `${(slot.tier) ?? ''}阶 自选`;
+  return html`<section class="diy-pick" role="dialog" aria-label=${`${(label) ?? ''}：选择干员`} data-testid="diy-picker" data-slot=${slot.slotId}>
     <header class="diy-pick__head">
       <${TierChip} tier=${slot.tier} size="sm" /><b>${label}</b>
-      <span class="diy-pick__note">${slot.tier === 5 ? t('6★ 原型干员与持有的 6★ 干员，另有 4★ 原型干员（先锋、特种除外）') : t('6★ 原型干员与持有的 6★ 干员')}</span>
-      <button type="button" class="diy-pick__x" aria-label=${t('关闭')} onClick=${onClose}><${Icon} name="close" /></button>
+      <span class="diy-pick__note">${slot.tier === 5 ? '6★ 原型干员与持有的 6★ 干员，另有 4★ 原型干员（先锋、特种除外）' : '6★ 原型干员与持有的 6★ 干员'}</span>
+      <button type="button" class="diy-pick__x" aria-label=${'关闭'} onClick=${onClose}><${Icon} name="close" /></button>
     </header>
     <div class="diy-pick__bar">
-      <div class="lo-chips" role="group" aria-label=${t('筛选')}>
-        ${[['all', t('全部')], ['proto', t('原型')], ['owned', t('已持有')]].map(([k, text]) => html`<button key=${k} type="button" class=${cx('lo-chip', filter === k && 'is-on')}
+      <div class="lo-chips" role="group" aria-label=${'筛选'}>
+        ${[['all', '全部'], ['proto', '原型'], ['owned', '已持有']].map(([k, text]) => html`<button key=${k} type="button" class=${cx('lo-chip', filter === k && 'is-on')}
           aria-pressed=${filter === k ? 'true' : 'false'} data-filter=${k} onClick=${() => setFilter(k)}>${text}</button>`)}
       </div>
-      <input type="search" class="diy-pick__search" value=${query} placeholder=${t('搜索干员 / 职业 / 盟约')} aria-label=${t('搜索干员 / 职业 / 盟约')}
+      <input type="search" class="diy-pick__search" value=${query} placeholder=${'搜索干员 / 职业 / 盟约'} aria-label=${'搜索干员 / 职业 / 盟约'}
         onInput=${(e) => setQuery(String(e.currentTarget.value).slice(0, 24))} />
     </div>
     <div class="diy-pick__main">
-      <div class="diy-pick__list" role="listbox" aria-label=${t('可选干员')}>
-        ${kitted == null ? html`<p class="lo-empty t-dim">${t('连接服务器后才能选择自选干员')}</p>`
+      <div class="diy-pick__list" role="listbox" aria-label=${'可选干员'}>
+        ${kitted == null ? html`<p class="lo-empty t-dim">${'连接服务器后才能选择自选干员'}</p>`
           : list.length ? list.map((o) => html`<${OptionCard} key=${o.charId} m=${m} opt=${o} selected=${draft?.charId === o.charId} onSel=${sel} />`)
-            : html`<p class="lo-empty t-dim">${t('没有符合条件的干员')}</p>`}
+            : html`<p class="lo-empty t-dim">${'没有符合条件的干员'}</p>`}
       </div>
       <div class="diy-pick__detail">
         ${ch && unit ? html`
@@ -210,24 +209,24 @@ export function DiyPickerView({ m, slot, picks, kitted, onDone, onClose, filter,
             <span class="diy-pick__wtxt"><b>${unit.name}</b><small>${classLine(unit)}</small></span>
             <${KindTag} proto=${ch.proto} />
           </div>
-          <h4 class="diy-pick__sec">${t('技能')}${ch.proto ? html`<small>${t('原型干员的技能与补位时一致，不可更改')}</small>` : null}</h4>
-          <div role="radiogroup" aria-label=${t('选择技能')} class="diy-pick__choices">
+          <h4 class="diy-pick__sec">${'技能'}${ch.proto ? html`<small>${'原型干员的技能与补位时一致，不可更改'}</small>` : null}</h4>
+          <div role="radiogroup" aria-label=${'选择技能'} class="diy-pick__choices">
             ${ch.skills.filter((s) => !ch.proto || s.index === skillOn).map((s) => html`<${SkillRow} key=${s.index} m=${m} s=${s} on=${s.index === skillOn} locked=${ch.proto}
               onPick=${(i) => setDraft({ ...draft, skillIndex: i })} />`)}
           </div>
-          <h4 class="diy-pick__sec">${t('模组')}<small>${t('精锐时生效 · 模组等级 {stage}', { stage: ch.stage })}</small></h4>
-          <div role="radiogroup" aria-label=${t('选择模组')} class="diy-pick__choices">
+          <h4 class="diy-pick__sec">${'模组'}<small>${`精锐时生效 · 模组等级 ${(ch.stage) ?? ''}`}</small></h4>
+          <div role="radiogroup" aria-label=${'选择模组'} class="diy-pick__choices">
             ${ch.proto
               ? html`<${ModuleRow} id=${modOn} rec=${modOn ? ch.elite.modules?.find((x) => x.uniEquipId === modOn) || null : null} on=${true} locked=${true} onPick=${() => {}} />`
               : [html`<${ModuleRow} key="none" id=${null} rec=${null} on=${modOn == null} locked=${false} onPick=${() => setDraft({ ...draft, uniEquipId: null })} />`,
                 ...ch.modules.map((x) => html`<${ModuleRow} key=${x.uniEquipId} id=${x.uniEquipId} rec=${x.rec} on=${modOn === x.uniEquipId} locked=${false}
                   onPick=${(id) => setDraft({ ...draft, uniEquipId: id })} />`)]}
-          </div>` : html`<p class="lo-empty t-dim">${t('从左侧选择一名干员')}</p>`}
+          </div>` : html`<p class="lo-empty t-dim">${'从左侧选择一名干员'}</p>`}
       </div>
     </div>
     <footer class="diy-pick__foot">
-      <${Button} variant="ghost" onClick=${onClose}>${t('取消')}<//>
-      <${Button} variant="primary" icon="check" data-testid="diy-confirm" disabled=${!ch} onClick=${() => onDone(ch.proto ? { charId: draft.charId } : draft)}>${t('确认')}<//>
+      <${Button} variant="ghost" onClick=${onClose}>${'取消'}<//>
+      <${Button} variant="primary" icon="check" data-testid="diy-confirm" disabled=${!ch} onClick=${() => onDone(ch.proto ? { charId: draft.charId } : draft)}>${'确认'}<//>
     </footer>
   </section>`;
 }
@@ -251,11 +250,11 @@ export function DiyPanelView({ m, picks, legal, kitted, onSet, picking, onPickin
   const tiers = [...new Set(slots.map((s) => s.tier))];
   return html`<main class="diy" data-testid="diy">
     <div class="own__bar">
-      <p class="own__lead">${t('5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。')}</p>
+      <p class="own__lead">${'5阶与6阶各有两个自选名额：选择持有的 6★ 干员（任选技能与模组）或原型干员（技能锁定）。自选干员只出现在你自己的商店里，调度中心达到该阶等级后才会刷新，价格与同阶干员相同；盟约按干员实际所属阵营分配，没有特质。'}</p>
     </div>
     <div class="diy__body">
-      ${tiers.map((tier) => html`<section key=${tier} class="own-tier diy-tier" data-tier=${tier} aria-label=${t('{tier}阶', { tier })}>
-        <h3 class="own-tier__head"><${TierChip} tier=${tier} size="sm" /><span class="num">${ROMAN[tier]}</span><span>${t('阶')}</span></h3>
+      ${tiers.map((tier) => html`<section key=${tier} class="own-tier diy-tier" data-tier=${tier} aria-label=${`${(tier) ?? ''}阶`}>
+        <h3 class="own-tier__head"><${TierChip} tier=${tier} size="sm" /><span class="num">${ROMAN[tier]}</span><span>${'阶'}</span></h3>
         <div class="diy-grid">
           ${slots.filter((s) => s.tier === tier).map((s) => html`<${SlotCard} key=${s.slotId} m=${m} slot=${s} pick=${picks[s.slotId] || null}
             illegal=${!!picks[s.slotId] && !legal[s.slotId]} onOpen=${setPicking} onClear=${(id) => onSet(id, null)} ops=${ops} onOps=${onOps} />`)}

@@ -15,7 +15,7 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -509,21 +509,10 @@ describe('in-match UI (mock harness, headless Chrome)', { skip: !ENABLED && 'set
     assert.doesNotMatch(await page.$eval('.spov', (el) => el.textContent), /机变阶段|当前轮到|正在决策/);
     assert.equal(await page.$eval('.readybtn', (el) => el.disabled), true);
     assert.match(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), /请先完成教鞭选择/);
-    await page.evaluate(async () => { await (await import('/js/ui/lang.js')).loadLangIndex(); });
-    for (const lang of ['en', 'ja', 'ko', 'zh-TW']) {
-      const messages = JSON.parse(readFileSync(path.join(ROOT, `public/i18n/${lang}.json`), 'utf8'));
-      await page.evaluate(async (code) => {
-        await (await import('/js/ui/lang.js')).switchLang(code);
-        globalThis.__MOCK__.pushPublic(); // this harness has no App/useLang root; render again with the active language
-      }, lang);
-      await page.waitForFunction((label) => document.querySelector('.spov')?.getAttribute('aria-label') === label, {}, messages['教鞭选择']);
-      assert.equal(await page.$eval('.spov__title', (el) => el.textContent), `${messages['教鞭 · 战术特训']}|${messages['请选择一项战术特训']}`);
-      assert.match(await page.$eval('.spov__sub', (el) => el.textContent), new RegExp(messages['休整期结束时未选择将自动选定']));
-      assert.equal(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), messages['请先完成教鞭选择']);
-      assert.equal((await mockState(page)).personalChoice.id, first.id, 'language switch keeps the same pending offer');
-    }
-    await page.evaluate(async () => { await (await import('/js/ui/lang.js')).switchLang('zh'); globalThis.__MOCK__.pushPublic(); });
-    await page.waitForSelector('.spov[aria-label="教鞭选择"]');
+    // the overlay's own words are Chinese literals (the interface has no language switch any more)
+    assert.equal(await page.$eval('.spov__title', (el) => el.textContent), '教鞭 · 战术特训|请选择一项战术特训');
+    assert.match(await page.$eval('.spov__sub', (el) => el.textContent), /休整期结束时未选择将自动选定/);
+    assert.equal(await page.$eval('[data-testid="ready-why"]', (el) => el.textContent), '请先完成教鞭选择');
     const requests = await page.evaluate(() => globalThis.__MOCK__.S().requests.length);
     for (const key of ['KeyW', 'KeyR', 'KeyF', 'KeyD', 'KeyQ', 'KeyX']) await page.keyboard.press(key);
     await sleep(150);

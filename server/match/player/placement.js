@@ -5,7 +5,6 @@
 // the player state).
 
 import { ERR } from '../../../shared/constants.js';
-import { msg, dn } from '../../../shared/i18n.js';
 import { tileKey, parseKey, inField, canPlace, placeClass, freeSlot, pieceDir, parseDir, ownerRangeKeys } from '../board.js';
 import { attackRangeGrid, loadoutRecord, resolveRecordLoadout } from '../../../shared/loadoutRecord.js';
 import { OK, fail } from './common.js';
@@ -119,11 +118,11 @@ export class PlayerPlacement {
       const ok = this._returnToken(p, null, { allowTemp: true });
       (inside ? (ok ? backOut : goneOut) : (ok ? back : gone)).push(this.gd.token(p.id)?.name || p.id);
     }
-    if (back.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者攻击范围内，已退回整备区', { names: back.map(dn) }));
-    if (gone.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者攻击范围内，整备区已满，下回合返还', { names: gone.map(dn) }));
+    if (back.length) this.m.toast(this, 'warn', `${back.filter((s) => s !== '').join('、')}只能部署在召唤者攻击范围内，已退回整备区`);
+    if (gone.length) this.m.toast(this, 'warn', `${gone.filter((s) => s !== '').join('、')}只能部署在召唤者攻击范围内，整备区已满，下回合返还`);
     // an outside-bound summon (战术锚点) its owner's new range now covers
-    if (backOut.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者攻击范围外，已退回整备区', { names: backOut.map(dn) }));
-    if (goneOut.length) this.m.toast(this, 'warn', msg('{names}只能部署在召唤者攻击范围外，整备区已满，下回合返还', { names: goneOut.map(dn) }));
+    if (backOut.length) this.m.toast(this, 'warn', `${backOut.filter((s) => s !== '').join('、')}只能部署在召唤者攻击范围外，已退回整备区`);
+    if (goneOut.length) this.m.toast(this, 'warn', `${goneOut.filter((s) => s !== '').join('、')}只能部署在召唤者攻击范围外，整备区已满，下回合返还`);
     return back.length + gone.length + backOut.length + goneOut.length;
   }
 

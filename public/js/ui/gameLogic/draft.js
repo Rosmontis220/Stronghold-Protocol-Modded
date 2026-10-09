@@ -3,7 +3,6 @@
 import { isObj } from './shared.js';
 import { poolGroupIdentity, poolGroups as normalizePoolGroups } from './groups.js';
 import { MAX_DRAFT_CARDS, PHASE } from '../../../../shared/constants.js';
-import { t } from '../../../../shared/i18n.js';
 
 const playerIds = (players) => (Array.isArray(players) ? players : []).filter(isObj).map((p) => p.playerId);
 const stringIds = (ids) => Array.isArray(ids) ? [...new Set(ids.filter((id) => typeof id === 'string' && id))] : [];
@@ -149,7 +148,7 @@ export function normalizePersonalChoice(pub, priv, myId) {
   if (pub?.phase !== PHASE.PREP || !priv || priv.playerId !== myId || priv.alive === false
     || !choice || choice.round !== pub.round) return null;
   return {
-    ...normalizeSp({ family: 'bounty', name: t('教鞭 · 战术特训'), desc: t('请选择一项战术特训'),
+    ...normalizeSp({ family: 'bounty', name: '教鞭 · 战术特训', desc: '请选择一项战术特训',
       cards: choice.cards, turn: myId, order: [myId], picks: {} }),
     id: choice.id,
   };

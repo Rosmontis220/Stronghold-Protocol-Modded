@@ -16,7 +16,6 @@
 import { DIY_LIMITS, checkDiyPicks } from '../../../shared/protocol.js';
 import { diySlotIds, diySlot, diyPool, isPrototypePick, lockedSelection, isDiyModule, diyRecord } from '../../../shared/diy.js';
 import { unitForm } from '../../../shared/standIn.js';
-import { N_ } from '../../../shared/i18n.js';
 
 /** localStorage key (store.js loadPref/savePref prefix `sp.pref.`) and format version. */
 export const DIY_PREF = 'diy';
@@ -180,23 +179,23 @@ export const serializeDiy = (picks, opts) => JSON.stringify(exportDiy(picks, opt
 /**
  * Parse an imported roster: the envelope, the stored `{ v, picks }` form, or the text of either. STRUCTURAL only — the
  * caller sanitises against the loaded data (sanitizeDiyPicks). An envelope may hold no picks (= every slot empty).
- * Errors are msgids (shown through t()).
+ * Errors are Chinese strings shown to the player as they are.
  * @param {any} input payload or text
  * @returns {{ ok: true, picks: Record<string, any> } | { ok: false, error: string, params?: Record<string, any> }}
  */
 export function parseDiyImport(input) {
   let raw = input;
   if (typeof raw === 'string') {
-    if (raw.length > DIY_IMPORT_MAX_BYTES) return { ok: false, error: N_('内容过长，无法导入') };
+    if (raw.length > DIY_IMPORT_MAX_BYTES) return { ok: false, error: '内容过长，无法导入' };
     const text = raw.trim();
-    if (!text) return { ok: false, error: N_('没有可导入的内容') };
-    try { raw = JSON.parse(text); } catch { return { ok: false, error: N_('无法识别的内容') }; }
+    if (!text) return { ok: false, error: '没有可导入的内容' };
+    try { raw = JSON.parse(text); } catch { return { ok: false, error: '无法识别的内容' }; }
   }
-  if (!isObj(raw)) return { ok: false, error: N_('无法识别的格式') };
+  if (!isObj(raw)) return { ok: false, error: '无法识别的格式' };
   const v = Number.isInteger(raw.v) ? raw.v : null;
-  if (v != null && v > DIY_VERSION) return { ok: false, error: N_('这份数据来自更新的版本（v{v}），请先更新游戏'), params: { v } };
+  if (v != null && v > DIY_VERSION) return { ok: false, error: '这份数据来自更新的版本（v{v}），请先更新游戏', params: { v } };
   const kind = typeof raw.kind === 'string' ? raw.kind : null;
-  if (kind && kind !== DIY_EXPORT_KIND) return { ok: false, error: N_('这不是自选编队的数据') };
-  if (!isObj(raw.picks)) return { ok: false, error: N_('里面没有自选编队的数据') };
+  if (kind && kind !== DIY_EXPORT_KIND) return { ok: false, error: '这不是自选编队的数据' };
+  if (!isObj(raw.picks)) return { ok: false, error: '里面没有自选编队的数据' };
   return { ok: true, picks: cleanPicks(raw.picks) };
 }

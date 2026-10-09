@@ -9,7 +9,6 @@ import { uniteBattleOpts, uniteSurvivors, plannedUniteSurvivors, nextUnitePlan, 
 import { FieldRunner, timelineAt, uniteBillBounds } from '../fields.js';
 import { uniteLeft } from '../../sim/spec.js';
 import { FLOW_TICKER_PRIORITY, DELAYS, OK, fail } from './common.js';
-import { msg } from '../../../shared/i18n.js';
 
 export class MatchUnite {
   // Each wave has fresh ballots; approval ends all later waves after the current battle finishes.
@@ -31,7 +30,7 @@ export class MatchUnite {
     plan.skipVotes = new Set(vote.voters);
     if (!plan.skipRemaining && vote.open && vote.eligible.length && vote.voters.length >= vote.needed) {
       plan.skipRemaining = true;
-      this.tickerText(msg('投票通过：本轮结束后跳过后续全部联防，按剩余漏怪结算'), FLOW_TICKER_PRIORITY);
+      this.tickerText('投票通过：本轮结束后跳过后续全部联防，按剩余漏怪结算', FLOW_TICKER_PRIORITY);
     }
     this.markPublic();
   }
@@ -57,7 +56,7 @@ export class MatchUnite {
     this.deadline = this.sched.instant ? 0 : this.sched.now() + Math.round((limit / this.gameSpeed) * 1000);
     this._defaultWatch();
     this.markPublic();
-    this.tickerText(msg('联防阶段：{names} 迎战突破防线的敌人', { names: plan.helpers.map((p) => p.name) }), FLOW_TICKER_PRIORITY);
+    this.tickerText(`联防阶段：${plan.helpers.map((p) => p.name).filter((s) => s !== '').join('、')} 迎战突破防线的敌人`, FLOW_TICKER_PRIORITY);
     this._uniteLeftKey = null;
     this.runner = new FieldRunner(this, this.fields, {
       onTick: (runner) => this._uniteTick(runner),
@@ -116,7 +115,7 @@ export class MatchUnite {
       this._sendStart(ps.playerId, f, { watch: !f.players.includes(ps.playerId) });
     }
     this.markPublic();
-    this.tickerText(msg('联防阶段：{names} 迎战突破防线的敌人', { names: plan.helpers.map((p) => p.name) }), FLOW_TICKER_PRIORITY);
+    this.tickerText(`联防阶段：${plan.helpers.map((p) => p.name).filter((s) => s !== '').join('、')} 迎战突破防线的敌人`, FLOW_TICKER_PRIORITY);
   }
 
   _finishUniteClient() {

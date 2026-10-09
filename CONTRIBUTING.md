@@ -1,6 +1,6 @@
 # 参与贡献
 
-欢迎提 Issue 和 Pull Request：bug、和官方规则不一致的地方、新干员的战斗逻辑、翻译、文档都可以。动手之前先看一眼
+欢迎提 Issue 和 Pull Request：bug、和官方规则不一致的地方、新干员的战斗逻辑、文档都可以。动手之前先看一眼
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)（代码地图：哪个规则在哪个文件）。English summary at the end.
 
 ## 1. 准备环境
@@ -75,11 +75,9 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
 - 规则改了，相关文档一起改：`docs/design/` 里对应的规则（章节号与文件见 docs/DESIGN.md 的索引）、`docs/history/` 里当前版本的
   修订记录、docs/SIM.md、docs/META.md、docs/DATA.md 等。
   `test/docs-consistency.test.js` 固定了文档里的一些句子，改文档后跑一下。
-- 代码和注释用英文；玩家文档（README、PLAYING、DEPLOY）用简体中文，技术文档用英文。界面上的文字写中文并用 `t('…')`
-  包起来，英文放进 `public/i18n/en.json`（[docs/I18N.md](docs/I18N.md)）。
-- 翻译成新的语言：一个语言就是 `public/i18n/` 里的一个文件，不用改代码。`node tools/i18n.mjs template <语言代码>` 生成骨架，
-  翻译后用 `node tools/i18n.mjs check <语言代码>` 检查，步骤见 [docs/I18N.md](docs/I18N.md)「Adding a language」；语言包是
-  内容包的第一种，格式见 [docs/PACKS.md](docs/PACKS.md)。
+- 代码和注释用英文；玩家文档（README、PLAYING、DEPLOY）用简体中文，技术文档用英文。界面文字就是代码里的中文原文，
+  直接写中文字面量：没有翻译层、没有语言包、没有 `t('…')`，服务端的 `m.toast` / `m.ticker` 也只发中文 `text`。
+  内容包机制（[docs/PACKS.md](docs/PACKS.md)）整体保留，其中的 `lang` 类型仍会校验，但客户端不再加载语言包。
 - 提交的代码以 GPL-3.0-or-later 发布。本项目坚持非商业，请不要加入广告、付费、打赏等任何变现功能。
 
 ## 5. 添加干员（自选编队）
@@ -120,9 +118,9 @@ SIM_E2E=1 node --test 'test/sim/*.browser.test.js'               # 浏览器里�
   message saying what changed, with the issue number; no attribution trailers such as `Co-Authored-By:` or
   `Generated with …` (the maintainers' convention) — merged pull requests are credited in the CHANGELOG. Describe the
   sources, the `[ASSUMED]` items, the tests and the golden scenarios that moved; update the docs a rule change makes
-  wrong. Code and comments in English; player-facing text in Chinese through `t('…')` with the English in
-  `public/i18n/en.json`. A new language is one file in `public/i18n/` and no code: `node tools/i18n.mjs template <code>`,
-  translate, `node tools/i18n.mjs check <code>` (docs/I18N.md "Adding a language"; packs in general: docs/PACKS.md).
+  wrong. Code and comments in English; player-facing text is plain Chinese written in place — no translation layer, no
+  language pack and no `t('…')`; the server's `m.toast` / `m.ticker` frames carry the Chinese `text` itself. Content
+  packs stay (docs/PACKS.md), the `lang` type included, but the client loads no language pack.
   Code is GPL-3.0-or-later; no monetisation features.
 - **Adding an operator (自选)**: follow "How to add an operator (自选)" in
   [server/sim/content/kits/README.md](server/sim/content/kits/README.md): `op-<codename>.js` keyed by the charId,

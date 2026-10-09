@@ -23,7 +23,7 @@
 // data/local-assets.json) when present — nothing else on disk, so art the data no longer lists (焰狐龙梓兰, left out of
 // 自选 in 0.2.0, or files of an old mapping) never ships even when this machine still has it. FULL_ZIP_JP_VOICE (below)
 // decides whether the full zip carries the Japanese voice dub too (default: yes).
-// Left out: test/, the maintainer tools (build-data, golden, botbench, i18n, check-imports, this file …),
+// Left out: test/, the maintainer tools (build-data, golden, botbench, check-imports, this file …),
 // scripts/make-windows-bundle.mjs, the other docs (DESIGN, SIM, the research notes, docs/img …), public/dev/, handoff/,
 // .github/, types/, lint / editor / Docker files (Docker builds from a git clone).
 //
@@ -34,7 +34,7 @@
 // no shipped tracked file has an uncommitted change (--allow-dirty skips that). A build also checks that the stage holds
 // exactly the plan before zipping. Generated into the stage: packs/index.json, the pack index of the shipped packs
 // (tools/packs.mjs writePackIndex — what the server's GET /packs/index.json answers, for a static host), when any pack
-// ships (a language file of public/i18n/, a packs/<id>/pack.json).
+// ships (a packs/<id>/pack.json, or a language file of public/i18n/ when that folder is back).
 // The account name comes from the OS at run time (never written in the repository): SP_PACKAGE_SCAN_USER=0 skips it
 // (a name that is a common word), SP_PACKAGE_SCAN_NAMES=a,b adds more names to refuse.
 //

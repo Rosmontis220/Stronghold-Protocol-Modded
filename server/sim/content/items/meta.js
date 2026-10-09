@@ -33,7 +33,6 @@
 
 import { itemKeyOf, isCoreBond } from '../support/index.js';
 import { metaBonds } from '../support/meta.js';
-import { msg, dn } from '../../../../shared/i18n.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
@@ -104,7 +103,7 @@ export function registerMeta(registry) {
       }
       if (ids.length) ctx.offerChess(ids, { source: 'item' });
       // nothing to offer (e.g. 缪尔赛思's 调和 below shop level 6): still destroyed — say why (GitHub #401, builtinMeta toastNothing)
-      else ctx.toast(msg('{who}：没有可获得的同盟约干员', { who: dn(ctx.gd.item(ev.item?.id)?.name || '') }), 'warn');
+      else ctx.toast(`${(ctx.gd.item(ev.item?.id)?.name || '') ?? ''}：没有可获得的同盟约干员`, 'warn');
     },
   }));
 

@@ -2,12 +2,14 @@
 //
 //   * folder packs: packs/<id>/pack.json + the files its manifest names (any type);
 //   * single-file language packs: public/i18n/<code>.json (manifest: its `_meta`) + data/i18n/<code>.json when present;
+//     the built-in language folders no longer ship (the i18n layer was removed and the game is Chinese-only), so this
+//     layout is only reachable when a folder is put back;
 //
 // validates them, and answers the pack index (GET /packs/index.json, server/http/static.js) and which pack files may be
 // served (GET /packs/<id>/<file>: only a file that the manifest of a supported folder pack names, with its role's
 // extension, inside the pack folder — nothing else there, ever; a single-file pack's files are the language folders' own,
 // /i18n/ and /data/i18n/). The folders are re-read when something in them changes (checked when the index or a pack
-// file is asked for, at most once a second: a few stat calls), so a language pack dropped in shows on the next page
+// file is asked for, at most once a second: a few stat calls), so a pack dropped in shows on the next page
 // load — no restart, no build step. A pack of a planned type, a broken manifest, a second pack with the same id or
 // language: reported (`skipped`: the start log, `node tools/packs.mjs list`), never served.
 //

@@ -368,7 +368,7 @@ describe('operator battle voice', () => {
       // the settings store hands the choice over (installAudio and ui/settings.js)
       const settings = readFileSync(path.join(ROOT, 'public/js/ui/settings.js'), 'utf8');
       assert.match(settings, /audio\.setVoiceLang\(s\.voiceLang\)/);
-      assert.match(settings, /t\('语音语言'\)/);
+      assert.match(settings, /set-row__label">\$\{'语音语言'\}</);
     } finally {
       globalThis.fetch = origFetch;
     }

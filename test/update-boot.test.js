@@ -48,7 +48,7 @@ test('refusal rules: traversal, absolute and drive paths, backslashes, per-machi
     assert.equal(pathProblem(p), null, `${p} may still be listed (a manifest path is only read)`);
   }
   for (const p of ['../x', '/etc/passwd', 'C:/x']) assert.ok(removalProblem(p), p);
-  for (const p of ['server/old.js', 'packs/qab/pack.json', 'node_modules/three/build/three.cjs', 'public/assets/ui/b c.png', 'data/i18n/zh-TW.json',
+  for (const p of ['server/old.js', 'packs/qab/pack.json', 'node_modules/three/build/three.cjs', 'public/assets/ui/b c.png', 'data/chess.json',
     'docs/research/07-assets.json', 'README.md']) {
     assert.equal(removalProblem(p), null, p);
   }

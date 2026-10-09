@@ -17,7 +17,6 @@ import {
 } from '../../public/js/ui/gameLogic.js';
 import { pairPlayers } from '../../server/match/finalAssault.js';
 import { PHASE, GEO } from '../../shared/constants.js';
-import { setLang, setMessages } from '../../shared/i18n.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const load = (f) => JSON.parse(readFileSync(path.join(ROOT, 'data', f), 'utf8'));
@@ -137,12 +136,6 @@ describe('phases', () => {
     assert.equal(roundResultBox(undefined).sub, '全员无伤！', 'an unknown loss reads as no loss');
     assert.equal(roundResultBox(-2).sub, '全员无伤！');
     assert.equal(roundResultBox(2.7).sub, '生命值减少 −2');
-    // through t(): the English pack (public/i18n/en.json — no official EN wording in the data, a plain translation)
-    try {
-      setMessages('en', JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/en.json'), 'utf8')));
-      setLang('en');
-      assert.deepEqual([roundResultBox(0).title, roundResultBox(0).sub, roundResultBox(3).sub], ['Battle over', 'All unharmed!', 'LP reduced by 3']);
-    } finally { setLang('zh'); setMessages('en', {}); }
   });
   test('联防 result box: the viewer\'s own charge from the authority, the official words only when true', () => {
     const res = { through: 3, helpers: ['p_1', 'p_2'], leakers: ['p_0'], losses: { p_0: 3, p_1: 0, p_2: 0 } };

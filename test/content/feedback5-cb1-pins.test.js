@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeBattle } from '../helpers/battleHarness.js';
-import { makeMatch } from '../match/harness.js';
+import { makeMatch, DATA } from '../match/harness.js';
 import { hasGeneratedData } from '../../server/sim/simdata.js';
 
 const REAL = { skip: !hasGeneratedData() };
@@ -62,14 +62,14 @@ test('45: 寻呼模块 / 简易通讯机 on 缪尔赛思 below shop level 6 — 
       const n0 = owned(), offers0 = ps.offers.length;
       const warns = [];
       const toast0 = h.m.toast.bind(h.m);
-      h.m.toast = (who, kind, text) => { if (kind === 'warn') warns.push(text?.msgid ?? text); return toast0(who, kind, text); };
+      h.m.toast = (who, kind, text) => { if (kind === 'warn') warns.push(String(text)); return toast0(who, kind, text); };
       assert.deepEqual(h.m.handle('p_0', { t: 'g.equip', itemUid: item.uid, targetUid: mly.uid }), { ok: true });
       assert.equal(ps.find(item.uid), null, `${itemId} @${level}: consumed`);
       const got = owned() - n0 + (ps.offers.length - offers0);
       // used up with nothing: a toast says why (GitHub #401, the owner's OK of 2026-10-09)
       if (level < 6) {
         assert.equal(got, 0, `${itemId} @${level}: nothing (no 调和 operator of tier ≤ ${level})`);
-        assert.deepEqual(warns, ['{who}：没有可获得的同盟约干员'], `${itemId} @${level}: the toast`);
+        assert.deepEqual(warns, [`${DATA.items[itemId].name}：没有可获得的同盟约干员`], `${itemId} @${level}: the toast`);
       } else {
         assert.equal(got, 1, `${itemId} @6: 缪尔赛思 (granted, or offered by 寻呼模块)`);
         assert.deepEqual(warns, [], `${itemId} @6: no toast`);

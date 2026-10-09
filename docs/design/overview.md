@@ -131,7 +131,7 @@ tools/
   vendor.mjs               copies vendor libs from node_modules → public/vendor
 test/                      node:test suites; test/e2e/ browser + bot tests
 docs/                      DESIGN.md (the index of this document: the rules in design/, the per-release revisions in
-                           history/), ARCHITECTURE.md, DATA.md, SIM.md, META.md, I18N.md, ASSETS.md, BALANCE.md,
+                           history/), ARCHITECTURE.md, DATA.md, SIM.md, META.md, ASSETS.md, BALANCE.md,
                            DEPLOY.md, PLAYING.md, WINDOWS.md, research/
                            (the wire protocol is normative in shared/protocol.js itself)
 LICENSE                    GPL-3.0-or-later (the project's code); NOTICE.md: scope, non-commercial game assets, the Spine

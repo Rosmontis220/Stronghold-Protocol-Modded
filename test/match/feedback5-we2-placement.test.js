@@ -171,7 +171,7 @@ test('#26 凯尔希·思衡托\'s 战术锚点 (S3): only on a ranged tile outsi
     assert.deepEqual(m.handle('p_0', { t: 'g.move', uid: kal.uid, to: { area: 'board', row: 12, col: 5 }, dir }), { ok: true }, `re-oriented ${dir}`);
     assert.ok(!ps.board.has(tileKey(spot[0], spot[1])), 'the anchor left the board');
     assert.ok(stackOf(ps, kal, ANCHOR), 'back on its stack');
-    const said = h.sent.slice(toasts).filter(([, msg]) => msg.t === 'm.toast').map(([, msg]) => msg.msgid || msg.text);
+    const said = h.sent.slice(toasts).filter(([, msg]) => msg.t === 'm.toast').map(([, msg]) => msg.text);
     assert.ok(said.some((x) => String(x).includes('只能部署在召唤者攻击范围外')), `the toast: ${said.join(' / ')}`);
     checkInvariants(m);
     m.dispose();

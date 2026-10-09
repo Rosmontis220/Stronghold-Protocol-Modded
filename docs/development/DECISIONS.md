@@ -151,3 +151,14 @@
 - 上游把它的跳过规则标为 `[ASSUMED]`：上游源码注释写明该选项的意图是重制版取舍、没有官方出处。这里照录该标记，不作为官方规则。本分支原来的真人优先、跳过和连接状态规则曾是刻意实现并写进 [PLAYER_CAPACITY.md](../PLAYER_CAPACITY.md)，用户在看到这一点后仍选择上游。
 - 原因：二十人分组引擎与上游共用同一套顺序规则，减少特例分支；接受上游更简单的「抽签结果原样生效、跳过排到最后」模型，替代本分支的动态重排。该选择不改变 golden 基准。
 - 依据：[本次轮选顺序记录](records/2026-10-09-01-upstream-draft-order.md)；实现入口 [phases.js](../../server/match/match/phases.js)、[spDraft.js](../../server/match/match/spDraft.js)、[audit.js](../../server/match/audit.js)。上游功能为 GitHub #338（PR #368）；上游自带测试 `test/match/ai-picks-last.test.js` 未修改即 11/11 通过，283 个 golden 场景全部一致，不需要 `golden:update`。替代 D004 的组内真人优先与连接状态重排，保留其计时、超时、单真人不限时和组间并行边界。
+
+## D015
+
+**生效：移除 i18n（界面文案翻译、游戏数据翻译、语言包加载、语言切换 UI），游戏只保留中文；界面文案就是代码里的中文字面量。**
+
+- 删除 `shared/i18n.js`（`t` / `tParts` / `N_` / `dn` / `msg` / `format` / `translateWire` / `wireMessage` / `renderMessage`）、`shared/i18nData.js`（数据覆盖层）、`public/js/ui/lang.js`（语言切换、`sentText`、`tickerText`）、`public/i18n/*.json`（约 350 KB）、`data/i18n/*.json`（约 10 MB）、`tools/i18n.mjs`、`tools/build-i18n.mjs`、`docs/I18N.md` 及其 6 个测试文件；约 1 400 个调用点内联成中文字面量。
+- 线协议：`m.toast` / `m.ticker` 帧只发 `text`（中文原文），不再发 `msgid` / `params`。**已发布的 0.2.2 离线客户端（Windows / Android）与新版服务端不兼容，必须重新打包**（维护者已知并接受该代价）。
+- 保留：内容包机制（`shared/packs.js`、`server/packs.js`、`tools/packs.mjs`、`docs/PACKS.md`、`packs/`）与 `shared/i18nPacks.js`（`lang` 包类型的校验依赖它）；`lang` 类型仍被校验和列出，只是客户端不再加载语言包。`public/js/data.js` 的 locale 覆盖子系统（`setLocale` / `localeName` / `localeChain` / `applyFileOverlay`）删除，保留常量兼容访问器 `locale: () => 'zh'`（6 处 `useMemo` 依赖它）。`fmtNum()` 固定用中文单位 万 / 亿。
+- 语音配音（中文 / 日本語，`public/assets/audio/voice/{cn,jp}/`）**不属于**多语言，保留。
+- 原因：维护者的服务器不需要多语言；删掉可去掉约 10 MB 数据、一层渲染间接，以及一个长期的上游合并冲突面。
+- 依据：替代 0.2.0 的 §25.2 / §25.20 / §25.23（[0.2.0.md](../history/0.2.0.md)）。内联后 `t()` 不再存在，服务端错误码与 `config.broadcasts` 模板仍是中文原文；283 个 golden 场景全部一致。

@@ -23,7 +23,6 @@ import { cultivationCharIds } from '../../../shared/protocol.js';
 import { OWNERSHIP_PREF, parseStoredOwnership, toStoredOwnership, cleanIds, sanitizeNotOwned } from './ownershipModel.js';
 import { DIY_PREF, parseStoredDiy, toStoredDiy, cleanPicks, sanitizeDiyPicks } from './diyModel.js';
 import { toast } from './toasts.js';
-import { t, N_ } from '../../../shared/i18n.js';
 
 export const SYNC_DEBOUNCE_MS = 500;
 export const RETRY_MS = 1500;
@@ -165,8 +164,7 @@ export const closeLoadout = () => loadoutStore.set({ open: false });
  */
 function installPrefSync({ net, timers, target, notify, key, stateKey, msgType, field, prepare, lockedText, tag }) {
   const T = timers || { setTimeout: (fn, ms) => globalThis.setTimeout(fn, ms), clearTimeout: (id) => globalThis.clearTimeout(id) };
-  // (`lockedText` is a msgid: the toast is translated when it shows — docs/I18N.md)
-  const tell = notify || ((text) => toast(t(text), 'warn'));
+  const tell = notify || ((text) => toast((text), 'warn'));
   let timer = null;
   let seq = 0;            // requests sent (the reply of an older one never overrides a newer one's state)
   let pendingJson = null; // JSON of the newest request still awaiting its reply
@@ -264,7 +262,7 @@ export function installLoadoutSync({ net, getChessReady, getBackupsReady, lookup
   const opIds = operatorIds || (() => cultivationCharIds(data.get('chess'), data.get('backups')));
   return installPrefSync({
     net, timers, target, notify, key: ['entries', 'ops'], stateKey: 'sync', msgType: 'room.loadout', field: null, tag: 'loadout',
-    lockedText: N_('本局的干员调配已锁定，修改将在下一局生效'),
+    lockedText: '本局的干员调配已锁定，修改将在下一局生效',
     async prepare() {
       const current = target.get().entries;
       const ops = target.get().ops;
@@ -293,7 +291,7 @@ export function installLoadoutSync({ net, getChessReady, getBackupsReady, lookup
 export function installOwnershipSync({ net, timers, target = loadoutStore, notify } = {}) {
   return installPrefSync({
     net, timers, target, notify, key: 'notOwned', stateKey: 'ownSync', msgType: 'room.ownership', field: 'notOwned', tag: 'ownership',
-    lockedText: N_('干员持有是局外设置，修改将在下一局生效'),
+    lockedText: '干员持有是局外设置，修改将在下一局生效',
     prepare: async () => cleanIds(target.get().notOwned),
   });
 }
@@ -313,7 +311,7 @@ export function installDiySync({ net, timers, target = loadoutStore, notify } = 
   });
   const sync = installPrefSync({
     net, timers, target, notify, key: 'diy', stateKey: 'diySync', msgType: 'room.diy', field: 'picks', tag: 'diy',
-    lockedText: N_('自选编队是局外设置，修改将在下一局生效'),
+    lockedText: '自选编队是局外设置，修改将在下一局生效',
     prepare: async () => cleanPicks(target.get().diy),
   });
   return { flush: sync.flush, dispose() { offKit?.(); sync.dispose(); } };

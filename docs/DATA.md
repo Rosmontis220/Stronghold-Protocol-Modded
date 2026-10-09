@@ -1,11 +1,10 @@
 # DATA.md — generated game data (`data/*.json`)
 
-All files in `data/` except `data/assets.json` and `data/i18n/` are produced by **`node tools/build-data.mjs`** (task F1) from the
+All files in `data/` except `data/assets.json` are produced by **`node tools/build-data.mjs`** (task F1) from the
 official zh_CN client data ([Kengxxiao/ArknightsGameData](https://github.com/Kengxxiao/ArknightsGameData)) joined
 with `docs/research/*.json`. Do not edit them by hand — change the build script and rebuild.
-`data/i18n/en.json` (the official English texts of these files by record id and field) is written by
-`node tools/build-i18n.mjs` — rerun it after a build that changes a text (docs/I18N.md §2; `test/i18n-data.test.js`
-fails while it is stale).
+There is no translated data: the i18n layer was removed ([D015](development/DECISIONS.md#d015)), so `data/` holds the
+official Chinese texts only.
 `data/assets.json` is written by `tools/fetch-assets.mjs`, which keeps the current file rather than drop entries whose
 downloads failed on this machine unless `--allow-shrink` (or `--prune`) is passed (docs/ASSETS.md, DESIGN §21.25).
 
@@ -266,8 +265,8 @@ annotation is on chess records, `backups.json` unit forms (§18) and token varia
 
 `tools/build-data.mjs` runs the chess / backups / tokens builders at every rank (`ctx.potRank`) and annotates the
 full-rank build from the others; the build fails unless `atRank` rebuilds every rank exactly, and the unit-form parity
-(§18) holds at every rank. Nothing else depends on potential (no skill, trait or list length). The data translations
-(`data/i18n/*.json`) translate the chained texts too. 练度 (the 自持有 bonus) is no record field: it is the
+(§18) holds at every rank. Nothing else depends on potential (no skill, trait or list length). 练度 (the 自持有 bonus)
+is no record field: it is the
 `char_attribute_mul` of the effects.json CHAR_MAP records `aceffect_char_1…4` (§7), applied to the unit.
 
 ---

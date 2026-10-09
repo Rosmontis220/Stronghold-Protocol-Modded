@@ -23,7 +23,6 @@ globalThis.fetch = async (url) => {
 const G = await import('../../public/js/ui/gameLogic.js');
 const { matchInfoModel, DiyBannedLine } = await import('../../public/js/ui/matchInfo.js');
 const { data } = await import('../../public/js/data.js');
-const { setLang, addMessages } = await import('../../shared/i18n.js');
 const { DATA } = await import('../match/harness.js');
 await data.loadAll('chess', 'bonds', 'assets', 'backups');
 
@@ -50,21 +49,10 @@ test('#11 the match-info model and its line: the own banned 自选 piece is name
   const pub = { bannedChess: [], drawnDisabledBonds: [], modeId: 'mode_multi_hard' };
   const model = matchInfoModel(pub, { bonds: [], chess: getChess, priv, diyData: D });
   assert.deepEqual(model.diyBanned.map((x) => x.slotId), [T6A]);
-  setLang('zh');
   const line = DiyBannedLine({ model });
   assert.ok(line, 'a line');
   const txt = textOf(line);
   assert.ok(txt.includes('自选') && txt.includes(DATA.backups.units[LING].name) && txt.includes('不会出现在你的商店'), txt);
   assert.equal(DiyBannedLine({ model: matchInfoModel(pub, { bonds: [], chess: getChess }) }), null, 'no priv: no line');
   assert.equal(DiyBannedLine({ model: matchInfoModel(pub, { bonds: [], chess: getChess, priv: { ...priv, diyBanned: [] }, diyData: D }) }), null);
-  // English: the msgid is in public/i18n/en.json
-  const en = JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/en.json'), 'utf8'));
-  const id = '{names}的盟约本局全部禁用，不会出现在你的商店';
-  assert.ok(en[id] && en[id].includes('{names}'), 'translated with its placeholder');
-  addMessages('en', { [id]: en[id], 自选: en['自选'] });
-  setLang('en');
-  try {
-    const t2 = textOf(DiyBannedLine({ model }));
-    assert.ok(t2.includes('Custom') && t2.includes('not in your shop'), t2);
-  } finally { setLang('zh'); }
 });

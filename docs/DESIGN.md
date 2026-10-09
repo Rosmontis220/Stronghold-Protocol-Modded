@@ -2,7 +2,7 @@
 
 This is the **single source of truth** for every implementer. Research lives in `docs/research/` (start with `00-INDEX.md`; where a research file's body and its "Addendum (critic)" disagree, the addendum wins). When this document and research disagree, **this document wins**; when this document is silent, follow research; when both are silent, choose the simplest faithful behaviour and write it down in the module's header comment.
 
-Language: player-facing text is **Simplified Chinese** by default, with an English switch since 0.2.0 (§25.2, docs/I18N.md: UI strings through `t('中文')`, game texts from the official Chinese data or the official EN client's). Code, comments and identifiers are English.
+Language: player-facing text is **Simplified Chinese only** — the i18n layer (UI strings through `t()`, the game-text translations, the language packs and the language switch) was removed ([D015](development/DECISIONS.md#d015)), so strings are Chinese literals in the code, the data holds the official Chinese texts, and the server's `m.toast` / `m.ticker` frames carry the Chinese `text` itself. Code, comments and identifiers are English. The Chinese / Japanese operator voices are not a language and stay (§21.30, §27.54).
 
 Capacity branch: the upstream sections below document the original four-player scope. This branch's room capacity,
 grouped pools, manual-player draft priority, second 联防 wave / votes and sidebar rules are in

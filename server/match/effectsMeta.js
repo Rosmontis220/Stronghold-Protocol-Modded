@@ -43,7 +43,6 @@ import { boardOrder, parseKey, tileKey } from './board.js';
 import { pieceBonds as bondsOfPiece } from './bondsMeta.js';
 import { registerAllMeta } from '../sim/content/index.js';
 import { registerBuiltins } from './builtinMeta.js';
-import { msg, dn } from '../../shared/i18n.js';
 
 export const HOOKS = Object.freeze([
   'onRoundStart', 'onIncome', 'onPrepStart', 'onPrepEnd', 'onGain', 'onSold', 'onRefresh', 'onPrice', 'onBuy',
@@ -556,7 +555,7 @@ export function makeCtx(m, ps, source, hook, ev = null) {
         const name = got && got.name;
         if (name) {
           const who = grantSpeaker(gd, source);
-          m.toast(ps, 'info', who ? msg('{who}：获得{name}', { who: dn(who), name: dn(name) }) : msg('获得{name}', { name: dn(name) }));
+          m.toast(ps, 'info', who ? `${(who) ?? ''}：获得${(name) ?? ''}` : `获得${(name) ?? ''}`);
         }
       }
       return p ? view(p) : null;
@@ -677,9 +676,8 @@ export function makeCtx(m, ps, source, hook, ev = null) {
     offerBountyChoice: (cards, sourceItemId) => m.offerBountyChoice(ps, cards, sourceItemId),
 
     // ---- messaging
-    // a string or a shared/i18n.js msg(msgid, params)
-    toast: (text, kind = 'info') => m.toast(ps, kind, text && typeof text === 'object' ? text : String(text)),
-    ticker: (text) => m.tickerText(text && typeof text === 'object' ? text : String(text)),
+    toast: (text, kind = 'info') => m.toast(ps, kind, text == null ? '' : String(text)),
+    ticker: (text) => m.tickerText(text == null ? '' : String(text)),
     /**
      * CHAR_GIFT broadcast to this player: "{0}博士给你赠送了{1}" — named as this player sees the gift (a chess it fields as
      * its 补位 stand-in by the stand-in's name: 0.2.0, the owner's recall of the official mode, 2026-10-06).

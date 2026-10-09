@@ -282,7 +282,7 @@ export class MatchPhases {
     if (this.draft.picks[ps.playerId]) return fail(ERR.ALREADY);
     if (this.draftTurn(ps.playerId) !== ps.playerId) return fail(ERR.NOT_YOUR_TURN);
     if (typeof bandId !== 'string' || !this.gd.bandAllowed(bandId)) return fail(ERR.BAD_TARGET);
-    if (this.bandTaken(bandId, ps.playerId)) return fail(ERR.BAD_TARGET, '队友已选'); // i18n-ignore: developer detail (players see ERR_TEXT)
+    if (this.bandTaken(bandId, ps.playerId)) return fail(ERR.BAD_TARGET, '队友已选'); // developer detail (players see ERR_TEXT)
     this._applyBand(ps, bandId);
     return OK;
   }

@@ -1,5 +1,5 @@
 // server/http/static.js — the static file server (routes.js hands it every GET / HEAD that is not an API route):
-// (i18n-ignore-file: the error pages are bilingual by design, 中文 · English — docs/I18N.md)
+// (the error pages are bilingual by design, 中文 · English)
 //
 //     /        → public/      (index.html for directories)
 //     /data/   → data/        (generated game data)
@@ -12,8 +12,8 @@
 //     /media/bgm/act1 → public/assets/audio/bgm/act1.mp3 — the same audio files, addressed
 //                **without** an extension so download managers (IDM / 迅雷 …) stop popping a
 //                "下载文件信息" dialog for every BGM track (media.js, shared/media.js, public/js/media.js)
-//     /packs/index.json → the content packs of this server (server/packs.js: the language packs of
-//                public/i18n/ and the pack folders of packs/, re-read when they change; never cached)
+//     /packs/index.json → the content packs of this server (server/packs.js: the pack folders of
+//                packs/, re-read when they change; never cached)
 //     /packs/<id>/<file> → a file of a pack folder — only one its manifest names (server/packs.js servable)
 //
 // Traversal & dotfile protection, a directory without its trailing slash → 301, 404 page; an absent

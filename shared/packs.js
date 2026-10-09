@@ -1,15 +1,16 @@
 // shared/packs.js — content packs (docs/PACKS.md): one manifest format, one registry, one index for every kind of
 // add-on content (the owner's decision of 2026-10-07: the language pack is the first type of a general mechanism). A
-// pack is a manifest plus its files. Type "lang" (language packs, shared/i18nPacks.js) is the first and, in 0.2.0, the
-// only type that loads; "assets" (art / audio / font replacements, client side) and "data" (data patches the server
-// applies at start) are planned: their manifests already parse, a server lists them as not supported yet, and each will
-// plug in as its entry in PACK_TYPES plus its loader (docs/PACKS.md "Adding a pack type"). No Node builtin: the
-// browser, the server (server/packs.js) and the tools share it.
+// pack is a manifest plus its files. Type "lang" (language packs, shared/i18nPacks.js) is validated and listed but no
+// longer consumed by the client — the i18n layer was removed and the game is Chinese-only; "assets" (art / audio / font
+// replacements, client side) and "data" (data patches the server applies at start) are planned: their manifests already
+// parse, a server lists them as not supported yet, and each will plug in as its entry in PACK_TYPES plus its loader
+// (docs/PACKS.md "Adding a pack type"). No Node builtin: the browser, the server (server/packs.js) and the tools share it.
 //
 // Two layouts, read by the same registry (server/packs.js) and listed alike:
 //   packs/<id>/pack.json + its files   a folder pack — any type; the manifest names its files (`files`)
 //   public/i18n/<code>.json            a single-file language pack — its manifest is the file's `_meta` block
-//                                      (+ data/i18n/<code>.json, its game texts, when present)
+//                                      (+ data/i18n/<code>.json, its game texts, when present); the built-in folders no
+//                                      longer ship, so only a folder pack provides one now
 //
 // Manifest (pack.json, or `_meta` of a single-file language pack; every field but type / lang optional):
 //   id            a folder pack: its folder name; a single-file language pack: its language code (a manifest that names

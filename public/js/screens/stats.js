@@ -30,7 +30,6 @@ import {
   loadStats, saveStats, emptyStats, importStats, exportStats, aggregateStats, countsTowardStats, selfRowOf, roundsOf,
   recordToResult, MAX_RECORDS, FULL_KEEP, IMPORT_MAX_CHARS,
 } from '../ui/stats.js';
-import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -49,10 +48,10 @@ export function openStats() {
 export const closeStats = () => statsStore.set({ open: false });
 
 const TABS = [
-  { id: 'overview', name: N_('总览'), micro: 'OVERVIEW' },
-  { id: 'bands', name: N_('策略'), micro: 'STRATEGIES' },
-  { id: 'totals', name: N_('战斗累计'), micro: 'COMBAT TOTALS' },
-  { id: 'history', name: N_('对局记录'), micro: 'HISTORY' },
+  { id: 'overview', name: '总览', micro: 'OVERVIEW' },
+  { id: 'bands', name: '策略', micro: 'STRATEGIES' },
+  { id: 'totals', name: '战斗累计', micro: 'COMBAT TOTALS' },
+  { id: 'history', name: '对局记录', micro: 'HISTORY' },
 ];
 
 const pct = (n, d) => (d > 0 ? `${Math.round((n / d) * 100)}%` : '—');
@@ -65,9 +64,9 @@ const dateTime = (ms) => {
 /** Time played: minutes up to 99, then hours with one decimal. */
 function playedText(ms) {
   const mins = Math.round((ms || 0) / 60000);
-  return mins < 100 ? t('{n} 分', { n: fmtNum(mins) }) : t('{n} 小时', { n: (mins / 60).toFixed(1) });
+  return mins < 100 ? `${(fmtNum(mins)) ?? ''} 分` : `${((mins / 60).toFixed(1)) ?? ''} 小时`;
 }
-const difficultyName = (d) => (DIFFICULTY_NAMES[d] ? t(DIFFICULTY_NAMES[d]) : t('未知'));
+const difficultyName = (d) => (DIFFICULTY_NAMES[d] ? (DIFFICULTY_NAMES[d]) : '未知');
 
 /** Save `text` as a download. Silent no-op when the browser refuses downloads. */
 function downloadText(filename, text) {
@@ -120,19 +119,19 @@ function Section({ title, micro, children, class: cls }) {
 function Overview({ agg, gd }) {
   const rows = DIFFICULTIES.filter((d) => agg.byDifficulty[d]).concat(Object.keys(agg.byDifficulty).filter((d) => !DIFFICULTIES.includes(d)));
   const titles = (Array.isArray(gd.config?.titles) ? gd.config.titles : []).map((x) => ({ ...x, count: agg.titles[x.id]?.count || 0 }));
-  return html`<${Section} title=${t('总览')} micro="OVERVIEW">
+  return html`<${Section} title=${'总览'} micro="OVERVIEW">
     <div class="st-cards">
-      <${StatCard} micro="GAMES" value=${fmtNum(agg.count)} label=${t('总局数')} />
-      <${StatCard} micro="WINS" value=${fmtNum(agg.wins)} label=${t('胜场')} tone="mint" />
-      <${StatCard} micro="WIN RATE" value=${pct(agg.wins, agg.count)} label=${t('胜率')} tone="gold" />
-      <${StatCard} micro="HIDDEN CORE" value=${fmtNum(agg.hidden.reached)} label=${t('到达隐秘核心')} />
-      <${StatCard} micro="HIDDEN CLEAR" value=${fmtNum(agg.hidden.cleared)} label=${t('通关隐秘核心')} />
-      <${StatCard} micro="BEST ROUND" value=${fmtNum(agg.rounds.max)} label=${t('最远回合')} />
-      <${StatCard} micro="TIME PLAYED" value=${playedText(agg.duration.totalMs)} label=${t('累计时长')} />
+      <${StatCard} micro="GAMES" value=${fmtNum(agg.count)} label=${'总局数'} />
+      <${StatCard} micro="WINS" value=${fmtNum(agg.wins)} label=${'胜场'} tone="mint" />
+      <${StatCard} micro="WIN RATE" value=${pct(agg.wins, agg.count)} label=${'胜率'} tone="gold" />
+      <${StatCard} micro="HIDDEN CORE" value=${fmtNum(agg.hidden.reached)} label=${'到达隐秘核心'} />
+      <${StatCard} micro="HIDDEN CLEAR" value=${fmtNum(agg.hidden.cleared)} label=${'通关隐秘核心'} />
+      <${StatCard} micro="BEST ROUND" value=${fmtNum(agg.rounds.max)} label=${'最远回合'} />
+      <${StatCard} micro="TIME PLAYED" value=${playedText(agg.duration.totalMs)} label=${'累计时长'} />
     </div>
-    <p class="st-split"><span>${t('单人')} <b class="num">${fmtNum(agg.byMode.solo)}</b></span><span>${t('同盟')} <b class="num">${fmtNum(agg.byMode.coop)}</b></span></p>
+    <p class="st-split"><span>${'单人'} <b class="num">${fmtNum(agg.byMode.solo)}</b></span><span>${'同盟'} <b class="num">${fmtNum(agg.byMode.coop)}</b></span></p>
     ${rows.length ? html`<div class="st-tablewrap"><table class="st-table">
-      <thead><tr><th>${t('难度')}</th><th class="num">${t('局数')}</th><th class="num">${t('胜场')}</th><th class="num">${t('胜率')}</th><th class="num">${t('隐秘核心通关')}</th></tr></thead>
+      <thead><tr><th>${'难度'}</th><th class="num">${'局数'}</th><th class="num">${'胜场'}</th><th class="num">${'胜率'}</th><th class="num">${'隐秘核心通关'}</th></tr></thead>
       <tbody>
         ${rows.map((d) => {
           const v = agg.byDifficulty[d];
@@ -146,24 +145,24 @@ function Overview({ agg, gd }) {
         })}
       </tbody>
     </table></div>` : null}
-    ${titles.length ? html`<h4 class="st-sub">${t('称号')}</h4>
+    ${titles.length ? html`<h4 class="st-sub">${'称号'}</h4>
       <div class="st-titles">
         ${titles.map((x) => html`<div key=${x.id} class=${cx('st-title', !x.count && 'is-none')} title=${x.text || ''}>
           <${Img} src=${titleIconUrl(gd.m, x.picId)} class="st-title__icon" fallback=${html`<${Icon} name="crown" />`} />
           <div class="st-title__text"><span>${x.name}</span><b class="num">${fmtNum(x.count)}</b></div>
         </div>`)}
       </div>` : null}
-    <p class="st-rule"><${Icon} name="info" />${t('计入统计：打到结算的对局，以及中途退出前至少清完 1 个回合的对局；更早退出的对局只留在对局记录里。')}${agg.excluded
-      ? html` <b>${t('另有 {n} 局未计入统计', { n: agg.excluded })}</b>` : null}</p>
+    <p class="st-rule"><${Icon} name="info" />${'计入统计：打到结算的对局，以及中途退出前至少清完 1 个回合的对局；更早退出的对局只留在对局记录里。'}${agg.excluded
+      ? html` <b>${`另有 ${(agg.excluded) ?? ''} 局未计入统计`}</b>` : null}</p>
   <//>`;
 }
 
 /** 策略: per-band used / passed / pass rate, most used first (the user's headline ask). */
 function Bands({ agg, gd }) {
   const rows = Object.entries(agg.bands).sort((a, b) => (b[1].games - a[1].games) || (b[1].wins - a[1].wins));
-  return html`<${Section} title=${t('策略')} micro="STRATEGIES">
+  return html`<${Section} title=${'策略'} micro="STRATEGIES">
     ${rows.length ? html`<div class="st-tablewrap"><table class="st-table">
-      <thead><tr><th>${t('策略')}</th><th class="num">${t('使用局数')}</th><th class="num">${t('通过局数')}</th><th class="num">${t('通过率')}</th></tr></thead>
+      <thead><tr><th>${'策略'}</th><th class="num">${'使用局数'}</th><th class="num">${'通过局数'}</th><th class="num">${'通过率'}</th></tr></thead>
       <tbody>
         ${rows.map(([bandId, v]) => {
           const band = gd.band(bandId);
@@ -176,23 +175,23 @@ function Bands({ agg, gd }) {
           </tr>`;
         })}
       </tbody>
-    </table></div>` : html`<p class="st-empty">${t('还没有记录 —— 完成一局对局后，这里会开始积累。')}</p>`}
+    </table></div>` : html`<p class="st-empty">${'还没有记录 —— 完成一局对局后，这里会开始积累。'}</p>`}
   <//>`;
 }
 
 const SUM_ROWS = [
-  ['kills', N_('击倒敌人')], ['bossDamage', N_('领袖伤害')], ['dmgDealt', N_('造成伤害')], ['activatedLayers', N_('盟约层数')],
-  ['merges', N_('晋升次数')], ['itemsEquipped', N_('配发装备')], ['gold', N_('消耗资金')], ['perfectRounds', N_('完美作战')],
-  ['refreshes', N_('刷新次数')], ['leaks', N_('未击倒')], ['lpLost', N_('损失生命')],
+  ['kills', '击倒敌人'], ['bossDamage', '领袖伤害'], ['dmgDealt', '造成伤害'], ['activatedLayers', '盟约层数'],
+  ['merges', '晋升次数'], ['itemsEquipped', '配发装备'], ['gold', '消耗资金'], ['perfectRounds', '完美作战'],
+  ['refreshes', '刷新次数'], ['leaks', '未击倒'], ['lpLost', '损失生命'],
 ];
 
 /** 战斗累计: the self player's sums over the settled matches. */
 function CombatSums({ agg }) {
   const rows = SUM_ROWS.filter(([k]) => Number.isFinite(agg.sums[k]));
-  return html`<${Section} title=${t('战斗累计')} micro="COMBAT TOTALS">
+  return html`<${Section} title=${'战斗累计'} micro="COMBAT TOTALS">
     ${rows.length ? html`<div class="st-sums">
-      ${rows.map(([k, label]) => html`<div key=${k} class="st-sum"><span>${t(label)}</span><b class="num">${fmtNum(agg.sums[k])}</b></div>`)}
-    </div>` : html`<p class="st-empty">${t('还没有记录 —— 完成一局对局后，这里会开始积累。')}</p>`}
+      ${rows.map(([k, label]) => html`<div key=${k} class="st-sum"><span>${(label)}</span><b class="num">${fmtNum(agg.sums[k])}</b></div>`)}
+    </div>` : html`<p class="st-empty">${'还没有记录 —— 完成一局对局后，这里会开始积累。'}</p>`}
   <//>`;
 }
 
@@ -208,15 +207,15 @@ function HistoryRow({ rec, gd, onOpen }) {
   const view = !quit && !rec.compact; // a quit has nothing settled; a compacted record no rows left
   const open = () => onOpen(rec);
   return html`<tr class=${cx(quit ? 'is-quit' : won ? 'is-win' : 'is-lose', !counted && 'is-excluded', view && 'is-clickable')}
-      title=${view ? t('点击查看该局结算') : !counted ? t('没有清完第一个回合就退出，不计入统计') : quit ? t('中途退出的对局没有结算可看') : t('较早的对局只保留汇总，不能回看结算')}
+      title=${view ? '点击查看该局结算' : !counted ? '没有清完第一个回合就退出，不计入统计' : quit ? '中途退出的对局没有结算可看' : '较早的对局只保留汇总，不能回看结算'}
       tabIndex=${view ? 0 : undefined}
       onClick=${view ? open : undefined} onKeyDown=${view ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } } : undefined}>
     <td class="st-t">${dateTime(rec.t)}</td>
     <td>${difficultyName(rec.difficulty)}</td>
-    <td>${rec.roomMode === 'solo' ? t('单人') : rec.roomMode === 'coop' ? t('同盟') : '—'}</td>
+    <td>${rec.roomMode === 'solo' ? '单人' : rec.roomMode === 'coop' ? '同盟' : '—'}</td>
     <td><span class="st-band">${band ? html`<${BandIcon} bandId=${band.bandId} size="xs" />${band.name}` : self?.bandId || '—'}</span></td>
-    <td class="st-res">${quit ? html`<span class="t-quit">${t('中途退出')}</span>` : html`<span class=${won ? 't-win' : 't-lose'}>${won ? t('胜') : t('负')}</span>`}
-      ${!counted ? html`<em class="st-chip">${t('不计入统计')}</em>` : null}</td>
+    <td class="st-res">${quit ? html`<span class="t-quit">${'中途退出'}</span>` : html`<span class=${won ? 't-win' : 't-lose'}>${won ? '胜' : '负'}</span>`}
+      ${!counted ? html`<em class="st-chip">${'不计入统计'}</em>` : null}</td>
     <td class="num">${known ? fmtNum(rounds) : '—'}</td>
     <td class="st-go" aria-hidden="true">${view ? html`<${Icon} name="chevronRight" />` : null}</td>
   </tr>`;
@@ -226,14 +225,14 @@ function HistoryRow({ rec, gd, onOpen }) {
 function History({ records, gd, onOpen }) {
   const [shown, setShown] = useState(HISTORY_PAGE);
   const rows = records.slice(0, shown);
-  return html`<${Section} title=${t('对局记录')} micro=${`HISTORY · ${records.length}`}>
+  return html`<${Section} title=${'对局记录'} micro=${`HISTORY · ${records.length}`}>
     ${rows.length ? html`<div class="st-tablewrap"><table class="st-table st-table--history">
-      <thead><tr><th>${t('时间')}</th><th>${t('难度')}</th><th>${t('模式')}</th><th>${t('策略')}</th><th>${t('结果')}</th><th class="num">${t('回合')}</th><th aria-hidden="true"></th></tr></thead>
+      <thead><tr><th>${'时间'}</th><th>${'难度'}</th><th>${'模式'}</th><th>${'策略'}</th><th>${'结果'}</th><th class="num">${'回合'}</th><th aria-hidden="true"></th></tr></thead>
       <tbody>${rows.map((r) => html`<${HistoryRow} key=${r.id} rec=${r} gd=${gd} onOpen=${onOpen} />`)}</tbody>
     </table></div>
-    ${records.length > shown ? html`<div class="st-more"><${Button} size="sm" variant="secondary" onClick=${() => setShown(shown + HISTORY_PAGE)}>${t('显示更多（还有 {n} 局）', { n: records.length - shown })}<//></div>` : null}
-    <p class="st-hint">${t('点击一行，回看该局结算；中途退出的对局只留记录。')} ${t('最多保留最近 {max} 局，只有最新的 {full} 局能回看结算。', { max: MAX_RECORDS, full: FULL_KEEP })}</p>`
-      : html`<p class="st-empty">${t('还没有记录 —— 完成一局对局后，这里会开始积累。')}</p>`}
+    ${records.length > shown ? html`<div class="st-more"><${Button} size="sm" variant="secondary" onClick=${() => setShown(shown + HISTORY_PAGE)}>${`显示更多（还有 ${records.length - shown} 局）`}<//></div>` : null}
+    <p class="st-hint">${'点击一行，回看该局结算；中途退出的对局只留记录。'} ${`最多保留最近 ${(MAX_RECORDS) ?? ''} 局，只有最新的 ${(FULL_KEEP) ?? ''} 局能回看结算。`}</p>`
+      : html`<p class="st-empty">${'还没有记录 —— 完成一局对局后，这里会开始积累。'}</p>`}
   <//>`;
 }
 
@@ -242,7 +241,7 @@ function Replay({ rec, onBack }) {
   const gd = useGameData();
   const res = useMemo(() => recordToResult(rec), [rec]);
   if (!gd.ready) return html`<div class="st-loading"><${Spinner} size="md" /></div>`;
-  return html`<${ResultView} res=${res} pub=${null} myId=${rec.selfId} backLabel=${t('返回统计')} onBack=${onBack} quiet=${true} />`;
+  return html`<${ResultView} res=${res} pub=${null} myId=${rec.selfId} backLabel=${'返回统计'} onBack=${onBack} quiet=${true} />`;
 }
 
 /** The overlay, rendered while open (its data hooks run only then). */
@@ -278,7 +277,7 @@ function StatsScreen({ tab }) {
     try {
       const payload = exportStats(stats);
       downloadText(exportFilename(), JSON.stringify(payload));
-      toast(t('已导出 {n} 条对局记录', { n: payload.records.length }), 'success');
+      toast(`已导出 ${(payload.records.length) ?? ''} 条对局记录`, 'success');
     } catch (err) {
       toastError(err);
     }
@@ -287,62 +286,62 @@ function StatsScreen({ tab }) {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = ''; // allow re-picking the same file
     if (!file) return;
-    if (file.size > IMPORT_MAX_CHARS) { toast(t('文件过大，无法导入'), 'error'); return; }
+    if (file.size > IMPORT_MAX_CHARS) { toast('文件过大，无法导入', 'error'); return; }
     try {
       const raw = JSON.parse(await readFileText(file));
       const { stats: merged, added, skipped, dropped } = importStats(raw, loadStats());
-      if (added && !saveStats(merged)) { toast(t('无法写入本机存储，可能已满'), 'error'); return; }
+      if (added && !saveStats(merged)) { toast('无法写入本机存储，可能已满', 'error'); return; }
       reload();
-      const tail = (skipped ? t('（跳过重复 {skipped} 条）', { skipped }) : '') + (dropped ? t('（{n} 条无法读取）', { n: dropped }) : '');
-      toast(added ? t('已导入 {added} 条记录{tail}', { added, tail }) : t('没有新记录（全部与现有数据重复）'), 'success');
+      const tail = (skipped ? `（跳过重复 ${(skipped) ?? ''} 条）` : '') + (dropped ? `（${(dropped) ?? ''} 条无法读取）` : '');
+      toast(added ? `已导入 ${(added) ?? ''} 条记录${(tail) ?? ''}` : '没有新记录（全部与现有数据重复）', 'success');
     } catch (err) {
-      toast(err?.code === 'stats-newer-version' ? t('导入失败：这份文件由更新版本的客户端导出，请先升级客户端') : t('导入失败：不是有效的统计导出文件'), 'error');
+      toast(err?.code === 'stats-newer-version' ? '导入失败：这份文件由更新版本的客户端导出，请先升级客户端' : '导入失败：不是有效的统计导出文件', 'error');
     }
   };
   const doClear = async () => {
     const ok = await confirmDialog({
-      title: t('清空统计数据'), micro: 'CLEAR STATISTICS', danger: true, okText: t('清空'),
-      text: t('将删除本机保存的 {n} 条对局记录，无法恢复。', { n: stats.records.length }),
+      title: '清空统计数据', micro: 'CLEAR STATISTICS', danger: true, okText: '清空',
+      text: `将删除本机保存的 ${(stats.records.length) ?? ''} 条对局记录，无法恢复。`,
     });
     if (!ok) return;
     if (!saveStats(emptyStats())) { try { globalThis.localStorage?.removeItem('sp.pref.stats'); } catch { /* ignore */ } }
     reload();
-    toast(t('已清空本机统计数据'), 'success');
+    toast('已清空本机统计数据', 'success');
   };
 
-  if (replay) return html`<div class="st st--replay" ref=${boxRef} tabindex="-1" role="dialog" aria-modal="true" aria-label=${t('统计数据')}>
+  if (replay) return html`<div class="st st--replay" ref=${boxRef} tabindex="-1" role="dialog" aria-modal="true" aria-label=${'统计数据'}>
     <${Replay} rec=${replay} onBack=${() => setReplay(null)} />
   </div>`;
 
   const tabInfo = TABS.find((x) => x.id === tab) || TABS[0];
   const empty = !stats.records.length;
-  return html`<div class="st" role="dialog" aria-modal="true" aria-label=${t('统计数据')} tabindex="-1" ref=${boxRef}>
+  return html`<div class="st" role="dialog" aria-modal="true" aria-label=${'统计数据'} tabindex="-1" ref=${boxRef}>
     <div class="st__bg" aria-hidden="true"></div>
     <header class="st-top">
       <div class="st-top__left">
-        <${Button} variant="ghost" size="md" icon="chevronLeft" class="st-back" onClick=${closeStats} aria-label=${t('返回')} title=${t('返回 (Esc)')}>${t('返回')}<//>
+        <${Button} variant="ghost" size="md" icon="chevronLeft" class="st-back" onClick=${closeStats} aria-label=${'返回'} title=${'返回 (Esc)'}>${'返回'}<//>
       </div>
       <div class="st-top__center">
         <${MicroLabel} tone="mint">STATISTICS // ${tabInfo.micro}<//>
-        <div class="st-tabs" role="tablist" aria-label=${t('统计数据')}>
+        <div class="st-tabs" role="tablist" aria-label=${'统计数据'}>
           ${TABS.map((x) => html`<button key=${x.id} type="button" role="tab" aria-selected=${x.id === tab ? 'true' : 'false'} data-tab=${x.id}
-            class=${cx('st-tab', x.id === tab && 'is-on')} onClick=${() => statsStore.set({ tab: x.id })}>${t(x.name)}</button>`)}
+            class=${cx('st-tab', x.id === tab && 'is-on')} onClick=${() => statsStore.set({ tab: x.id })}>${(x.name)}</button>`)}
         </div>
       </div>
       <div class="st-top__right">
-        <${Button} variant="ghost" size="sm" data-testid="stats-export" disabled=${empty || stats.newer} onClick=${doExport} title=${t('导出为文件（可在别的设备上导入）')}>${t('导出')}<//>
-        <${Button} variant="ghost" size="sm" data-testid="stats-import" disabled=${stats.newer} onClick=${() => fileRef.current?.click()} title=${t('从导出的文件导入（与现有记录合并）')}>${t('导入')}<//>
+        <${Button} variant="ghost" size="sm" data-testid="stats-export" disabled=${empty || stats.newer} onClick=${doExport} title=${'导出为文件（可在别的设备上导入）'}>${'导出'}<//>
+        <${Button} variant="ghost" size="sm" data-testid="stats-import" disabled=${stats.newer} onClick=${() => fileRef.current?.click()} title=${'从导出的文件导入（与现有记录合并）'}>${'导入'}<//>
         <input ref=${fileRef} type="file" accept="application/json,.json" hidden onChange=${doFile} />
-        <${Button} variant="secondary" size="sm" data-testid="stats-clear" disabled=${empty || stats.newer} onClick=${doClear} title=${t('清空本机的统计数据')}>${t('清空')}<//>
+        <${Button} variant="secondary" size="sm" data-testid="stats-clear" disabled=${empty || stats.newer} onClick=${doClear} title=${'清空本机的统计数据'}>${'清空'}<//>
       </div>
     </header>
-    <p class="st-note"><${Icon} name="info" />${t('本机数据：只保存在这个浏览器里，不会上传到服务器；同盟对局里队友的代号也会存在本机（导出文件里也有）。')}</p>
-    ${stats.damaged ? html`<p class="st-note is-warn"><${Icon} name="warn" />${t('本机保存的统计数据无法读取，已另存为备份，从现在起重新记录。')}</p>` : null}
-    ${stats.dropped ? html`<p class="st-note is-warn"><${Icon} name="warn" />${t('有 {n} 条记录已损坏，已忽略。', { n: stats.dropped })}</p>` : null}
+    <p class="st-note"><${Icon} name="info" />${'本机数据：只保存在这个浏览器里，不会上传到服务器；同盟对局里队友的代号也会存在本机（导出文件里也有）。'}</p>
+    ${stats.damaged ? html`<p class="st-note is-warn"><${Icon} name="warn" />${'本机保存的统计数据无法读取，已另存为备份，从现在起重新记录。'}</p>` : null}
+    ${stats.dropped ? html`<p class="st-note is-warn"><${Icon} name="warn" />${`有 ${(stats.dropped) ?? ''} 条记录已损坏，已忽略。`}</p>` : null}
     <main class="st-body" data-tab=${tab}>
       ${!ready ? html`<div class="st-loading"><${Spinner} size="md" /></div>`
-        : stats.newer ? html`<p class="st-empty">${t('检测到更新版本的统计数据，请先升级客户端再查看，以免覆盖数据。')}</p>`
-          : empty ? html`<p class="st-empty">${t('还没有记录 —— 完成一局对局后，这里会开始积累。')}</p>`
+        : stats.newer ? html`<p class="st-empty">${'检测到更新版本的统计数据，请先升级客户端再查看，以免覆盖数据。'}</p>`
+          : empty ? html`<p class="st-empty">${'还没有记录 —— 完成一局对局后，这里会开始积累。'}</p>`
             : tab === 'bands' ? html`<${Bands} agg=${agg} gd=${gd} />`
               : tab === 'totals' ? html`<${CombatSums} agg=${agg} />`
                 : tab === 'history' ? html`<${History} records=${stats.records} gd=${gd} onOpen=${setReplay} />`

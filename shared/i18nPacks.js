@@ -1,29 +1,27 @@
-// shared/i18nPacks.js — the language pack type ("lang") of the content packs (shared/packs.js, docs/PACKS.md;
-// translating: docs/I18N.md "Adding a language"): language codes, the language fields of a pack manifest, the fallback
-// chain t() walks, and the script family the title screen lays out by. No Node builtin: the browser, the server and the
-// tools share it.
+// shared/i18nPacks.js — the language pack type ("lang") of the content packs (shared/packs.js, docs/PACKS.md): language
+// codes, the language fields of a pack manifest, the fallback chain, and the script family. No Node builtin: the browser,
+// the server and the tools share it.
 //
-// A language pack is files in the language folders, nothing else (the owner's decision of 2026-10-07):
+// The game itself is Chinese-only: the i18n layer (msgids, public/i18n/, data/i18n/, the language switch, shared/i18n.js)
+// was removed and the UI strings are Chinese literals in the code. This file stays because the pack mechanism still
+// validates and lists a `lang` pack. A language pack is files in the language folders, nothing else:
 //
-//   public/i18n/<code>.json   the UI strings: { "_meta": { …manifest… }, "<Chinese msgid>": "<translation>", … }
-//   data/i18n/<code>.json     optional: the game texts (the overlay of shared/i18nData.js, tools/build-i18n.mjs)
+//   public/i18n/<code>.json   the UI strings: { "_meta": { …manifest… }, "<Chinese string>": "<translation>", … }
+//   data/i18n/<code>.json     optional: the game texts
 //
 // — or the same two files in a pack folder, packs/<id>/ with a pack.json manifest (shared/packs.js), the layout every
-// pack type shares. <code> is a BCP 47 tag in its usual case: a 2–3 letter language, then an optional script (4
-// letters), region (2 letters or 3 digits) and variants — en, ja, ko, zh-TW, pt-BR, sr-Latn. Chinese ('zh') is the
-// built-in source language (the msgids themselves) and never a pack. English is a pack like any other; it is only the
-// complete one.
+// pack type shares. The built-in folders no longer ship, so only a folder pack provides one now. <code> is a BCP 47 tag
+// in its usual case: a 2–3 letter language, then an optional script (4 letters), region (2 letters or 3 digits) and
+// variants — en, ja, ko, zh-TW, pt-BR, sr-Latn. Chinese ('zh') is the built-in source language and never a pack.
 //
 // The language fields of a manifest (`_meta` of a single-file pack, pack.json of a folder pack; all optional):
 //   lang          the language code (a single file: its file name decides; a different value is reported)
 //   base          a pack whose strings fill the gaps first (default: the language of a regional code when there is a
-//                 pack for it — pt-BR → pt; never the Chinese source, so zh-TW has none); null switches it off
-//   fallback      packs tried after the base, before the Chinese msgid (["en"]: untranslated strings show English)
-//   complete      true: `node tools/i18n.mjs check` requires every msgid (English declares it)
-//   machineTranslated  true: the UI strings are machine translations (or a machine conversion, zh-TW); the 设置 dialog
-//                 says so under the language switch while the language is in use (ui/lang.js machineTranslationNote)
-//   numberUnits   two units for numbers counted in 10⁴ / 10⁸ steps (Chinese 万 / 亿; e.g. a Japanese pack ["万", "億"]);
-//                 without them large numbers use K / M / B (ui/gameLogic/format.js fmtNum)
+//                 pack for it — pt-BR → pt; never Chinese, so zh-TW has none); null switches it off
+//   fallback      packs tried after the base, before the Chinese text
+//   complete      true: every string is expected to be present (English declares it)
+//   machineTranslated  true: the strings are machine translations (or a machine conversion, zh-TW)
+//   numberUnits   two units for numbers counted in 10⁴ / 10⁸ steps (Chinese 万 / 亿)
 // The common fields (id, version, app, name, englishName, authors, credits, license) are shared/packs.js's.
 
 /** The source language: msgids are its text, it has no pack. */

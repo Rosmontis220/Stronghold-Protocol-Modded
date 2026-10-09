@@ -741,12 +741,12 @@ const plain = (pred = () => true) => Object.values(DATA.chess)
   .filter((c) => c.visible && !c.isGolden && (c.garrisonIds || []).every((g) => DATA.garrisons[g].eventType === 'IN_BATTLE') && pred(c))
   .map((c) => c.chessId).sort();
 /** Record the chess granted by item effects (acquireChess with an `item:` source). */
-/** The warn toasts sent to the match's players from now on: [{ msgid, who, name }] (server msg() objects). */
+/** The warn toasts sent to the match's players from now on: the Chinese text itself (m.toast frames carry `text`). */
 function spyWarns(m) {
   const got = [];
   const orig = m.toast.bind(m);
   m.toast = (ps, kind, text) => {
-    if (kind === 'warn') got.push({ msgid: text?.msgid ?? text, who: text?.params?.who?.dn ?? null, name: text?.params?.name?.dn ?? null });
+    if (kind === 'warn') got.push(String(text));
     return orig(ps, kind, text);
   };
   return got;
@@ -975,7 +975,7 @@ test('拟态物质 with 2 copies owned and none left in the pool gives nothing �
     assert.deepEqual(chessIn(ps), before, `${item}: no other operator, no second elite`);
     assert.ok(!ps.find(it.uid), `${item}: consumed`);
     // …and says why (GitHub #401, the owner's OK of 2026-10-09)
-    assert.deepEqual(warns, [{ msgid: '{who}：卡池中已没有{name}', who: '拟态物质', name: '溯光星源' }], `${item}: the toast`);
+    assert.deepEqual(warns, ['拟态物质：卡池中已没有溯光星源'], `${item}: the toast`);
   }
   // 2 normal copies, no elite, the pool drained by other players: nothing either
   {
@@ -988,7 +988,7 @@ test('拟态物质 with 2 copies owned and none left in the pool gives nothing �
     assert.deepEqual(equip(giveItem(m, ps, A('5_05')), t), OK);
     assert.deepEqual(got, []);
     assert.deepEqual(chessIn(ps), [cid, cid]);
-    assert.deepEqual(warns.map((w) => w.msgid), ['{who}：卡池中已没有{name}']);
+    assert.deepEqual(warns, ['拟态物质：卡池中已没有溯光星源']);
   }
   // 2 normal copies with copies left: the 3rd merges into the elite
   {
@@ -1014,7 +1014,7 @@ test('拟态物质 with fewer than 2 copies and no same-bond operator left gives
   const warns = spyWarns(m);
   assert.deepEqual(equip(giveItem(m, ps, A('5_05')), t), OK);
   assert.deepEqual(got, [], 'nothing granted');
-  assert.deepEqual(warns, [{ msgid: '{who}：没有可获得的同盟约干员', who: '拟态物质', name: null }]);
+  assert.deepEqual(warns, ['拟态物质：没有可获得的同盟约干员']);
 });
 
 test('博士投影: golden promotes at once; normal stays equipped and promotes at the next round start', () => {

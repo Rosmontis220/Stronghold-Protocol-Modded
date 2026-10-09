@@ -17,7 +17,7 @@ rooms) and a deterministic battle sim shared by the server and the browser. It a
    revisions and their evidence in `docs/history/`.
 3. The reference for the part you touch: [docs/SIM.md](docs/SIM.md) (battle engine API, hooks, test harness),
    [docs/META.md](docs/META.md) (match flow, shop, protocol), [docs/DATA.md](docs/DATA.md) (generated data),
-   [docs/I18N.md](docs/I18N.md) (interface strings), `server/sim/content/kits/README.md` (operator kits).
+   [docs/PACKS.md](docs/PACKS.md) (content packs), `server/sim/content/kits/README.md` (operator kits).
 
 ## Hard rules
 
@@ -32,8 +32,9 @@ rooms) and a deterministic battle sim shared by the server and the browser. It a
   ([test/golden/README.md](test/golden/README.md)).
 - **Generated data.** Never hand-edit `data/*.json`: change `tools/build-data.mjs` and regenerate.
 - **No game art in git.** `public/assets/` is ignored; never commit extracted or downloaded game files.
-- **Interface strings** go through `t('…')`, with entries in every pack under `public/i18n/`
-  (`node tools/i18n.mjs check --all --strict`).
+- **Interface strings are Chinese literals.** Player-facing text is written in place in the code — there is no
+  translation layer, no language pack and no `t('…')`, and the server's `m.toast` / `m.ticker` frames carry the Chinese
+  `text` itself ([D015](docs/development/DECISIONS.md#d015)).
 - **Docs follow the code.** A rule change updates `docs/design/`, the current `docs/history/` file and the reference
   docs; run `node --test test/docs-consistency.test.js test/docs-paths.test.js`.
 - **Commits and PRs**: one topic per PR; a one-line message of what changed (Chinese or English) with the issue number;

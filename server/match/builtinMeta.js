@@ -29,7 +29,6 @@
 
 import { getData } from '../data.js';
 import { itemKey } from './gamedata.js';
-import { msg, dn } from '../../shared/i18n.js';
 
 const int = (v, d = 0) => (Number.isFinite(v) ? Math.trunc(v) : d);
 
@@ -45,7 +44,7 @@ const paramsOf = (ctx, item) => {
  */
 function toastNothing(ctx, ev, chessName = null) {
   const who = ctx.gd.item(ev.item?.id)?.name || '';
-  ctx.toast(chessName ? msg('{who}：卡池中已没有{name}', { who: dn(who), name: dn(chessName) }) : msg('{who}：没有可获得的同盟约干员', { who: dn(who) }), 'warn');
+  ctx.toast(chessName ? `${(who) ?? ''}：卡池中已没有${(chessName) ?? ''}` : `${(who) ?? ''}：没有可获得的同盟约干员`, 'warn');
 }
 
 /** random chess sharing at least one bond with `bonds`, tier ≤ maxTier */
@@ -101,7 +100,7 @@ const ITEM_HANDLERS = {
       const n = int(paramsOf(ctx, ev.item).count, 1);
       const rec = ctx.gd.item(ev.item.id);
       ctx.addEffect({
-        id: `doll:${ev.item.uid}`, key: 'effect:builtin_round_coin', name: rec ? rec.name : '精打细算玩偶', desc: rec ? rec.desc : '', // i18n-ignore: the item's data name
+        id: `doll:${ev.item.uid}`, key: 'effect:builtin_round_coin', name: rec ? rec.name : '精打细算玩偶', desc: rec ? rec.desc : '', // the item's data name
         iconKind: 'item', iconId: rec ? rec.iconId || rec.id : ev.item.id, battle: false, params: { count: n },
       });
     },

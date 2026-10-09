@@ -18,7 +18,6 @@ console.warn = (...a) => { if (!String(a[0]).startsWith('[data]')) warn(...a); }
 
 const { data } = await import('../../public/js/data.js');
 const { missingGameData, importRefusal, DataMissing } = await import('../../public/js/screens/loadout.js');
-const { setLang, setMessages } = await import('../../shared/i18n.js');
 
 const TABS = ['loadout', 'ownership', 'diy'];
 const statusOf = (map, dflt = 'ready') => (name) => map[name] ?? dflt;
@@ -81,19 +80,9 @@ test('the screen: the import asks importRefusal before parsing or applying anyth
   assert.match(src, /: lost\.length \? html`<\$\{DataMissing\} files=\$\{lost\} \/>` : tab === 'diy'/);
 });
 
-test('the message names the files and what to try, in Chinese and in English', () => {
+test('the message names the files and what to try', () => {
   const one = DataMissing({ files: ['chess'] });
   assert.equal(one.props.role, 'alert');
   assert.equal(textOf(one), '游戏数据没有载入 | /data/chess.json 没有下载成功，这一页无法显示；已保存的设置不受影响。请刷新页面；仍不行时，请检查广告拦截插件和网络。');
   assert.match(textOf(DataMissing({ files: ['chess', 'backups'] })), /\/data\/chess\.json、\/data\/backups\.json 没有下载成功/);
-  const en = JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/en.json'), 'utf8'));
-  setMessages('en', en);
-  setLang('en');
-  try {
-    assert.equal(textOf(DataMissing({ files: ['chess', 'backups'] })), 'The game data did not load | /data/chess.json, /data/backups.json could not be downloaded, '
-      + 'so this page cannot be shown. Your saved settings are unaffected. Reload the page; if that does not help, check your ad blocker and your network.');
-    assert.equal(importRefusal('loadout', true).text, 'Import failed: the game data did not load. Nothing was changed. Reload the page; if that does not help, check your ad blocker and your network');
-  } finally {
-    setLang('zh');
-  }
 });

@@ -2,18 +2,18 @@
 // (阻隔工事 / “双眼皮” / 射击台 / 源石流发生装置) explains it. `screens/game.js` tileClick hands over `{ kind: 'device',
 // device }`, resolved from the stage the board on screen is built from — `gameLogic.deviceInfo` (the prep) or
 // `deviceTipAt` (a battle: the crate / turret is a device unit there) — and the panel opens its device card.
-// Covered: what the card says for the devices of the real stages (the sim's own numbers — sim/content/devices.js) in every
-// shipped language, what the screen's override pipeline does to it (a 机变 card removes the crate → no tip), the battle
+// Covered: what the card says for the devices of the real stages (the sim's own numbers — sim/content/devices.js, as
+// Chinese literals: the interface has no translation layer), what the screen's override pipeline does to it (a 机变 card
+// removes the crate → no tip), the battle
 // path against a REAL battle (the turret outside the rect stands on another tile than its stage pos; the stage crates and
 // turrets are not in the field meta of a battle shown from its start; a destroyed crate is gone), the panel link
 // (resolveDetail) and that the card closes on the next field press. The tap reaching the screen is test/ui/device-tip.e2e.test.js.
 
-import { test, afterEach } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { setLang, setMessages, registerLangs } from '../../shared/i18n.js';
 import { makeBattle } from '../helpers/battleHarness.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -21,9 +21,6 @@ const { resolveDetail } = await import('../../public/js/ui/detailPanel.js');
 const { deviceInfo, deviceTipAt, noteDeviceUnits, effectiveStage, closesOnFieldPress } = await import('../../public/js/ui/gameLogic.js');
 
 const stages = JSON.parse(readFileSync(path.join(ROOT, 'data', 'stages.json'), 'utf8'));
-const pack = (code) => { const p = JSON.parse(readFileSync(path.join(ROOT, 'public', 'i18n', `${code}.json`), 'utf8')); delete p._meta; return p; };
-
-afterEach(() => { setLang('zh'); for (const l of ['en', 'ja', 'ko', 'zh-TW']) setMessages(l, {}); });
 
 /** The first device of `role` in the stage. */
 function deviceOf(stage, role) {
@@ -120,56 +117,25 @@ test('a device the client does not draw says nothing: inactive, card-removed, ti
   assert.equal(deviceInfo({ devices: [{ role: '__proto__', pos: [1, 1], active: true }, { role: 'constructor', pos: [1, 1], active: true }] }, 1, 1), null);
 });
 
-test('every drawn tip-able device of every active stage carries a well-formed card, in every language', () => {
-  for (const code of ['en', 'ja', 'ko', 'zh-TW']) setMessages(code, pack(code));
-  registerLangs([{ code: 'en' }, { code: 'ja', fallback: ['en'] }, { code: 'ko', fallback: ['en'] }, { code: 'zh-TW' }]);
+test('every drawn tip-able device of every active stage carries a well-formed card', () => {
   let n = 0;
-  for (const lang of ['zh', 'en', 'ja', 'ko', 'zh-TW']) {
-    setLang(lang);
-    for (const st of Object.values(stages)) {
-      if (!st.active) continue;
-      for (const d of st.devices || []) {
-        if (!['crate', 'turret', 'platform', 'blower'].includes(d.role)) continue;
-        if (!(typeof d.active === 'boolean' ? d.active : !d.hidden)) continue;
-        const info = deviceInfo(st, d.pos[0], d.pos[1]);
-        assert.ok(info, `${st.id} ${d.role} @${d.pos} has a tip`);
-        assert.ok(info.name && info.tag, `${st.id} ${d.role} has a name and a tag`);
-        assert.ok(info.lines.length && info.facts.length, `${st.id} ${d.role} has mechanism lines and a tile fact`);
-        for (const line of [...info.lines, ...info.facts, info.tag]) {
-          assert.ok(typeof line === 'string' && line.length && !/[{}]/.test(line), `${lang} ${st.id} ${d.role}: "${line}"`);
-          // nothing is left in the source language where the pack has the words (the Chinese sources are Han text)
-          if (lang === 'en' || lang === 'ko') assert.ok(!/[一-鿿]/.test(line), `${lang}: "${line}" is untranslated`);
-        }
-        n++;
+  for (const st of Object.values(stages)) {
+    if (!st.active) continue;
+    for (const d of st.devices || []) {
+      if (!['crate', 'turret', 'platform', 'blower'].includes(d.role)) continue;
+      if (!(typeof d.active === 'boolean' ? d.active : !d.hidden)) continue;
+      const info = deviceInfo(st, d.pos[0], d.pos[1]);
+      assert.ok(info, `${st.id} ${d.role} @${d.pos} has a tip`);
+      assert.ok(info.name && info.tag, `${st.id} ${d.role} has a name and a tag`);
+      assert.ok(info.lines.length && info.facts.length, `${st.id} ${d.role} has mechanism lines and a tile fact`);
+      for (const line of [...info.lines, ...info.facts, info.tag]) {
+        // no placeholder is left unrendered in the card's text
+        assert.ok(typeof line === 'string' && line.length && !/[{}]/.test(line), `${st.id} ${d.role}: "${line}"`);
       }
+      n++;
     }
   }
-  assert.ok(n >= 5 * 4, `checked ${n} cards`);
-});
-
-test('the words of a card follow the language: English, 日本語, 한국어, 繁體中文', () => {
-  for (const code of ['en', 'ja', 'ko', 'zh-TW']) setMessages(code, pack(code));
-  registerLangs([{ code: 'en' }, { code: 'ja', fallback: ['en'] }, { code: 'ko', fallback: ['en'] }, { code: 'zh-TW' }]);
-  const st = stages['act2autochess_m01'];
-  const d = deviceOf(st, 'blower');
-  setLang('en');
-  const en = deviceInfo(st, d.pos[0], d.pos[1]);
-  assert.equal(en.tag, 'Stage Device');
-  assert.equal(en.lines[0], 'Blows an airflow 3 tiles ahead (this one faces Down)');
-  assert.equal(en.lines[1], 'Operators deployed in the airflow: ATK +30% when facing the same way as the airflow, −30% when facing the opposite way');
-  assert.equal(en.facts[0], 'Not deployable');
-  setLang('ja');
-  assert.equal(deviceInfo(st, d.pos[0], d.pos[1]).lines[1], '気流内に配置されたオペレーター：気流と同じ向きの攻撃力+30%、逆向きは−30%');
-  setLang('ko');
-  assert.equal(deviceInfo(st, d.pos[0], d.pos[1]).lines[0], '전방 3칸으로 기류를 내뿜음(이 장치는 아래 방향)');
-  setLang('zh-TW');
-  assert.equal(deviceInfo(st, d.pos[0], d.pos[1]).lines[2], '在氣流裡移動的敵人：順風移動速度 ×1.5、逆風 ×0.5');
-  const tur = effectiveStage(stages['act1autochess_m01'], { deviceOverrides: TURRET_ON });
-  const t0 = deviceOf(tur, 'turret');
-  setLang('en');
-  const eTur = deviceInfo(tur, t0.pos[0], t0.pos[1]);
-  assert.deepEqual(eTur.stats.map((s) => s.k), ['Max HP', 'ATK', 'DEF', 'Attack Interval']);
-  assert.equal(eTur.lines[2], 'The Fragile lasts 2 seconds');
+  assert.ok(n >= 4, `checked ${n} cards`);
 });
 
 // ---- a battle on screen ---------------------------------------------------------------------------------------------

@@ -8,7 +8,6 @@
 // the player state).
 
 import { PHASE } from '../../../shared/constants.js';
-import { msg, dn } from '../../../shared/i18n.js';
 import { checkLoadout, checkLoadoutOps, cultivationCharIds, checkNotOwned, resolveLoadout } from '../../../shared/protocol.js';
 import { cultivationOf } from '../../../shared/potential.js';
 import { tileKey, boardOrder } from '../board.js';
@@ -250,7 +249,7 @@ export class PlayerBasics {
         }
       }
     }
-    if (names.length) this.m.toast(this, 'warn', msg('地形变化：{names}无法停留在原位置，已撤回整备区', { names: names.map(dn) }));
+    if (names.length) this.m.toast(this, 'warn', `地形变化：${names.filter((s) => s !== '').join('、')}无法停留在原位置，已撤回整备区`);
     return moved;
   }
 

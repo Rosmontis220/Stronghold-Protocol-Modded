@@ -2,8 +2,6 @@
 
 import { int, isObj } from './shared.js';
 import { diyPicks } from './diy.js';
-import { t } from '../../../../shared/i18n.js';
-
 
 // ---- bonds -------------------------------------------------------------------------------------------
 
@@ -300,8 +298,8 @@ export function disabledBondSets(pub, staticInactive = []) {
  * @param {number} bannedN banned operators of the bond
  */
 export function briefingBondTip(name, state, bannedN = 0) {
-  if (state === 'off') return t('{name}：本局禁用（该盟约不会激活）', { name });
-  if (state === 'drawn' || bannedN > 0) return bannedN ? t('{name}：部分盟约所含干员阵容不完整（{bannedN} 名干员无法出现）', { name, bannedN }) : t('{name}：部分盟约所含干员阵容不完整', { name });
+  if (state === 'off') return `${(name) ?? ''}：本局禁用（该盟约不会激活）`;
+  if (state === 'drawn' || bannedN > 0) return bannedN ? `${(name) ?? ''}：部分盟约所含干员阵容不完整（${(bannedN) ?? ''} 名干员无法出现）` : `${(name) ?? ''}：部分盟约所含干员阵容不完整`;
   return name;
 }
 
@@ -339,5 +337,5 @@ export function bandOffBonds(band, off) {
  */
 export function bandOffLine(names) {
   const list = (Array.isArray(names) ? names : []).filter((n) => typeof n === 'string' && n);
-  return list.length ? t('本局禁用{names}盟约，此策略效果可能无法发挥', { names: list.map((n) => t('【{name}】', { name: n })).join('') }) : '';
+  return list.length ? `本局禁用${list.map((n) => `【${(n) ?? ''}】`).join('')}盟约，此策略效果可能无法发挥` : '';
 }

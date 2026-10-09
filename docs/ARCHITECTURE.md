@@ -6,8 +6,8 @@ engine: [design/engine.md](design/engine.md); §6 the match: [design/match.md](d
 client-side combat: [design/network.md](design/network.md); §9 rendering: [design/client.md](design/client.md)), the
 per-release revisions and their evidence in `docs/history/`;
 the details in [SIM.md](SIM.md) (battle engine, hooks, SkillSpec), [META.md](META.md) (match engine, prep-phase
-effects), [DATA.md](DATA.md) (generated data), [ASSETS.md](ASSETS.md) (art and audio) and [I18N.md](I18N.md)
-(languages). How to set up, test and send a change: [CONTRIBUTING.md](../CONTRIBUTING.md).
+effects), [DATA.md](DATA.md) (generated data), [ASSETS.md](ASSETS.md) (art and audio) and [PACKS.md](PACKS.md)
+(content packs). How to set up, test and send a change: [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## 1. What runs where
 
@@ -59,8 +59,9 @@ Every frame is JSON text, `{ t, rid?, …fields }`.
 
 - A request that carries `rid` is answered with `ok` or `error` echoing it. `server/net.js` rate-limits each socket,
   validates every message against `C2S` and refuses anything unknown; the handlers never trust the client.
-- Messages meant for people (`m.toast`, `m.ticker`) carry a message id and its parameters, so each client shows them in
-  its own language (`shared/i18n.js` `wireMessage`).
+- Messages meant for people (`m.toast`, `m.ticker`) carry the Chinese `text` as sent; `m.ticker`'s `args` fills a
+  `config.broadcasts` template's `{0}`. There is no message id and no per-client rendering — the client shows what the
+  server sent.
 - The exact view shapes: DESIGN §8.3 and META §5.
 
 ## 3. The directory layout
@@ -81,7 +82,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `server/net.js` | sessions and reconnect tokens, rate limits, message validation |
 | `server/lobby.js` | rooms, seats, AI seats, spectators; starts a `Match` |
 | `server/data.js` | loads `data/*.json` once (frozen) |
-| `server/packs.js` | the content packs (PACKS.md): finds the language packs of `public/i18n/` and the pack folders of `packs/`, validates them, answers `/packs/index.json` and which pack files may be served; re-reads the folders when they change |
+| `server/packs.js` | the content packs (PACKS.md): finds the single-file language packs in the language folders and the pack folders of `packs/`, validates them, answers `/packs/index.json` and which pack files may be served; re-reads the folders when they change |
 | `server/update.js` | the update package on the player's machine (DEPLOY.md §1.5): before the server starts, an extracted `UPDATE.json` is finished — the install verified against `MANIFEST.json`, the files the new version dropped deleted, or the start refused when the install is another version; doctor's `MANIFEST.json` check |
 | `server/match/Match.js` | one match: the phase machine, timers, the round loop, co-op, the views; its methods are in `server/match/match/` (`phases.js`, `prep.js`, `combat.js`, `clientCombat.js`, `reports.js`, `unitePhase.js`, `bossRounds.js`, `settle.js`, `views.js`, `intents.js` …) |
 | `server/match/PlayerState.js` | one player's shop, hand, board, items, bonds and LP, and every prep intent; its methods are in `server/match/player/` (`economy.js`, `acquire.js`, `placement.js`, `items.js`, `pieces.js`, `prep.js`, `round.js`, `diy.js`, `views.js` …) |
@@ -94,27 +95,27 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `server/sim/content/garrisons/`, `items/`, `bands/` | 特质, equipment and strategies: `battle.js` is the battle side, `meta.js` the prep side (`registerMeta`, META §2) |
 | `server/sim/content/bonds/` | the 23 bonds: `core.js` the 8 core bonds (both sides), `server/sim/content/bonds/addon/` the 15 add-on bonds (`battle.js`, `meta.js`) |
 | `server/sim/content/` (the rest) | `tokens.js` (summons), `devices.js` (terrain and stage devices), `generic.js` (the kit built from a skill's data when a chess has none), `choices.js` (机变 cards in battle), `traitMods.js` (the module trait line the engine applies to every operator: 「攻击范围内存在N名及以上敌人时攻击速度+X」) |
-| `shared/` | imported by the server and the browser: `protocol.js`, `constants.js`, `i18n.js`, `i18nData.js` and `i18nPacks.js` (languages), `packs.js` (the content-pack format), `standIn.js` (补位), `diy.js` (自选编队), `highGround.js`, `loadoutRecord.js` |
+| `shared/` | imported by the server and the browser: `protocol.js`, `constants.js`, `i18nPacks.js` (the `lang` pack type), `packs.js` (the content-pack format), `standIn.js` (补位), `diy.js` (自选编队), `highGround.js`, `loadoutRecord.js` |
 
 ### Client (`public/`)
 
 | path | what |
 |---|---|
 | `public/index.html`, `public/js/main.js` | the page and its entry: boot, the router (title → lobby → room → game) |
-| `public/js/net.js`, `public/js/store.js`, `public/js/data.js` | the socket client, the observable store, the data loader (`/data/*.json`, with the English overlay) |
+| `public/js/net.js`, `public/js/store.js`, `public/js/data.js` | the socket client, the observable store, the data loader (`/data/*.json`; the locale overlay is gone — `locale()` is a fixed `'zh'`) |
 | `public/js/battle/` | `runner.js` (the local battle: loads `/sim/`, steps it, reports), `observe.js` (who may watch which field) |
 | `public/js/screens/` | `title.js`, `lobby.js`, `room.js`, `loadout.js` (干员调配), `cultivation.js` (its 潜能 / 练度 controls), `ownership.js` (干员持有), `diy.js` (自选编队), `briefing.js`, `bandDraft.js`, `game.js` with `public/js/screens/game/`, `result.js` |
 | `public/js/ui/` | the HUD components (`hud.js`, `shopBar.js`, `detailPanel.js`, `bondStrip.js`, `teamPanel.js` …); `public/js/ui/gameLogic/` the pure in-match logic, unit-tested in Node |
 | `public/js/render/` | the field view: `app.js` with `public/js/render/app/`, `units.js` and `spine.js` (models), `tiles.js`, `projection.js`, `interp.js`, `pick.js`, `drag.js`, `public/js/render/fx/` (effects; `kinds.js` maps the fx kinds), `public/js/render/board3d/` (the official 3D board) |
-| `public/css/`, `public/i18n/<code>.json` | the styles; the UI strings of each language pack (English ships) |
+| `public/css/` | the styles (one set; the interface is Simplified Chinese only) |
 
 ### Data, tools, tests
 
 | path | what |
 |---|---|
-| `data/*.json` | generated by `tools/build-data.mjs` and committed — never edited by hand (DATA.md); `data/backups.json` holds the 补位 and 自选 data, `data/i18n/<code>.json` the game texts of a language pack (English), `data/assets.json` the art manifest |
+| `data/*.json` | generated by `tools/build-data.mjs` and committed — never edited by hand (DATA.md); `data/backups.json` holds the 补位 and 自选 data, `data/assets.json` the art manifest |
 | `packs/` | content packs installed as folders, `packs/<id>/pack.json` + files (PACKS.md); empty in the repository but for its readme |
-| `tools/` | `build-data.mjs`, `build-i18n.mjs`, `i18n.mjs` (UI strings, language packs), `packs.mjs` (content packs), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
+| `tools/` | `build-data.mjs`, `packs.mjs` (content packs), `setup.mjs` / `fetch-assets.mjs` / `tools/assets/` (art and audio), `tools/local-extract/` (art from a local game client), `vendor.mjs`, `golden.mjs`, `check-imports.mjs`, `package.mjs` / `package-update.mjs` (the release zips, the update package), `doctor.mjs`; sweeps: `matchrun.mjs`, `simrun.mjs`, `botbench.mjs`, `balance.mjs` |
 | `test/` | `node:test` suites by area: `test/content/` (kits, enemies, bonds, items), `test/sim/` (the engine), `test/match/` (match engine, bots), `test/ui/`, `test/render/`, `test/golden/` (the stored digests), `test/helpers/` (`battleHarness.js`; `designDocs.js`, the design document in § order for the doc tests), `test/e2e/` (browser and bot runs) |
 | `types/` | JSDoc typedefs of the type-checked slice (`types/README.md`) |
 | `docs/` | the documents; `docs/DESIGN.md` the index of the design document, `docs/design/` its current rules, `docs/history/` its per-release revisions; `docs/research/` the research on the official mode |
@@ -124,13 +125,11 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 ```
 official zh_CN tables (.cache/gamedata) ─┐
 docs/research/*.json ────────────────────┴─▶ tools/build-data.mjs ─▶ data/*.json
-official EN tables ────────────────────────▶ tools/build-i18n.mjs ─▶ data/i18n/en.json
 public mirrors, a local client ────────────▶ tools/setup.mjs ──────▶ public/assets/ + data/assets.json
 
 data/*.json ──────────┬─▶ server/data.js ─────────────▶ the match, the server's battles
                       ├─▶ public/js/data.js ──────────▶ the UI
                       └─▶ public/js/battle/runner.js ─▶ the browser's battles (setSimData)
-data/i18n/en.json ──────▶ public/js/data.js ──────────▶ the English game texts
 public/assets/ ─────────▶ public/js/render/, public/js/audio.js (URLs listed in data/assets.json)
 ```
 
@@ -142,11 +141,13 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
   the sim through `server/sim/simdata.js`, which turns every record into a frozen engine def.
 - **In the browser**, `public/js/data.js` fetches the same files once per page for the UI, and the battle runner loads
   its own frozen copies for the sim (`loadBrowserSim` → `setSimData`), so both sides simulate from the same data.
-- **Languages.** Chinese is the source language; every other language is a pack — `public/i18n/<code>.json` (UI
-  strings) and optionally `data/i18n/<code>.json` (game texts), listed by the server at `/packs/index.json`
-  (`server/packs.js`; PACKS.md). The English game texts come from the official EN client (`tools/build-i18n.mjs` →
-  `data/i18n/en.json`, applied by `public/js/data.js`); UI strings are wrapped in `t('…')` and translated in the packs
-  (`tools/i18n.mjs` lists what is missing); server messages travel as message ids. I18N.md.
+- **Language.** The interface and the game texts are **Simplified Chinese only**: the i18n layer (UI strings, game-text
+  translations, language packs, the language switch) was removed ([D015](development/DECISIONS.md#d015)), player-facing
+  strings are Chinese literals in the code, `public/js/data.js` keeps only a fixed `locale: () => 'zh'`, and `fmtNum()`
+  always uses the Chinese units 万 / 亿. The `lang` content-pack type is still validated and listed
+  (`shared/i18nPacks.js`, `server/packs.js`; PACKS.md) but no client loads a language pack and none ships. The server's
+  `m.toast` / `m.ticker` frames carry the Chinese `text` as sent. The Chinese / Japanese operator voices are not a
+  language pack and stay (ASSETS.md).
 - **Art and audio** are never committed. `npm run setup` downloads them from public mirrors (`tools/fetch-assets.mjs`,
   planned by `tools/assets/plan.mjs`) into `public/assets/` and writes the manifest `data/assets.json`;
   `tools/local-extract/` can add art from a local game client. The client only requests URLs listed in the manifest.
@@ -188,8 +189,8 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
 | data from the official tables | `tools/build-data.mjs` | rebuild `--offline`, JSON compare, DATA.md, golden |
 | a screen or a HUD panel | `public/js/screens/`, `public/js/ui/`; pure logic in `public/js/ui/gameLogic/` | `test/ui/` |
 | battle visuals | `public/js/render/fx/kinds.js`, `public/js/render/units.js`, `public/js/render/spine.js` | `test/render/` |
-| a UI text | `t('…')` in the code, the English in `public/i18n/en.json` | I18N.md |
-| a language | `public/i18n/<code>.json` (`node tools/i18n.mjs template <code>`), no code | I18N.md "Adding a language", PACKS.md |
+| a UI text | the Chinese literal where it is shown — no `t()`, no msgid, no pack | CONTRIBUTING.md §4 |
+| a content pack (`lang` included) | `shared/packs.js`, `server/packs.js`, `tools/packs.mjs` | PACKS.md |
 | HTTP, headers, static routes | `server/http/` | `test/version.test.js`, `test/client-static.test.js` |
 
 Before changing a rule, read the DESIGN section that owns it (module headers cite their sections; the table in

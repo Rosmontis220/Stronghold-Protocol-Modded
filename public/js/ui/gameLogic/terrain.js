@@ -2,13 +2,10 @@
 // 提示) and, in the same place, stage devices (阻隔工事 / “双眼皮” / 射击台 / 气流: GitHub #228, PR #229 by @rickylxw —
 // deviceInfo / deviceTipAt below). Re-exported from ../gameLogic.js.
 //
-// The words go through t() (docs/I18N.md: the Chinese text is the msgid, public/i18n/en.json the English): the name /
-// tag / fact tables are marked N_() and translated where terrainInfo hands them out, the mechanism lines are built
-// with their numbers as params. A device's NAME is a data text (data/stages.json `devices[].name`, localized by the
-// data overlay: "Barricade", "'Double Lids'" …), not a msgid.
+// The tip lines are plain Chinese: the mechanism lines carry their numbers as they are built. A device's NAME is a data
+// text (data/stages.json `devices[].name`), not a literal here.
 
 import { isObj } from './shared.js';
-import { t, N_ } from '../../../../shared/i18n.js';
 
 // ---- special terrain tips (GitHub issue #184: 特殊地形的单击信息提示) ----------------------------------------
 
@@ -20,22 +17,22 @@ import { t, N_ } from '../../../../shared/i18n.js';
  */
 const TERRAIN_TIPS = Object.freeze({
   infection: {
-    name: N_('活性源石'), tag: N_('特殊地形'),
+    name: '活性源石', tag: '特殊地形',
     lines: (st) => {
       const b = isObj(st?.infection?.bb) ? st.infection.bb : {};
       const dmg = param(b.damage, 0);
       const mods = [];
-      if (param(b.atk, 0)) mods.push(t('攻击力 +{atk}%', { atk: Math.round(param(b.atk, 0) * 100) }));
-      if (param(b.attack_speed, 0)) mods.push(t('攻击速度 +{aspd}', { aspd: param(b.attack_speed, 0) }));
+      if (param(b.atk, 0)) mods.push(`攻击力 +${(Math.round(param(b.atk, 0) * 100)) ?? ''}%`);
+      if (param(b.attack_speed, 0)) mods.push(`攻击速度 +${(param(b.attack_speed, 0)) ?? ''}`);
       return [
-        dmg ? t('部署于其上的我方单位、经过的敌方单位，每秒受到 {dmg} 点真实伤害（无来源）', { dmg }) : t('在其上的我方单位与经过的敌方单位持续受到伤害'),
-        mods.length ? t('同时获得：{mods}', { mods }) : null,
-        param(b.duration, 0) ? t('效果持续 {sec} 秒；离开地块后仍然保留，再次接触会重新计时', { sec: param(b.duration, 0) }) : null,
+        dmg ? `部署于其上的我方单位、经过的敌方单位，每秒受到 ${(dmg) ?? ''} 点真实伤害（无来源）` : '在其上的我方单位与经过的敌方单位持续受到伤害',
+        mods.length ? `同时获得：${mods.filter((s) => s !== '').join('、')}` : null,
+        param(b.duration, 0) ? `效果持续 ${(param(b.duration, 0)) ?? ''} 秒；离开地块后仍然保留，再次接触会重新计时` : null,
       ].filter(Boolean);
     },
   },
   mire: {
-    name: N_('沼泽'), tag: N_('特殊地形'),
+    name: '沼泽', tag: '特殊地形',
     lines: (st) => {
       const m = isObj(st?.mire) ? st.mire : {};
       const per = param(m.aspdPerStack, -0.05);
@@ -45,52 +42,52 @@ const TERRAIN_TIPS = Object.freeze({
       const sec = param(m.intervalSec, 1);
       return [
         move
-          ? t('留在沼泽里的单位每 {sec} 秒获得 1 层「陷入沼泽」：攻击速度 {aspd}，敌方单位还有移动速度 {move}', { sec, aspd: pctText(per), move: pctText(move) })
-          : t('留在沼泽里的单位每 {sec} 秒获得 1 层「陷入沼泽」：攻击速度 {aspd}', { sec, aspd: pctText(per) }),
-        heavy ? t('重量 ≥ {heavy} 的敌人一次获得 2 层', { heavy }) : null,
-        t('最多 {max} 层；离开沼泽后解除', { max }),
+          ? `留在沼泽里的单位每 ${(sec) ?? ''} 秒获得 1 层「陷入沼泽」：攻击速度 ${(pctText(per)) ?? ''}，敌方单位还有移动速度 ${(pctText(move)) ?? ''}`
+          : `留在沼泽里的单位每 ${(sec) ?? ''} 秒获得 1 层「陷入沼泽」：攻击速度 ${(pctText(per)) ?? ''}`,
+        heavy ? `重量 ≥ ${(heavy) ?? ''} 的敌人一次获得 2 层` : null,
+        `最多 ${(max) ?? ''} 层；离开沼泽后解除`,
       ].filter(Boolean);
     },
   },
   smog: {
-    name: N_('排气格栅'), tag: N_('特殊地形'),
+    name: '排气格栅', tag: '特殊地形',
     // the sim gives the tile's buff `flags: { stealth: true }` (devices.js enterTerrain): enemy ranged targeting
     // skips it like 隐匿 — and, like 隐匿, it does NOT stop the enemy it blocks from attacking it (PRTS 隐匿).
     lines: () => [
-      t('站在排气格栅上的干员不会被敌方的远程攻击选中（效果相当于隐匿）'),
-      t('但挡住敌人的干员仍会被它攻击到'),
+      '站在排气格栅上的干员不会被敌方的远程攻击选中（效果相当于隐匿）',
+      '但挡住敌人的干员仍会被它攻击到',
     ],
   },
   deepsea: {
-    name: N_('深水区'), tag: N_('特殊地形'),
+    name: '深水区', tag: '特殊地形',
     lines: (st) => {
       const b = isObj(st?.deepsea?.bb) ? st.deepsea.bb : {};
       const dmg = param(b['sea_drown[enemy].damage'], 0);
       const aspd = param(b['sea_drown[enemy].attack_speed'], 0);
       const move = param(b['sea_drown[enemy].move_speed'], 0);
       const out = [];
-      if (dmg) out.push(t('敌人每秒受到 {dmg} 点伤害', { dmg }));
+      if (dmg) out.push(`敌人每秒受到 ${(dmg) ?? ''} 点伤害`);
       const slowed = move && move !== 1;
-      if (aspd && slowed) out.push(t('攻击速度 {aspd}、移动速度 ×{move}', { aspd: pctText(aspd), move }));
-      else if (aspd) out.push(t('攻击速度 {aspd}', { aspd: pctText(aspd) }));
-      else if (slowed) out.push(t('移动速度 ×{move}', { move }));
+      if (aspd && slowed) out.push(`攻击速度 ${(pctText(aspd)) ?? ''}、移动速度 ×${(move) ?? ''}`);
+      else if (aspd) out.push(`攻击速度 ${(pctText(aspd)) ?? ''}`);
+      else if (slowed) out.push(`移动速度 ×${(move) ?? ''}`);
       // devices.js tickDeepsea: sourceless true damage tagged 'dot' / 'periodic' / 'deepsea' — deliberately NOT 'terrain'
       // (环境伤害, which is what 活性源石's tick is): it is nobody's damage, so no 干员's 增伤 / 穿透 / 装备 applies.
-      out.push(t('溺水伤害属于无来源伤害（不吃干员的增伤、穿透与装备加成），也不归类为环境伤害'));
-      out.push(t('拒绝部署（特制水上平台可以让这一格变得可部署）'));
+      out.push('溺水伤害属于无来源伤害（不吃干员的增伤、穿透与装备加成），也不归类为环境伤害');
+      out.push('拒绝部署（特制水上平台可以让这一格变得可部署）');
       return out;
     },
   },
-  start: { name: N_('红门'), tag: N_('敌方入口'), lines: () => [t('敌方单位从这里出场')] },
-  end: { name: N_('蓝门'), tag: N_('保护目标'), lines: () => [t('敌人走进这里会扣你的目标生命值（LP），一回合至多 10 点')] },
-  telin: { name: N_('传送入口'), tag: N_('特殊地形'), lines: () => [t('敌人走到这里会从场上消失')] },
-  telout: { name: N_('传送出口'), tag: N_('特殊地形'), lines: () => [t('消失的敌人会从这里重新出现')] },
+  start: { name: '红门', tag: '敌方入口', lines: () => ['敌方单位从这里出场'] },
+  end: { name: '蓝门', tag: '保护目标', lines: () => ['敌人走进这里会扣你的目标生命值（LP），一回合至多 10 点'] },
+  telin: { name: '传送入口', tag: '特殊地形', lines: () => ['敌人走到这里会从场上消失'] },
+  telout: { name: '传送出口', tag: '特殊地形', lines: () => ['消失的敌人会从这里重新出现'] },
 });
 
 /** Tile keys that carry a tip of their own although the legend gives them no `special` tag (gates, teleports). */
 const TIP_BY_TILEKEY = Object.freeze({ tile_start: 'start', tile_end: 'end', tile_telin: 'telin', tile_telout: 'telout' });
 /** 深水区's own legend entry is the one tile whose mechanism overrides the level's buildableType (grid.js DEPLOY_REFUSED_TILES). */
-const BUILDABILITY = Object.freeze({ ALL: N_('可部署'), MELEE: N_('仅近战位可部署'), RANGED: N_('仅远程位可部署'), NONE: N_('不可部署') });
+const BUILDABILITY = Object.freeze({ ALL: '可部署', MELEE: '仅近战位可部署', RANGED: '仅远程位可部署', NONE: '不可部署' });
 
 const param = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
 const pctText = (v) => `${v > 0 ? '+' : '−'}${Math.abs(Math.round(param(v, 0) * 100))}%`;
@@ -100,8 +97,7 @@ const pctText = (v) => `${v > 0 ? '+' : '−'}${Math.abs(Math.round(param(v, 0) 
  * ordinary tile (road / floor / wall / fence …): those say nothing, so a tap on them still just closes what is open.
  * The tile comes from the stage the board on screen is built from (`stage.rows` + `stage.tiles`, data/stages.json), and
  * the numbers from that stage's own terrain parameters — the same values the sim runs. It reads the stage only, so a
- * 补位 / 自选 board (whose pieces are other records) explains its tiles the same way. The text is in the current
- * language (t()).
+ * 补位 / 自选 board (whose pieces are other records) explains its tiles the same way.
  * @param {{ rows?: string[], tiles?: Record<string, any>, special?: any } | null | undefined} stage the shown field's stage
  * @param {number} row board row (row 0 = the bottom row, DESIGN §1)
  * @param {number} col
@@ -119,11 +115,11 @@ export function terrainInfo(stage, row, col) {
   if (!tip) return null;
   const facts = [];
   const build = BUILDABILITY[tile.buildable];
-  if (build) facts.push(t(build));
-  if (tile.height === 'HIGH') facts.push(t('高台'));
-  if (tile.groundPassable === false) facts.push(t('只有空中单位能通过'));
-  else if (tile.groundPassable === true) facts.push(t('地面单位可通过'));
-  return { key, name: t(tip.name), tag: t(tip.tag), row, col, lines: tip.lines(stage.special).filter((s) => typeof s === 'string' && s), facts };
+  if (build) facts.push((build));
+  if (tile.height === 'HIGH') facts.push('高台');
+  if (tile.groundPassable === false) facts.push('只有空中单位能通过');
+  else if (tile.groundPassable === true) facts.push('地面单位可通过');
+  return { key, name: (tip.name), tag: (tip.tag), row, col, lines: tip.lines(stage.special).filter((s) => typeof s === 'string' && s), facts };
 }
 
 // ---- stage device tips (GitHub #228, PR #229 by @rickylxw: the stage DEVICES, not only the tiles) ---------------------
@@ -132,8 +128,8 @@ export function terrainInfo(stage, row, col) {
 const DEVICE_TIP_ROLES = Object.freeze(['crate', 'turret', 'platform', 'blower']);
 /** Roles the battle spawns as device UNITS (Battle._spawnStageDevices, devices.js spawnTurret): in a battle a tap finds them by unit. */
 const DEVICE_UNIT_ROLES = Object.freeze(['crate', 'turret']);
-const TIP_TAG = N_('场地装置');
-const DIR_NAME = Object.freeze({ UP: N_('上'), DOWN: N_('下'), LEFT: N_('左'), RIGHT: N_('右') });
+const TIP_TAG = '场地装置';
+const DIR_NAME = Object.freeze({ UP: '上', DOWN: '下', LEFT: '左', RIGHT: '右' });
 
 const round1 = (v) => Math.round(v * 10) / 10;
 
@@ -147,10 +143,10 @@ const round1 = (v) => Math.round(v * 10) / 10;
 const DEVICE_TIPS = Object.freeze({
   crate: {
     lines: (st, d) => [
-      t('挡在地面上的工事：地面敌人会绕开它走；只有无路可走时才会撞上来，把它摧毁后继续前进'),
-      t('生命 {hp} 点，被摧毁后从场上消失', { hp: param(d.stats?.maxHp, 100) }),
+      '挡在地面上的工事：地面敌人会绕开它走；只有无路可走时才会撞上来，把它摧毁后继续前进',
+      `生命 ${(param(d.stats?.maxHp, 100)) ?? ''} 点，被摧毁后从场上消失`,
     ],
-    facts: () => [t(BUILDABILITY.NONE)],            // board.js buildDeployMap: an active crate takes its tile off the deploy map
+    facts: () => [(BUILDABILITY.NONE)],            // board.js buildDeployMap: an active crate takes its tile off the deploy map
   },
   turret: {
     lines: (st, d) => {
@@ -160,33 +156,28 @@ const DEVICE_TIPS = Object.freeze({
       const aspdMax = param(bb.max_attack_speed, Infinity);
       const fragMax = param(bb.max_damage_scale, Infinity);
       return [
-        t('自动攻击射程内的一名敌人，造成法术伤害，命中的敌人附加脆弱'),
-        t('按当前层数最高的盟约计算：每 1 层，攻击速度 +{aspd}（至多 +{aspdMax}），附加的脆弱 +{frag}%（至多 +{fragMax}%）', {
-          aspd: param(bb.attack_speed_per_stack, 1),
-          aspdMax: Number.isFinite(aspdMax) ? aspdMax : '∞',
-          frag: round1(param(bb.damage_scale_per_stack, 0.001) * 100),
-          fragMax: Number.isFinite(fragMax) ? round1((fragMax - 1) * 100) : '∞',
-        }),
-        dur ? t('脆弱持续 {sec} 秒', { sec: Number(dur[1]) }) : null,
+        '自动攻击射程内的一名敌人，造成法术伤害，命中的敌人附加脆弱',
+        `按当前层数最高的盟约计算：每 1 层，攻击速度 +${(param(bb.attack_speed_per_stack, 1)) ?? ''}（至多 +${(Number.isFinite(aspdMax) ? aspdMax : '∞') ?? ''}），附加的脆弱 +${(round1(param(bb.damage_scale_per_stack, 0.001) * 100)) ?? ''}%（至多 +${(Number.isFinite(fragMax) ? round1((fragMax - 1) * 100) : '∞') ?? ''}%）`,
+        dur ? `脆弱持续 ${Number(dur[1])} 秒` : null,
       ];
     },
     stats: (st, d) => {
       const s = isObj(d.stats) ? d.stats : {};
-      const out = [{ k: t('生命上限'), v: param(s.maxHp, 100) }];
-      if (param(s.atk, 0)) out.push({ k: t('攻击'), v: param(s.atk, 0) });
-      if (param(s.def, 0)) out.push({ k: t('防御'), v: param(s.def, 0) });
+      const out = [{ k: '生命上限', v: param(s.maxHp, 100) }];
+      if (param(s.atk, 0)) out.push({ k: '攻击', v: param(s.atk, 0) });
+      if (param(s.def, 0)) out.push({ k: '防御', v: param(s.def, 0) });
       const sec = param(s.bat, 0) > 0 ? param(s.bat, 0) * 100 / (param(s.aspd, 100) > 0 ? param(s.aspd, 100) : 100) : 0;
-      if (sec) out.push({ k: t('攻击间隔'), v: `${round1(sec)}s` });
+      if (sec) out.push({ k: '攻击间隔', v: `${round1(sec)}s` });
       return out;
     },
-    facts: () => [t(BUILDABILITY.NONE)],
+    facts: () => [(BUILDABILITY.NONE)],
   },
   platform: {
     lines: () => [
-      t('高台位装置：地面敌人不能走上这一格'),
-      t('远程位干员可以部署在其上；站上去的干员在高位，不阻挡敌人'),
+      '高台位装置：地面敌人不能走上这一格',
+      '远程位干员可以部署在其上；站上去的干员在高位，不阻挡敌人',
     ],
-    facts: () => [t(BUILDABILITY.RANGED)],          // board.js: an active platform makes its tile a 'ranged' deploy tile
+    facts: () => [(BUILDABILITY.RANGED)],          // board.js: an active platform makes its tile a 'ranged' deploy tile
   },
   blower: {
     lines: (st, d) => {
@@ -194,22 +185,22 @@ const DEVICE_TIPS = Object.freeze({
       const bb = isObj(d.skill?.bb) ? d.skill.bb : (isObj(st?.blower?.bb) ? st.blower.bb : {});
       const dir = DIR_NAME[String(d.dir || 'UP').toUpperCase()] || DIR_NAME.UP;
       const lane = Array.isArray(d.rangeTiles) && d.rangeTiles.length > 1 ? d.rangeTiles.length - 1 : 3;
-      const out = [t('向前方 {n} 格吹出气流（这一台朝{dir}）', { n: lane, dir: t(dir) })];
+      const out = [`向前方 ${(lane) ?? ''} 格吹出气流（这一台朝${(dir) ?? ''}）`];
       const eq = param(bb['blower_s_character[equal].atk'], 0);
       const op = param(bb['blower_s_character[opposite].atk'], 0);
       const mods = [];
-      if (eq) mods.push(t('朝向与风向相同的攻击力 {v}', { v: pctText(eq) }));
-      if (op) mods.push(t('相反的 {v}', { v: pctText(op) }));
-      if (mods.length) out.push(t('部署在气流里的干员：{mods}', { mods }));
+      if (eq) mods.push(`朝向与风向相同的攻击力 ${(pctText(eq)) ?? ''}`);
+      if (op) mods.push(`相反的 ${(pctText(op)) ?? ''}`);
+      if (mods.length) out.push(`部署在气流里的干员：${mods.filter((s) => s !== '').join('、')}`);
       const eqM = param(bb['blower_s_enemy[equal].move_speed'], 0);
       const opM = param(bb['blower_s_enemy[opposite].move_speed'], 0);
       const em = [];
-      if (eqM) em.push(t('顺风移动速度 ×{v}', { v: round2(1 + eqM) }));
-      if (opM) em.push(t('逆风 ×{v}', { v: round2(1 + opM) }));
-      if (em.length) out.push(t('在气流里移动的敌人：{mods}', { mods: em }));
+      if (eqM) em.push(`顺风移动速度 ×${(round2(1 + eqM)) ?? ''}`);
+      if (opM) em.push(`逆风 ×${(round2(1 + opM)) ?? ''}`);
+      if (em.length) out.push(`在气流里移动的敌人：${em.filter((s) => s !== '').join('、')}`);
       return out;
     },
-    facts: () => [t(BUILDABILITY.NONE)],
+    facts: () => [(BUILDABILITY.NONE)],
   },
 });
 const round2 = (v) => Math.round(v * 100) / 100;
@@ -224,7 +215,7 @@ function deviceCard(stage, d, row, col) {
   const stats = typeof tip.stats === 'function' ? tip.stats(stage.special, d) : null;
   const name = typeof d.name === 'string' && d.name ? d.name : String(d.role);
   return {
-    key: d.role, name, tag: t(TIP_TAG), row, col, lines, facts: tip.facts(stage.special, d).filter(Boolean),
+    key: d.role, name, tag: (TIP_TAG), row, col, lines, facts: tip.facts(stage.special, d).filter(Boolean),
     ...(stats && stats.length ? { stats } : {}),
   };
 }
@@ -235,7 +226,7 @@ function deviceCard(stage, d, row, col) {
  * switches it on, a crate such a card removed) — falls through to `terrainInfo`. Visibility mirrors what the renderers draw
  * (`render/tiles.js _stageDevices`, `board3d/layout.js stageDevices`): `active` when set, else not `hidden`. The stage is
  * the shown field's (already the player's own `effectiveStage`, so a card-removed crate is not in the way). The device's
- * name is its data text (localized by the data overlay); the lines are in the current language (t()).
+ * name is its data text; the lines are Chinese literals.
  * @param {{ devices?: any[], special?: any, rows?: string[], tiles?: Record<string, any> } | null | undefined} stage
  * @param {number} row board row (row 0 = the bottom row, DESIGN §1)
  * @param {number} col

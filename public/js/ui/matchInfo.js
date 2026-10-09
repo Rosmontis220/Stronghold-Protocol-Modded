@@ -22,7 +22,6 @@ import { UnitThumb } from './gameComponents.js';
 import { bannedPerBond, disabledBondSets, briefingBondTip, diyBannedPieces } from './gameLogic.js';
 import { bondIconUrl } from './assetUrls.js';
 import { data } from '../data.js';
-import { t, dn } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -65,8 +64,8 @@ export function matchInfoModel(pub, { bonds = [], chess = () => null, mode = nul
 export function DiyBannedLine({ model, class: cls = 'brief-banned__diy' }) {
   const list = model?.diyBanned || [];
   if (!list.length) return null;
-  return html`<p class=${cls} data-testid="diy-banned"><span class="diybanned__tag">${t('自选')}</span>
-    ${t('{names}的盟约本局全部禁用，不会出现在你的商店', { names: list.map((x) => dn(x.name)) })}</p>`;
+  return html`<p class=${cls} data-testid="diy-banned"><span class="diybanned__tag">${'自选'}</span>
+    ${`${list.map((x) => (x.name)).filter((s) => s !== '').join('、')}的盟约本局全部禁用，不会出现在你的商店`}</p>`;
 }
 
 /**
@@ -101,7 +100,7 @@ export function MatchBondRow({ title, micro, bonds, model }) {
  * @param {{ model: MatchInfoModel }} props
  */
 export function MatchLegend({ model }) {
-  return html`<p class="brief-legend"><span class="brief-legend__off"></span>${t('灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活）')}${model.sets.off.size ? t('，或本模式禁用') : ''} · <span class="brief-legend__ban"><${Icon} name="user" /></span>${t('该盟约中无法出现的干员数')}</p>`;
+  return html`<p class="brief-legend"><span class="brief-legend__off"></span>${'灰色：部分盟约所含干员阵容不完整（仍可通过其他盟约的干员或装备激活）'}${model.sets.off.size ? '，或本模式禁用' : ''} · <span class="brief-legend__ban"><${Icon} name="user" /></span>${'该盟约中无法出现的干员数'}</p>`;
 }
 
 /**
@@ -111,10 +110,10 @@ export function MatchLegend({ model }) {
 export function BannedOperators({ model }) {
   const { banned } = model;
   return html`<div class="brief-banned">
-    <h3 class="brief-h"><span>${t('本局禁用干员')}</span><${MicroLabel}>BANNED OPERATORS</${MicroLabel}><b class="num brief-banned__n">${banned.length}</b></h3>
+    <h3 class="brief-h"><span>${'本局禁用干员'}</span><${MicroLabel}>BANNED OPERATORS</${MicroLabel}><b class="num brief-banned__n">${banned.length}</b></h3>
     ${banned.length ? html`<div class="brief-banned__grid">
       ${banned.map((id) => html`<${UnitThumb} key=${id} kind="chess" id=${id} size="sm" dim=${true} />`)}
-    </div>` : html`<p class="t-dim">${t('本局没有禁用干员')}</p>`}
+    </div>` : html`<p class="t-dim">${'本局没有禁用干员'}</p>`}
     <${DiyBannedLine} model=${model} />
   </div>`;
 }
@@ -124,8 +123,8 @@ export function BannedOperators({ model }) {
  * @param {{ model: MatchInfoModel }} props
  */
 export function MatchInfo({ model }) {
-  return html`<${MatchBondRow} title=${t('核心盟约')} micro="CORE BONDS" bonds=${model.core} model=${model} />
-    <${MatchBondRow} title=${t('附加盟约')} micro="ADD-ON BONDS" bonds=${model.addon} model=${model} />
+  return html`<${MatchBondRow} title=${'核心盟约'} micro="CORE BONDS" bonds=${model.core} model=${model} />
+    <${MatchBondRow} title=${'附加盟约'} micro="ADD-ON BONDS" bonds=${model.addon} model=${model} />
     <${MatchLegend} model=${model} />
     <${BannedOperators} model=${model} />`;
 }
@@ -136,9 +135,9 @@ export function MatchInfo({ model }) {
  * @param {{ open: boolean, onClose: Function, model: MatchInfoModel|null, status?: any }} props
  */
 export function MatchInfoDialog({ open, onClose, model, status = null }) {
-  return html`<${Modal} open=${open && !!model} onClose=${onClose} title=${t('本局信息')} micro="MATCH INFO // BONDS & BANNED OPERATORS" class="minfo-dlg"
+  return html`<${Modal} open=${open && !!model} onClose=${onClose} title=${'本局信息'} micro="MATCH INFO // BONDS & BANNED OPERATORS" class="minfo-dlg"
     actions=${html`${status ? html`<div class="minfo-dlg__status" data-testid="match-info-status">${status}</div>` : null}
-      <${Button} variant="secondary" icon="close" data-autofocus data-testid="match-info-close" onClick=${onClose}>${t('关闭')}<//>`}>
+      <${Button} variant="secondary" icon="close" data-autofocus data-testid="match-info-close" onClick=${onClose}>${'关闭'}<//>`}>
     ${open && model ? html`<${MatchInfo} model=${model} />` : null}
   <//>`;
 }

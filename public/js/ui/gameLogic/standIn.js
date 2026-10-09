@@ -17,7 +17,6 @@ import { standInRecord } from '../../../../shared/standIn.js';
 import { resolveLoadout } from '../../../../shared/protocol.js';
 import { chessLoadout } from './loadout.js';
 import { isObj } from './shared.js';
-import { t } from '../../../../shared/i18n.js';
 
 /** Base chess ids the player fields as stand-ins in this match (m.private.standIns; [] when absent). */
 export function standInIds(priv) {
@@ -145,15 +144,15 @@ export function deployedModuleId(chess, priv, getChess, backups) {
 
 /** The small 「替补」 mark of a stand-in record (null without one): cards, the own pieces' tags, thumbnails. */
 export function standInLabel(rec) {
-  return isObj(rec) && rec.standInFor ? t('替补') : null;
+  return isObj(rec) && rec.standInFor ? '替补' : null;
 }
 
 /** The replaced operator's line of a stand-in's detail card: 「银灰的替补」 (`chessName` = the chess's own name). */
 export function standInForText(chessName) {
-  return t('{name}的替补', { name: chessName || '' });
+  return `${(chessName || '') ?? ''}的替补`;
 }
 
 /** The 「替补」 mark's title: which chess the stand-in fields for, and what stays the chess's ('' without a stand-in). */
 export function standInTip(rec, chessName) {
-  return isObj(rec) && rec.standInFor ? t('未持有{name}：由替补干员 {standIn} 上场（盟约、特质、阶级与价格不变）', { name: chessName || '', standIn: rec.name || '' }) : '';
+  return isObj(rec) && rec.standInFor ? `未持有${(chessName || '') ?? ''}：由替补干员 ${(rec.name || '') ?? ''} 上场（盟约、特质、阶级与价格不变）` : '';
 }

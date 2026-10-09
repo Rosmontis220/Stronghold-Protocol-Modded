@@ -25,7 +25,6 @@ import { html } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { data, useData, localAsset, artUrls, nextArtUrl } from '../data.js';
 import { loadPref, savePref } from '../store.js';
-import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -197,7 +196,7 @@ export function EmoteBubble({ id, class: cls, ttl = EMOTE_BUBBLE_MS, at }) {
   const e = emoteInfo(id);
   const style = [`--ebubble-ttl:${life}ms`, age && `--ebubble-age:${Math.round(age)}ms`, bg && `--ebubble-bg:url("${bg}")`].filter(Boolean).join(';');
   return html`<div class=${cx('ebubble', bg && 'has-sprite', cls)} style=${style} role="img"
-    aria-label=${e ? t(e.label) : t('表情')} data-emote=${e ? e.id : ''}>
+    aria-label=${e ? (e.label) : '表情'} data-emote=${e ? e.id : ''}>
     <span class="ebubble__icon"><${EmoteArt} id=${id} /></span>
   </div>`;
 }
@@ -311,24 +310,24 @@ export function EmoteWheel({ onSend, open, onToggle, disabled = false, cooldownM
     <button type="button" class=${cx('ewheel__btn', btnSprite && 'has-sprite', open && 'is-on', cooling && 'is-cooling')}
       style=${btnSprite ? `--ewheel-btn:url("${btnSprite}")` : ''} onClick=${() => onToggle(!open)}
       aria-expanded=${open ? 'true' : 'false'} aria-haspopup="dialog" disabled=${disabled || cooling}>
-      ${btnSprite ? null : html`<${GIcon} name="emote" />`}<span class="ewheel__label">${t('交流')}</span>
+      ${btnSprite ? null : html`<${GIcon} name="emote" />`}<span class="ewheel__label">${'交流'}</span>
     </button>
-    ${open ? html`<div class=${cx('ewheel__panel', panelBg && 'has-sprite', cellBg && 'has-cell')} style=${panelStyle} role="dialog" aria-label=${t('交流')}>
+    ${open ? html`<div class=${cx('ewheel__panel', panelBg && 'has-sprite', cellBg && 'has-cell')} style=${panelStyle} role="dialog" aria-label=${'交流'}>
       <div class="ewheel__viewport" onPointerDown=${onPointerDown} onPointerMove=${onPointerMove}
         onPointerUp=${(e) => endDrag(e, false)} onPointerCancel=${(e) => endDrag(e, true)} onWheel=${onWheel}>
         <div key=${theme.themeId} class=${cx('ewheel__page', dir > 0 && 'is-from-right', dir < 0 && 'is-from-left', dx !== 0 && 'is-dragging')}
-          style=${dx ? `transform:translateX(${dx}px)` : ''} role="group" aria-label=${t(theme.name)} data-theme=${theme.themeId}>
-          ${theme.emotes.map((e) => html`<button key=${e.id} type="button" class="ewheel__item" data-emote=${e.id} aria-label=${t(e.label)}
+          style=${dx ? `transform:translateX(${dx}px)` : ''} role="group" aria-label=${(theme.name)} data-theme=${theme.themeId}>
+          ${theme.emotes.map((e) => html`<button key=${e.id} type="button" class="ewheel__item" data-emote=${e.id} aria-label=${(e.label)}
               disabled=${cooling || disabled} onClick=${() => send(e.id)}>
             <${EmoteArt} id=${e.id} />
           </button>`)}
         </div>
       </div>
-      <button type="button" class="ewheel__nav is-prev" aria-label=${t('上一组表情')} disabled=${page <= 0} onClick=${() => go(page - 1)}><${GIcon} name="chevronLeft" /></button>
-      <button type="button" class="ewheel__nav is-next" aria-label=${t('下一组表情')} disabled=${page >= EMOTE_THEMES.length - 1} onClick=${() => go(page + 1)}><${GIcon} name="chevronRight" /></button>
-      <div class="ewheel__dots" role="tablist" aria-label=${t('表情主题')}>
+      <button type="button" class="ewheel__nav is-prev" aria-label=${'上一组表情'} disabled=${page <= 0} onClick=${() => go(page - 1)}><${GIcon} name="chevronLeft" /></button>
+      <button type="button" class="ewheel__nav is-next" aria-label=${'下一组表情'} disabled=${page >= EMOTE_THEMES.length - 1} onClick=${() => go(page + 1)}><${GIcon} name="chevronRight" /></button>
+      <div class="ewheel__dots" role="tablist" aria-label=${'表情主题'}>
         ${EMOTE_THEMES.map((th, i) => html`<button key=${th.themeId} type="button" role="tab" class=${cx('ewheel__dot', i === page && 'is-on')}
-          aria-selected=${i === page ? 'true' : 'false'} aria-label=${`${t(th.name)} ${i + 1}/${EMOTE_THEMES.length}`} onClick=${() => go(i)}></button>`)}
+          aria-selected=${i === page ? 'true' : 'false'} aria-label=${`${(th.name)} ${i + 1}/${EMOTE_THEMES.length}`} onClick=${() => go(i)}></button>`)}
       </div>
     </div>` : null}
   </div>`;

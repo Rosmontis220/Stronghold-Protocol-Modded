@@ -19,8 +19,6 @@
 // assumed 1).
 // Latched state lives in player counters (prefix `bondaddon:`); onPrice only reads them (pure).
 
-import { msg, dn } from '../../../../../shared/i18n.js';
-
 const C_VISI_PAID = 'bondaddon:visi:paid';
 const C_VISI_DISC = 'bondaddon:visi:disc';
 const C_MIRA_PAID = 'bondaddon:mira:paid';
@@ -52,10 +50,10 @@ function settleCoins(ctx, bondId, counterKey, label) {
   const gain = (due - paid) * count;
   if (prepEnded(ctx)) {
     ctx.addPendingFunds(gain);
-    ctx.toast(msg('【{label}】层数达成，下回合开始时获得{gain}资金', { label: dn(label), gain }), 'info');
+    ctx.toast(`【${(label) ?? ''}】层数达成，下回合开始时获得${(gain) ?? ''}资金`, 'info');
   } else {
     ctx.addFunds(gain, `bond:${bondId}`);
-    ctx.toast(msg('【{label}】层数达成，获得{gain}资金', { label: dn(label), gain }), 'info');
+    ctx.toast(`【${(label) ?? ''}】层数达成，获得${(gain) ?? ''}资金`, 'info');
   }
   return gain;
 }

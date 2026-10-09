@@ -55,5 +55,5 @@ test('the panel wires both guards and keeps 「前往查看」', () => {
   assert.ok(SRC.includes('onDblClick=${(e) => dblClick(e, p, self)}'));
   assert.ok(SRC.includes('prepDblClickWatches('));
   assert.ok(SRC.includes('teammateClickWatches('));
-  assert.ok(SRC.includes("${t('前往查看')}"));
+  assert.ok(SRC.includes("${'前往查看'}"));
 });

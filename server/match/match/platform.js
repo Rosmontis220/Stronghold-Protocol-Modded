@@ -9,7 +9,6 @@ import { PHASE, ERR } from '../../../shared/constants.js';
 import { syntheticResult } from '../fields.js';
 import { bossPoolHp } from '../finalAssault.js';
 import { FLOW_TICKER_PRIORITY, OK, fail } from './common.js';
-import { msg } from '../../../shared/i18n.js';
 
 const GAME_TYPES = new Set(Object.keys(C2S).filter((t) => Object.hasOwn(C2S, t) && (t.startsWith('g.') || t.startsWith('b.'))));
 
@@ -200,7 +199,7 @@ export class MatchPlatform {
       this.bossPool.rescale(bossPoolHp(this.gd, bossId, this.alivePlayers().length));
       this._broadcastPool(true);
     }
-    this.tickerText(msg('{name}博士中途退出了模拟', { name: ps.name }), FLOW_TICKER_PRIORITY);
+    this.tickerText(`${(ps.name) ?? ''}博士中途退出了模拟`, FLOW_TICKER_PRIORITY);
     if (this.bossWaves && (phase === PHASE.ROUND_START || phase === PHASE.SP_DRAFT || phase === PHASE.PREP)) {
       // before the boss fight: pair the players left again (the prep preview shows the new partner / template); a
       // player moved to the other half re-checks its board there at once (recompute → deployMap, marks it private)

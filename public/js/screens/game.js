@@ -118,7 +118,7 @@ import { HUD_HZ_MS, MERGE_HL, SEL_RANGE, cx } from './game/marks.js';
 import { keepEarly, audioEarly } from './game/early.js';
 import { MatchEnded, PausedOverlay } from './game/overlays.js';
 import { inspectRange } from './game/range.js';
-import { t, tParts } from '../../../shared/i18n.js';
+
 const voiceKey = (piece, gd) => {
   const id = typeof piece === 'string' ? piece : piece?.defId || piece?.chessId || piece?.id;
   return id?.startsWith('char_') ? id : gd?.chess?.(id)?.charId || null;
@@ -135,7 +135,7 @@ export function GameScreen() {
   if (!pub || !gd.ready) {
     return html`<div class="screen gload">
       <${Spinner} size="lg" label=${pub ? 'LOADING DATA' : 'ENTERING SIMULATION'} />
-      <p class="t-lo">${pub ? t('正在载入模拟数据…') : t('正在进入模拟…')}</p>
+      <p class="t-lo">${pub ? '正在载入模拟数据…' : '正在进入模拟…'}</p>
     </div>`;
   }
   const mode = phaseMode(pub.phase);
@@ -629,7 +629,7 @@ function MatchScreen() {
     let asked = null;
     try { asked = new URLSearchParams(globalThis.location?.search || '').get('render'); } catch { asked = null; }
     if (asked === 'fallback' || globalThis.__SP_RENDER__ === 'fallback') return;
-    toast(t('当前设备无法启用 3D / WebGL 渲染，已切换为简化视图（功能不受影响）'), 'info', { ttl: 5000 });
+    toast('当前设备无法启用 3D / WebGL 渲染，已切换为简化视图（功能不受影响）', 'info', { ttl: 5000 });
   }, [viewKind]);
 
   // phase changes: banners, sounds, resets
@@ -779,9 +779,9 @@ function MatchScreen() {
     const closeIt = () => { setDetail((d) => (d?.kind === 'piece' && d.uid === piece.uid ? null : d)); setSel((x) => (x && x.uid === piece.uid ? null : x)); };
     if (piece.kind === 'item') {
       // an equipped item is locked (the server refuses g.destroy): replacing it is the equip-replace dialog's job
-      if (!itemDestroyable(live.current.placeCtx, piece.uid)) { toast(t('已配发的装备无法销毁'), 'warn'); audio.sfx('error', { volume: 0.5 }); return false; }
+      if (!itemDestroyable(live.current.placeCtx, piece.uid)) { toast('已配发的装备无法销毁', 'warn'); audio.sfx('error', { volume: 0.5 }); return false; }
       const it = data.lookup('items', piece.id);
-      const ok = await confirmDialog({ title: t('销毁道具'), text: t('道具无法出售。确定要销毁「{name}」吗？', { name: it?.name || t('道具') }), okText: t('销毁'), danger: true });
+      const ok = await confirmDialog({ title: '销毁道具', text: `道具无法出售。确定要销毁「${(it?.name || '道具') ?? ''}」吗？`, okText: '销毁', danger: true });
       if (ok && await actions.destroy(piece.uid)) { closeIt(); return true; }
       return false;
     }
@@ -1142,7 +1142,7 @@ function MatchScreen() {
     const L = live.current;
     const uid = L.sel?.uid;
     const to = uid != null ? retreatSlot(L.placeCtx, uid) : null;
-    if (!to) { toast(t('整备区已满'), 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
+    if (!to) { toast('整备区已满', 'warn'); audio.sfx('error', { volume: 0.5 }); return; }
     setSelBusy(true);
     if (await actions.move(uid, to)) {
       setSel(null);
@@ -1310,9 +1310,9 @@ function MatchScreen() {
   const stripFid = strip.fieldId;
   const liveLayers = (combat || settleMode) && battleState?.bondLayers ? battleState.bondLayers : null;
   // the observing pill names the player whose bonds the strip shows (the same teammate as the strip's "👁 name" tag)
-  const observingName = cc && combat && watchedFid ? (!strip.self && stripFid === watchedFid ? strip.name : (players.find((p) => p.fieldId === watchedFid || ownFieldId(p.playerId) === watchedFid)?.name || t('队友'))) : null;
+  const observingName = cc && combat && watchedFid ? (!strip.self && stripFid === watchedFid ? strip.name : (players.find((p) => p.fieldId === watchedFid || ownFieldId(p.playerId) === watchedFid)?.name || '队友')) : null;
   const watchedP = watchingOther ? (players.find((p) => p.playerId !== myId && (watching === ownFieldId(p.playerId) || (watching === p.fieldId && String(watching).startsWith('n:')))) || null) : null;
-  const watchedName = watchingOther ? (watchedP?.name || players.find((p) => watching === p.fieldId)?.name || t('队友')) : null;
+  const watchedName = watchingOther ? (watchedP?.name || players.find((p) => watching === p.fieldId)?.name || '队友') : null;
   const stripBonds = strip.bonds;
   // a popup opened from the strip closes when the strip changes hands (another teammate scouted / a ‹ › half / back to
   // the own bonds); one opened from a card's chip keeps its unit owner (it carries its own player either way)
@@ -1424,7 +1424,7 @@ function MatchScreen() {
 
       <div class="gm__bonds">
         <button type="button" class="bonds-toggle" aria-expanded=${!bondsCollapsed} aria-controls="match-bond-strip"
-          aria-label=${bondsCollapsed ? t('展开盟约') : t('收起盟约')} title=${bondsCollapsed ? t('展开盟约') : t('收起盟约')}
+          aria-label=${bondsCollapsed ? '展开盟约' : '收起盟约'} title=${bondsCollapsed ? '展开盟约' : '收起盟约'}
           onKeyDown=${(e) => {
             // Keep native Space activation here without also firing the global ready / pause shortcut.
             if (e.key === ' ') e.stopPropagation();
@@ -1447,8 +1447,8 @@ function MatchScreen() {
       <div class="gm__effects"><${EffectsList} effects=${watchingOther && field ? (field.effects ?? null) : priv?.effects} /></div>
 
       ${watchingOther && !combat ? html`<div class="gm__watching" role="status">
-        <${GIcon} name="eye" /><span>${tParts('正在查看 {name} 的阵地（只读）', { name: html`<b>${watchedName}</b>` })}</span>
-        ${spectator ? null : html`<${Button} size="sm" variant="primary" icon="back" onClick=${() => watchPlayer({ playerId: myId })}>${t('返回自己')}<//>`}
+        <${GIcon} name="eye" /><span>${['正在查看 ', html`<b>${watchedName}</b>`, ' 的阵地（只读）']}</span>
+        ${spectator ? null : html`<${Button} size="sm" variant="primary" icon="back" onClick=${() => watchPlayer({ playerId: myId })}>${'返回自己'}<//>`}
       </div>` : null}
 
       ${showShop ? html`<${ShopBar} priv=${priv} editable=${editable} collapsed=${collapsed} onCollapse=${setCollapsed}
@@ -1468,15 +1468,15 @@ function MatchScreen() {
         client=${cc ? { progress, observing: observingName ? { name: observingName } : null, onBack: alive ? backHome : null, layers, layer, onLayer: setLayer } : null} />` : null}
 
       ${showDeadPill(alive, phase) ? (spectator
-        ? html`<div class="gm__dead gm__dead--spectator" role="status"><${GIcon} name="eye" />${t('观战中 · 点击左侧成员头像切换查看')}</div>`
-        : html`<div class="gm__dead" role="status"><${Icon} name="close" />${t('你已被淘汰 · 可继续观战队友')}</div>`) : null}
+        ? html`<div class="gm__dead gm__dead--spectator" role="status"><${GIcon} name="eye" />${'观战中 · 点击左侧成员头像切换查看'}</div>`
+        : html`<div class="gm__dead" role="status"><${Icon} name="close" />${'你已被淘汰 · 可继续观战队友'}</div>`) : null}
 
       <${Ticker} />
 
       <div class="gm__corner">
         ${spectator ? null : html`<${EmoteWheel} open=${emoteOpen} onToggle=${setEmoteOpen} onSend=${(id) => actions.emote(id)} disabled=${conn.status !== 'online'} />`}
-        <button type="button" class="gm__gear" aria-label=${t('设置')} title=${t('设置')} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
-        <button type="button" class="gm__gear gm__guide" aria-label=${t('玩法说明')} title=${t('玩法说明')} onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
+        <button type="button" class="gm__gear" aria-label=${'设置'} title=${'设置'} onClick=${() => setSettingsOpen(true)}><${GIcon} name="gear" /></button>
+        <button type="button" class="gm__gear gm__guide" aria-label=${'玩法说明'} title=${'玩法说明'} onClick=${() => openGuide(0)}><${Icon} name="book" /></button>
         <${FullscreenButton} class="gm__gear gm__fs" />
       </div>
 

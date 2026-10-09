@@ -12,19 +12,18 @@ import { html, MicroLabel } from '../ui/components.js';
 import { data } from '../data.js';
 import { opsOf } from '../ui/loadoutModel.js';
 import { CULTIVATE_EFFECTS, POTENTIAL_MIN, POTENTIAL_MAX } from '../../../shared/potential.js';
-import { t, N_ } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const POTENTIALS = Array.from({ length: POTENTIAL_MAX - POTENTIAL_MIN + 1 }, (_, i) => POTENTIAL_MIN + i);
 const TIERS = CULTIVATE_EFFECTS.map((_, i) => i);
-/** Names while effects.json is not loaded (msgids; the data's own names win). */
-const FALLBACK_NAMES = Object.freeze([N_('未精英化'), N_('精英阶段1'), N_('精英阶段2'), N_('精英阶段2-60级')]);
+/** Names while effects.json is not loaded (the data's own names win). */
+const FALLBACK_NAMES = Object.freeze(['未精英化', '精英阶段1', '精英阶段2', '精英阶段2-60级']);
 /** The short names a row's select shows (the full official name is its title and the detail's). */
-const SHORT_NAMES = Object.freeze([N_('未精英化'), N_('精英1'), N_('精英2'), N_('精英2 Lv.60')]);
+const SHORT_NAMES = Object.freeze(['未精英化', '精英1', '精英2', '精英2 Lv.60']);
 
 /** The official name of 练度 tier `n` (effects.json `name`, localized), else its fallback. */
 export function cultivateName(n) {
-  return data.lookup('effects', CULTIVATE_EFFECTS[n])?.name || t(FALLBACK_NAMES[n] || '');
+  return data.lookup('effects', CULTIVATE_EFFECTS[n])?.name || (FALLBACK_NAMES[n] || '');
 }
 
 /** The official effect text of 练度 tier `n` (effects.json `desc`: 「攻击力、防御力和最大生命值+10%」 …), or ''. */
@@ -44,15 +43,15 @@ export function CultivationSelects({ charId, ops, onSet, note = null }) {
   // a setting off the default stands out (mint); the default stays quiet — it is the same on every row
   return html`<span class=${cx('lo-cult', cur.changed && 'is-changed', note && 'is-moot')} data-char=${charId} title=${note || undefined}>
     <span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__pot', cur.potential !== 6 && 'is-off')}>
-      <select value=${String(cur.potential)} aria-label=${t('潜能')} data-cult="potential"
+      <select value=${String(cur.potential)} aria-label=${'潜能'} data-cult="potential"
         onChange=${(e) => set({ potential: Number(e.currentTarget.value) })}>
-        ${POTENTIALS.map((n) => html`<option key=${n} value=${String(n)}>${t('潜能 {n}', { n })}</option>`)}
+        ${POTENTIALS.map((n) => html`<option key=${n} value=${String(n)}>${`潜能 ${(n) ?? ''}`}</option>`)}
       </select>
     </span>
     <span class=${cx('lo-select', 'lo-cult__sel', 'lo-cult__tier', cur.cultivate !== TIERS.length - 1 && 'is-off')} title=${note ? undefined : cultivateName(cur.cultivate)}>
-      <select value=${String(cur.cultivate)} aria-label=${t('练度')} data-cult="cultivate"
+      <select value=${String(cur.cultivate)} aria-label=${'练度'} data-cult="cultivate"
         onChange=${(e) => set({ cultivate: Number(e.currentTarget.value) })}>
-        ${TIERS.map((n) => html`<option key=${n} value=${String(n)}>${t(SHORT_NAMES[n])}</option>`)}
+        ${TIERS.map((n) => html`<option key=${n} value=${String(n)}>${(SHORT_NAMES[n])}</option>`)}
       </select>
     </span>
   </span>`;
@@ -67,28 +66,28 @@ export function CultivationSection({ charId, ops, onSet, standIn = false }) {
   if (!charId) return null;
   const cur = opsOf(ops, charId);
   const set = (patch) => onSet(charId, patch);
-  return html`<section class=${cx('lo-sec', 'lo-sec--cult', standIn && 'is-moot')} aria-label=${t('潜能与练度')} data-char=${charId}>
+  return html`<section class=${cx('lo-sec', 'lo-sec--cult', standIn && 'is-moot')} aria-label=${'潜能与练度'} data-char=${charId}>
     <header class="lo-sec__head">
-      <h3>${t('潜能与练度')}<${MicroLabel}>POTENTIAL<//></h3>
-      ${cur.changed ? html`<span class="lo-badge lo-badge--changed">${t('已调整')}</span>` : html`<span class="lo-badge lo-badge--plain">${t('满潜能 · 精英2 Lv.60')}</span>`}
+      <h3>${'潜能与练度'}<${MicroLabel}>POTENTIAL<//></h3>
+      ${cur.changed ? html`<span class="lo-badge lo-badge--changed">${'已调整'}</span>` : html`<span class="lo-badge lo-badge--plain">${'满潜能 · 精英2 Lv.60'}</span>`}
     </header>
     <div class="lo-cult__row">
-      <span class="lo-cult__k">${t('潜能')}</span>
-      <div class="lo-seg lo-seg--pot" role="radiogroup" aria-label=${t('潜能')}>
+      <span class="lo-cult__k">${'潜能'}</span>
+      <div class="lo-seg lo-seg--pot" role="radiogroup" aria-label=${'潜能'}>
         ${POTENTIALS.map((n) => html`<button key=${n} type="button" role="radio" aria-checked=${cur.potential === n ? 'true' : 'false'}
           class=${cx(cur.potential === n && 'is-on')} data-potential=${n} onClick=${() => set({ potential: n })}><span class="num">${n}</span></button>`)}
       </div>
     </div>
     <div class="lo-cult__row">
-      <span class="lo-cult__k">${t('练度')}</span>
-      <div class="lo-seg lo-seg--tier" role="radiogroup" aria-label=${t('练度')}>
+      <span class="lo-cult__k">${'练度'}</span>
+      <div class="lo-seg lo-seg--tier" role="radiogroup" aria-label=${'练度'}>
         ${TIERS.map((n) => html`<button key=${n} type="button" role="radio" aria-checked=${cur.cultivate === n ? 'true' : 'false'}
           class=${cx(cur.cultivate === n && 'is-on')} data-cultivate=${n} onClick=${() => set({ cultivate: n })}>${cultivateName(n)}</button>`)}
       </div>
     </div>
     <p class="lo-cult__eff" data-cultivate=${cur.cultivate}><b>${cultivateName(cur.cultivate)}</b> <span>${cultivateDesc(cur.cultivate)}</span></p>
     <p class="lo-cult__note">${standIn
-      ? t('干员持有中标记为未持有：替补干员没有潜能与练度；这里的设置在改回「持有」后生效')
-      : t('默认满潜能、精英2 Lv.60（满加成）。官方的潜能取你自己的潜能，练度是自持有加成（已持有的同名干员的养成，攻击 / 防御 / 生命单独乘算）；未持有的特许干员在官方按潜能1、没有加成，要照官方打请手动设为潜能1、未精英化。')}</p>
+      ? '干员持有中标记为未持有：替补干员没有潜能与练度；这里的设置在改回「持有」后生效'
+      : '默认满潜能、精英2 Lv.60（满加成）。官方的潜能取你自己的潜能，练度是自持有加成（已持有的同名干员的养成，攻击 / 防御 / 生命单独乘算）；未持有的特许干员在官方按潜能1、没有加成，要照官方打请手动设为潜能1、未精英化。'}</p>
   </section>`;
 }

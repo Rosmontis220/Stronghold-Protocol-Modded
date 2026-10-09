@@ -27,7 +27,6 @@ import { EmoteBubble } from './emotes.js';
 import { STATUS_META, poolGroupSections, teamFrameIds } from './gameLogic.js';
 import { MissTag, uniteRemaining } from './hud.js';
 import { localAsset } from '../data.js';
-import { t } from '../../../shared/i18n.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
@@ -105,9 +104,9 @@ const AVATAR_CLICK_GAP_MS = 500;
  */
 export function rowLpTip(lp, cap = 10) {
   if (!lp || !(lp.pending > 0)) return null;
-  if (lp.unite && lp.left != null) return t('目标生命值 {lp}，联防中：漏过的敌人还剩 {left} 个，按现在结算扣除 {pending} 点（每回合至多 {cap} 点）', { lp: lp.lp, left: lp.left, pending: lp.pending, cap });
-  return lp.unite ? t('目标生命值 {lp}，联防中，结算时扣除至多 {pending} 点', { lp: lp.lp, pending: lp.pending })
-    : t('目标生命值 {lp}，结算时扣除 {pending} 点', { lp: lp.lp, pending: lp.pending });
+  if (lp.unite && lp.left != null) return `目标生命值 ${(lp.lp) ?? ''}，联防中：漏过的敌人还剩 ${(lp.left) ?? ''} 个，按现在结算扣除 ${(lp.pending) ?? ''} 点（每回合至多 ${(cap) ?? ''} 点）`;
+  return lp.unite ? `目标生命值 ${(lp.lp) ?? ''}，联防中，结算时扣除至多 ${(lp.pending) ?? ''} 点`
+    : `目标生命值 ${(lp.lp) ?? ''}，结算时扣除 ${(lp.pending) ?? ''} 点`;
 }
 
 /**
@@ -169,11 +168,11 @@ export function TeamPanel({ pub, myId, watching, bubbles, emotes = [], emoteNow 
     noteAsked(p);
     onWatch(p);
   };
-  return html`<aside class=${cx('team', compact && 'team--compact', many && 'team--many', grouped && 'team--grouped')} aria-label=${t('同盟成员')}>
+  return html`<aside class=${cx('team', compact && 'team--compact', many && 'team--many', grouped && 'team--grouped')} aria-label=${'同盟成员'}>
     <div class="team__list">
     ${sections.map(({ group, players: members }) => html`<div key=${members[0].playerId}
       class=${cx('team__section', group && 'team__pool-group')} style=${group ? `--pool-group-color:${group.color}` : undefined}
-      role=${group ? 'group' : undefined} aria-label=${group ? t('{group}组 · 同组共享卡池', { group: group.label }) : undefined}>
+      role=${group ? 'group' : undefined} aria-label=${group ? `${(group.label) ?? ''}组 · 同组共享卡池` : undefined}>
     ${members.map((p) => {
       const self = p.playerId === myId;
       const status = p.alive === false ? 'dead' : p.status;
@@ -183,11 +182,11 @@ export function TeamPanel({ pub, myId, watching, bubbles, emotes = [], emoteNow 
       const offline = p.connected === false && !p.isBot;
       const open = !!observe && openPid === p.playerId && !self;
       const back = !!observe && self && observe.observing;
-      const title = observe ? (self ? (observe.observing ? t('返回战场') : t('你自己')) : t('查看 {name} 的战场', { name: p.name })) : (self ? t('查看自己的阵地') : t('查看 {name} 的阵地', { name: p.name }));
+      const title = observe ? (self ? (observe.observing ? '返回战场' : '你自己') : `查看 ${(p.name) ?? ''} 的战场`) : (self ? '查看自己的阵地' : `查看 ${(p.name) ?? ''} 的阵地`);
       const lp = rowLp(p, pub, self ? selfLive : null, { uniteLocal, cap });
       const inTeam = team.has(p.playerId);
-      const groupTip = group ? t('{group}组 · 同组共享卡池', { group: group.label }) : null;
-      const avatarTitle = [title, inTeam && !self && t('与你在同一战场'), groupTip].filter(Boolean).join(' · ');
+      const groupTip = group ? `${(group.label) ?? ''}组 · 同组共享卡池` : null;
+      const avatarTitle = [title, inTeam && !self && '与你在同一战场', groupTip].filter(Boolean).join(' · ');
       return html`<div key=${p.playerId} class=${cx('team__row', self && 'is-self', inTeam && 'is-team', watched && 'is-watched', p.alive === false && 'is-dead', open && 'is-open')}>
         <button type="button" class="team__btn" onClick=${() => click(p, self)} onDblClick=${(e) => dblClick(e, p, self)} title=${avatarTitle} aria-label=${avatarTitle} aria-expanded=${observe && !self ? String(open) : undefined}>
           <${PlayerAvatar} player=${p} self=${self} />
@@ -198,36 +197,36 @@ export function TeamPanel({ pub, myId, watching, bubbles, emotes = [], emoteNow 
           ${self ? html`<span class="team__you"><${Icon} name="user" /></span>` : null}
         </button>
         <div class="team__info">
-          <span class="team__name">${p.name || t('博士')}</span>
+          <span class="team__name">${p.name || '博士'}</span>
           <div class="team__line">
             <${LpTower} value=${lp.lp} size="sm" tone=${Number.isFinite(lp.lp) && lp.lp - lp.pending <= 5 ? 'danger' : null} pending=${lp.pending}
               tip=${rowLpTip(lp, cap)} />
-            ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || t('博士')} />` : null}
-            <${Tooltip} text=${offline ? t('连接已断开') : t(meta.text)} placement="right">
-              <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_lost_connect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${t(meta.text)}>
+            ${lp.left != null ? html`<${MissTag} n=${lp.left} name=${self ? null : p.name || '博士'} />` : null}
+            <${Tooltip} text=${offline ? '连接已断开' : (meta.text)} placement="right">
+              <span class=${cx('team__status', `is-${meta.tone}`, offline && 'is-offline', (offline || STATUS_SPRITE[status]) && localAsset('ui/battle', offline ? 'icon_lost_connect' : STATUS_SPRITE[status]) && 'has-sprite')} aria-label=${(meta.text)}>
                 ${offline ? html`<${LocalSprite} name="icon_lost_connect" fallback=${html`<${Icon} name="wifiOff" />`} />`
                   : STATUS_SPRITE[status] ? html`<${LocalSprite} name=${STATUS_SPRITE[status]} fallback=${html`<${GIcon} name=${meta.glyph} />`} />`
                   : html`<${GIcon} name=${meta.glyph} />`}
               </span>
             <//>
-            ${watched && !self ? html`<span class="team__eye" title=${t('正在查看')}><${GIcon} name="eye" /></span>` : null}
+            ${watched && !self ? html`<span class="team__eye" title=${'正在查看'}><${GIcon} name="eye" /></span>` : null}
           </div>
           ${open ? html`<button type="button" class="btn btn--primary btn--sm team__ob"
-            onClick=${() => { setOpenPid(null); onWatch(p); }}><span class="btn__label">${t('前往查看')}</span></button>` : null}
+            onClick=${() => { setOpenPid(null); onWatch(p); }}><span class="btn__label">${'前往查看'}</span></button>` : null}
           ${back ? html`<button type="button" class="btn btn--secondary btn--sm team__back"
-            onClick=${() => observe.onBack()}><span class="btn__label">${t('返回战场')}</span></button>` : null}
+            onClick=${() => observe.onBack()}><span class="btn__label">${'返回战场'}</span></button>` : null}
         </div>
         ${bubble ? html`<${EmoteBubble} key=${bubble.seq} id=${bubble.id} class="team__bubble" />` : null}
       </div>`;
     })}
     </div>`)}
     </div>
-    ${many && activeEmotes.length ? html`<div class="team__emote-feed" role="log" aria-live="polite" aria-label=${t('同盟表情')} ref=${feedRef}>
+    ${many && activeEmotes.length ? html`<div class="team__emote-feed" role="log" aria-live="polite" aria-label=${'同盟表情'} ref=${feedRef}>
       ${activeEmotes.map((e) => {
         const p = playersById.get(e.playerId);
-        return html`<div key=${e.seq} class="team__feed-row" aria-label=${t('{name}发送表情', { name: p.name || t('博士') })}>
+        return html`<div key=${e.seq} class="team__feed-row" aria-label=${`${(p.name || '博士') ?? ''}发送表情`}>
           <${PlayerAvatar} player=${p} size="sm" />
-          <span class="team__feed-name">${p.name || t('博士')}</span>
+          <span class="team__feed-name">${p.name || '博士'}</span>
           <span class="team__feed-bubble"><${EmoteBubble} key=${e.seq} id=${e.id} at=${e.at} /></span>
         </div>`;
       })}

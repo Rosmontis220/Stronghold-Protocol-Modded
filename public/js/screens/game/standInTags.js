@@ -9,7 +9,6 @@
 import { useEffect, useRef, useState } from '../../../vendor/hooks.module.js';
 import { html } from '../../ui/components.js';
 import { ownStandIn, standInLabel, standInTip, ownDiyRecord } from '../../ui/gameLogic.js';
-import { t } from '../../../../shared/i18n.js';
 
 const rawOf = (view) => (view && view.raw) || view || null;
 
@@ -43,7 +42,7 @@ export function diyPieces(priv, getChess, data) {
   const add = (p, area) => {
     if (!p || p.kind !== 'chess' || !Number.isInteger(p.uid)) return;
     const rec = ownDiyRecord(getChess(p.id), priv, data);
-    if (rec) out.push({ uid: p.uid, label: t('自选'), name: rec.name, area, diy: true });
+    if (rec) out.push({ uid: p.uid, label: '自选', name: rec.name, area, diy: true });
   };
   for (const p of Array.isArray(priv.hand) ? priv.hand : []) add(p, 'hand');
   for (const p of Array.isArray(priv.temp) ? priv.temp : []) add(p, 'temp');
@@ -86,7 +85,7 @@ export function StandInTags({ view, priv, getChess, backups, diyData = null }) {
     ${items.map((it) => {
       const p = pos[it.uid];
       return p ? html`<span key=${it.uid} class=${`sitag sitag--${it.area}${it.diy ? ' sitag--diy' : ''}`} data-uid=${it.uid} data-diy=${it.diy ? '1' : undefined} data-standin=${it.diy ? undefined : '1'}
-        title=${it.diy ? t('自选编队：{name}', { name: it.name }) : it.tip}
+        title=${it.diy ? `自选编队：${(it.name) ?? ''}` : it.tip}
         style=${`left:${p.x.toFixed(1)}px;top:${p.y.toFixed(1)}px`}>${it.label}</span>` : null;
     })}
   </div>`;
