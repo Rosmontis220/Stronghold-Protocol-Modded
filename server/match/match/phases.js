@@ -25,19 +25,39 @@ export class MatchPhases {
   /** A stage identity must not consume the chess/equipment uid stream. */
   nextDraftId(kind) { return `${kind}:${this.battlePrefix}:${this.round}:${++this.draftSeq}`; }
 
-  // Active manual pickers precede AI, autoplay and disconnected seats. Only pending turns are reordered.
-  manualDraftPicker(ps) { return !!ps && ps.alive && !ps.left && ps.connected && !ps.botControlled; }
+  /**
+   * 「AI 队友最后选择」 (this.aiPicksLast, GitHub #338): every human seat before every AI seat, each group in the order
+   * the draft drew (a stable partition applied AFTER the shuffle — no extra random draw: the order with the option off
+   * is unchanged, and with it on every random stream stands where it would without it; only the picks made in the new
+   * order can differ). A human is any seat that is not an AI seat (room.addBot): under AI 托管, disconnected or
+   * departed it still counts as a human. Used by the strategy draft and the 机变 draft (MatchSpDraft.enterSpDraft).
+   * @param {string[]} order playerIds in drawn order
+   * @returns {string[]}
+   */
+  humansFirst(order) {
+    if (!this.aiPicksLast) return order;
+    const bot = (pid) => !!this.players.get(pid)?.isBot;
+    return [...order.filter((pid) => !bot(pid)), ...order.filter(bot)];
+  }
 
-  /** The fixed pool membership persists; only the living, present seats have a turn in this stage. */
-  makeDraftGroups({ shuffle = true } = {}) {
+  /**
+   * A group's draft order: the fixed pool membership, shuffled once, and with 「AI 队友最后选择」 the humans-first
+   * partition of that shuffle. Nothing reorders a group after this (upstream 0.2.2 enterBandDraft / enterSpDraft): a
+   * 托管 toggle, a disconnect and a reconnect all leave the order alone, and a skip is the only thing that moves a seat.
+   * The WHOLE group keeps its place — a departed or eliminated seat is not dropped here but skipped when its turn comes
+   * (startDraftTurn), which is what makes the order the seats themselves (audit.js checks exactly that).
+   */
+  makeDraftGroups({ shuffle = true, living = false } = {}) {
     return this.poolGroups.map(({ id, playerIds }) => {
-      const order = playerIds.filter((pid) => {
-        const ps = this.players.get(pid);
-        return ps && ps.alive && !ps.left;
-      });
+      // The strategy draft draws over the whole group — upstream enterBandDraft takes `this.order`, so the order IS the
+      // seats and a departed one keeps its place to be skipped on turn. The 机变 draft draws over the group's living
+      // seats only (upstream enterSpDraft: `alivePlayers()`; audit.js checks that order length against the alive count).
+      let order = living
+        ? playerIds.filter((pid) => { const ps = this.players.get(pid); return ps && ps.alive; })
+        : playerIds.slice();
       if (shuffle) {
         if (!this.isSolo) this.rngDraft.shuffle(order);
-        this.prioritizeDraftOrder(order);
+        order = this.humansFirst(order);
       }
       return { id, playerIds: playerIds.slice(), order, idx: 0, picks: {}, untimed: this.soloUntimed,
         turnDeadline: 0, turnSeconds: 0, timer: null, token: 0, done: !order.length };
@@ -69,26 +89,21 @@ export class MatchPhases {
     this.deadline = stage.groups.length === 1 ? stage.groups[0].turnDeadline || 0 : 0;
   }
 
-  /** Stable partition after one shuffle, preserving the random order within each priority group. */
-  prioritizeDraftOrder(order, from = 0) {
-    const pending = order.slice(from);
-    const manual = [];
-    const automatic = [];
-    for (const pid of pending) (this.manualDraftPicker(this.players.get(pid)) ? manual : automatic).push(pid);
-    const next = [...manual, ...automatic];
-    if (next.every((pid, i) => pid === pending[i])) return false;
-    order.splice(from, pending.length, ...next);
-    return true;
-  }
-
+  /**
+   * A seat's state changed: 「AI 托管」 toggled, a disconnect or a reconnect (intents.js setAutoplay, platform.js). The
+   * order itself never changes here — upstream 0.2.2 fixes a group's order when the draft starts and only a skip moves a
+   * seat inside it — so there is nothing to re-partition. What is still worth doing is letting a seat that just became
+   * bot-controlled pick at once: startDraftTurn / startSpTurn schedule the bot for the seat on turn, and a turn that has
+   * already started would otherwise sit out its whole clock with an AI waiting on it.
+   */
   refreshDraftPriority(playerId = null) {
     const d = this.phase === PHASE.BAND_DRAFT ? this.draft : this.phase === PHASE.SP_DRAFT ? this.sp : null;
     if (!d) return;
     for (const g of d.groups) {
       if (g.done || (playerId != null && !g.playerIds.includes(playerId))) continue;
-      const turn = g.order[g.idx];
-      if (!this.prioritizeDraftOrder(g.order, g.idx)) continue;
-      if (turn === g.order[g.idx]) { this.markPublic(); continue; }
+      if (playerId != null && g.order[g.idx] !== playerId) continue;
+      const cur = this.players.get(g.order[g.idx]);
+      if (!cur || !cur.botControlled) continue;
       if (this.phase === PHASE.BAND_DRAFT) this.startDraftTurn(g);
       else this.startSpTurn(g);
     }
@@ -154,7 +169,8 @@ export class MatchPhases {
       if (ps && ps.alive && !ps.left && !d.picks[ps.playerId]) break;
       g.idx++;
     }
-    this.prioritizeDraftOrder(g.order, g.idx);
+    // The order is fixed for the whole draft (makeDraftGroups / upstream 0.2.2): a manual picker who reconnects or drops
+    // 托管 takes their turn where they stand, and a skip is the only thing that moves a seat inside the order.
     g.done = g.idx >= g.order.length;
     if (g.done) {
       this.syncDraftDeadline(d);
@@ -297,13 +313,20 @@ export class MatchPhases {
     if (d.picks[ps.playerId]) return fail(ERR.ALREADY);
     if (this.draftTurn(ps.playerId) !== ps.playerId) return fail(ERR.NOT_YOUR_TURN);
     if (!(g.skipsLeft[ps.playerId] > 0)) return fail(ERR.ALREADY, 'no skip left');
-    if (!g.order.slice(g.idx + 1).some((pid) => !d.picks[pid] && this.manualDraftPicker(this.players.get(pid)))) {
-      return fail(ERR.BAD_TARGET, 'no manual teammate to pass to');
-    }
+    // Upstream 0.2.2: a skip needs somebody left in the group to pass to, and the skipper goes to the END of the order.
+    // With 「AI 队友最后选择」 that is the end of the humans still to pick — behind them, ahead of the AI seats — and the
+    // very end only when no other human is left to pass to [ASSUMED: the option's intent, humans before AI kept through
+    // a skip; upstream marks this rule itself as a remake choice with no official source].
+    if (g.order.length - g.idx <= 1) return fail(ERR.BAD_TARGET, 'nobody to pass to');
     g.skipsLeft[ps.playerId]--;
     g.order.splice(g.idx, 1);
-    g.order.push(ps.playerId);
-    this.prioritizeDraftOrder(g.order, g.idx);
+    let at = g.order.length;
+    if (this.aiPicksLast) {
+      for (let j = g.order.length - 1; j >= g.idx; j--) {
+        if (!this.players.get(g.order[j])?.isBot) { at = j + 1; break; }
+      }
+    }
+    g.order.splice(at, 0, ps.playerId);
     this.startDraftTurn(g);
     return OK;
   }

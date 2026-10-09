@@ -1,19 +1,23 @@
 // server/match/match/spDraft.js — Match methods: the 机变 draft (SP_DRAFT: turn order, timers, AI picks, the card applied
-// by choices.js applyCard) and the rolls the meta effects ask for — bounties (addBounty), item ids (rollItemId) and
-// choices.json pools (rollPool).
+// by choices.js applyCard), the personal bounty choice of the Art 教鞭 (offerBountyChoice / pickPersonalChoice /
+// autoPickPersonalChoice: held by the player inside PREP — no phase, no timer of its own) and the rolls the meta effects
+// ask for — bounties (addBounty), item ids (rollItemId) and choices.json pools (rollPool).
 // Installed on Match.prototype by server/match/Match.js (a method container: never instantiated; `this` is the match).
 
 import { PHASE, ERR } from '../../../shared/constants.js';
-import { generateGroupDrafts, applyCard, bountyBattles, isMultiRoundBounty } from '../choices.js';
+import { generateGroupDrafts, applyCard, bountyBattles, isMultiRoundBounty, bountyCard } from '../choices.js';
 import { weightedPick } from '../waves.js';
 import { botPickCard } from '../bot.js';
 import { OK, fail, DELAYS } from './common.js';
 import { installDraftFacade } from './phases.js';
 
+/** Cards of the personal choice (PRTS 卫戍协议：盟约 下半 §法术 教鞭: "于3个战术特训的悬赏任务中选择一项"). */
+const PERSONAL_OFFER_SIZE = 3;
+
 export class MatchSpDraft {
   enterSpDraft() {
     if (!this.alivePlayers().length) { this.enterPrep(); return; }
-    const groups = this.makeDraftGroups({ shuffle: false });
+    const groups = this.makeDraftGroups({ shuffle: false, living: true });
     const active = groups.filter((g) => g.order.length).map((g) => ({ id: g.id, playerIds: g.order.slice() }));
     const pages = generateGroupDrafts(this.gd, this.rngDraft, this.round, active, {
       stageId: this.stageId, bondAvailable: (bondId, group) => this.bondLive(bondId, group.playerIds[0]),
@@ -23,7 +27,10 @@ export class MatchSpDraft {
       const page = pages.find((p) => p.id === g.id);
       Object.assign(g, page || { cards: [] }, { taken: {} });
       if (!this.isSolo) this.rngDraft.shuffle(g.order);
-      this.prioritizeDraftOrder(g.order);
+      // 「AI 队友最后选择」 (GitHub #338, this.aiPicksLast): every human seat before every AI seat, after the same
+      // shuffle — no extra random draw (MatchPhases.humansFirst). The order is then fixed for the whole draft: upstream
+      // 0.2.2 never re-partitions it, so a reconnect or a 托管 toggle does not move a seat.
+      g.order = this.humansFirst(g.order);
     }
     this.phase = PHASE.SP_DRAFT;
     this.sp = installDraftFacade({ ...pages[0], id: this.nextDraftId('sp'), groups, picks: {}, untimed: this.soloUntimed },
@@ -53,7 +60,8 @@ export class MatchSpDraft {
       if (ps && ps.alive && !ps.left && s.picks[ps.playerId] == null) break;
       g.idx++;
     }
-    this.prioritizeDraftOrder(g.order, g.idx);
+    // As in the strategy draft, the order is fixed for the whole draft (upstream 0.2.2 enterSpDraft): a seat keeps the
+    // place it drew, and only a skip moves it (MatchPhases.startSpTurn).
     const available = g.cards.map((c) => c.idx).filter((i) => g.taken[i] == null);
     g.done = g.idx >= g.order.length || !available.length;
     if (g.done) {
@@ -137,6 +145,58 @@ export class MatchSpDraft {
     if (this.phase !== PHASE.SP_DRAFT) return;
     for (const g of this.sp.groups) this.clearDraftGroupTimer(g);
     this.enterPrep();
+  }
+
+  /**
+   * 教鞭 (content/items/meta.js, ctx.offerBountyChoice): the Art opens a PERSONAL choice (act2autochess choice event
+   * `hunter_band_1`, choiceType PERSONAL_CHOOSE) between up to three of `candidates` — drawn once from the meta rng, kept in
+   * `ps.personalChoice` (m.private only) until the owner confirms one with `g.choice { idx, choiceId }`. It lives inside
+   * PREP: no phase of its own and no timer — the prep's deadline resolves it (prepDeadline), Ready is refused while it is
+   * pending (PlayerPrep.setReady). Refused — before an rng draw or an id is used, so the Art stays in the hand — when it
+   * is not the player's PREP, a choice is already open or no card is left to offer.
+   * @param {import('../PlayerState.js').PlayerState} ps @param {any[]} candidates cards.bounty entries
+   * @param {string} sourceItemId the Art
+   */
+  offerBountyChoice(ps, candidates, sourceItemId) {
+    if (this.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
+    if (!ps.alive) return fail(ERR.ELIMINATED);
+    if (ps.ready) return fail(ERR.WRONG_PHASE, 'ready');
+    if (ps.personalChoice) return fail(ERR.BAD_TARGET, '请先完成当前教鞭选择'); // i18n-ignore: developer error detail
+    if (!candidates.length) return fail(ERR.BAD_TARGET, '当前没有可用的战术特训'); // i18n-ignore: developer error detail
+    const cards = this.rngMeta.shuffle(candidates.slice()).slice(0, PERSONAL_OFFER_SIZE);
+    ps.personalChoice = { id: `${this.battlePrefix}.choice.${this.nextUid()}`, round: this.round, sourceItemId, cards };
+    ps.dirty();
+    return OK;
+  }
+
+  /** g.choice { idx, choiceId }: the owner's pick of its open personal choice — the card becomes a bounty on its next battles. */
+  pickPersonalChoice(ps, idx, choiceId) {
+    if (this.phase !== PHASE.PREP) return fail(ERR.WRONG_PHASE);
+    if (!ps.alive) return fail(ERR.ELIMINATED);
+    if (ps.ready) return fail(ERR.WRONG_PHASE, 'ready');
+    const pending = ps.personalChoice;
+    if (!pending || pending.id !== choiceId || pending.round !== this.round) return fail(ERR.BAD_TARGET);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= pending.cards.length) return fail(ERR.BAD_TARGET);
+    if (!this.addBounty(ps, pending.cards[idx])) return fail(ERR.BAD_TARGET);
+    ps.personalChoice = null;
+    ps.dirty();
+    return OK;
+  }
+
+  /**
+   * The pick made for a player who did not make it. 'bot': an AI seat or a human under AI 托管 — the bounty scorer of the
+   * 机变 draft (bot.js botPickCard: the expected pay minus the expected LP lost against the own board, the bots' seeded rng
+   * only breaks ties); 'random': the prep's deadline and a seat the engine finishes by other means — one of the cards at
+   * random from the meta rng, like a 机变 turn that runs out. Nothing pending: nothing happens, no rng draw.
+   */
+  autoPickPersonalChoice(ps, mode) {
+    const pending = ps.personalChoice;
+    if (!pending) return undefined;
+    const indices = pending.cards.map((c, i) => i);
+    const idx = mode === 'bot'
+      ? botPickCard(this, ps, pending.cards.map((c) => bountyCard(this.gd, c)), indices)
+      : this.rngMeta.pick(indices);
+    return this.pickPersonalChoice(ps, idx, pending.id);
   }
 
   addBounty(ps, card) {

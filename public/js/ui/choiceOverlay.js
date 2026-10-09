@@ -140,9 +140,10 @@ export function armedCard(armed, sp, o) {
 }
 
 /**
- * The overlay keeps the two-tap selection within a stage/group and renders independently browsable group pages.
+ * The overlay keeps the two-tap selection within a stage/group and renders independently browsable group pages, as well
+ * as 0.2.2's 教鞭 personal bounty page (`personal`).
  * `onPick(idx, identity)` sends the confirmed card with its stage and own group (g.choice).
- * @param {{ pub:any, sp:any, myId:string, solo:boolean, onPick:(idx:number, identity:any)=>void,
+ * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, onPick:(idx:number, identity:any)=>void,
  *   busyIdx?:number|null, busyToken?:{idx:number,draftId:string|null,groupId:number|null}|null, total?:number|null }} props
  */
 export function ChoiceOverlay(props) {
@@ -190,10 +191,10 @@ export function ChoiceOverlay(props) {
 
 /**
  * The overlay's view (pure: no hooks — test/ui renders it as a function).
- * @param {{ pub:any, sp:any, myId:string, solo:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
+ * @param {{ pub:any, sp:any, myId:string, solo:boolean, personal?:boolean, busyIdx?:number|null, total?:number|null, armed?:number|null,
  *   onTap?:(idx:number)=>void, onConfirm?:()=>void, onDisarm?:()=>void, onGroup?:(groupId:number)=>void }} props
  */
-export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, onGroup = () => {} }) {
+export function ChoiceView({ pub, sp, myId, solo, personal = false, busyIdx = null, total = null, armed = null, onTap = () => {}, onConfirm = () => {}, onDisarm = () => {}, onGroup = () => {} }) {
   if (!sp) return null;
   const fam = data.get('choices')?.families?.[sp.family] || null;
   const rawFam = data.getRaw('choices')?.families?.[sp.family] || null;
@@ -204,8 +205,8 @@ export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, 
   const mine = sp.pickOf.get(myId);
   const turnName = players.get(sp.turnPid)?.name || t('队友');
   const special = /_s$/.test(String(sp.family || ''));
-  const order = solo ? [] : sp.order;
-  const timed = !solo && !sp.untimed && !sp.done;
+  const order = personal || solo ? [] : sp.order;
+  const timed = personal ? pub?.deadline > 0 : !solo && !sp.untimed && !sp.done;
   armed = armedCard(armed, sp, { myId, solo, busyIdx });
   const armedCardRec = armed != null ? sp.cards.find((c) => c && c.idx === armed) : null;
   const armedName = armedCardRec ? resolveSpCard(armedCardRec, sp.family).name : null;
@@ -216,17 +217,18 @@ export function ChoiceView({ pub, sp, myId, solo, busyIdx = null, total = null, 
     if (t && typeof t.closest === 'function' && t.closest('.spcard, .spov__confirm')) return;
     onDisarm();
   };
-  return html`<div class=${cx('spov', armed != null && 'has-armed')} role="dialog" aria-label=${t('机变阶段')} onPointerDown=${onDown}>
+  return html`<div class=${cx('spov', armed != null && 'has-armed')} role="dialog" aria-label=${personal ? t('教鞭选择') : t('机变阶段')} onPointerDown=${onDown}>
     <div class="spov__veil" aria-hidden="true"></div>
     <div class="spov__inner">
       <header class="spov__head">
         <div class="spov__titles">
-          <${MicroLabel} tone="mint">${t('CONTINGENCY // 机变阶段')}</${MicroLabel}>
+          <${MicroLabel} tone="mint">${personal ? t('教鞭选择') : t('CONTINGENCY // 机变阶段')}</${MicroLabel}>
           <h2 class=${cx('spov__title', special && 'is-special')}>${sentText(sp.name, rawFam?.name, fam?.name) || fam?.name || t('机变')}<span class="spov__bar">|</span><span class="spov__desc"><${RichText} text=${sentText(sp.desc, rawFam?.desc, fam?.desc) || fam?.desc || t('选择一项')} /></span></h2>
-          <p class="spov__sub">${sp.done && grouped ? (readonly ? t('该组已完成选择') : t('本组已完成，等待其他组')) : timed ? t('倒计时结束后仍未选定将自动分配') : t('选择一项（无时间限制）')}${mine == null && myTurn ? t(' · 点击卡牌选中，再次点击确认') : ''}</p>
+          <p class="spov__sub">${sp.done && grouped ? (readonly ? t('该组已完成选择') : t('本组已完成，等待其他组')) : timed ? (personal ? t('休整期结束时未选择将自动选定') : t('倒计时结束后仍未选定将自动分配')) : t('选择一项（无时间限制）')}${mine == null && myTurn ? t(' · 点击卡牌选中，再次点击确认') : ''}</p>
         </div>
         <div class="spov__turn">
-          ${sp.done && grouped ? html`<span class="spov__turntxt is-done"><${Icon} name="check" />${readonly ? t('该组已完成选择') : t('本组已完成，等待其他组')}</span>`
+          ${personal ? html`<span class="spov__turntxt is-mine">${t('从候选中选择一项战术特训')}</span>`
+            : sp.done && grouped ? html`<span class="spov__turntxt is-done"><${Icon} name="check" />${readonly ? t('该组已完成选择') : t('本组已完成，等待其他组')}</span>`
             : mine != null ? html`<span class="spov__turntxt is-done"><${Icon} name="check" />${t('已完成选择')}</span>`
             : myTurn ? html`<span class="spov__turntxt is-mine">${t('当前轮到你决策')}</span>`
             : html`<span class="spov__turntxt">${t('{turnName} 正在决策…', { turnName })}<${Icon} name="hourglass" /></span>`}

@@ -69,7 +69,13 @@ export const actions = {
   art: (itemUid, row, col, dir) => act('g.art', dir ? { itemUid, row, col, dir } : { itemUid, row, col }),
   destroy: (uid) => act('g.destroy', { uid }),
   reward: (idx) => act('g.reward', { idx }),
-  choice: (idx, opts = {}) => act('g.choice', { idx, ...draftRequestScope(opts) }),
+  // the second argument is either 0.2.2's `choiceId` (the 教鞭 personal bounty choice) or the fork's
+  // `{ draftId, groupId }` scope of the group draft the pick belongs to (draftRequestScope)
+  choice: (idx, choiceId, opts = {}) => act('g.choice', {
+    idx,
+    ...(typeof choiceId === 'string' ? { choiceId } : {}),
+    ...draftRequestScope(choiceId && typeof choiceId === 'object' ? choiceId : opts),
+  }),
   ready: (ready) => act('g.ready', { ready }, { sfx: ready ? 'ready' : 'back' }),
   emote: (id) => act('g.emote', { id }, { quiet: true }),
   // `playerId`: the player tapped in the team panel (a shared field shows two) — what an eliminated viewer follows
@@ -78,4 +84,7 @@ export const actions = {
   uniteSkipVote: ({ voteId } = {}) => act('g.uniteSkipVote', voteId == null ? {} : { voteId }, { sfx: 'confirm' }),
   // solo battles only (ui/matchStatus.js pauseAvailable): m.public.paused follows
   pause: (on) => act('g.pause', { on: !!on }, { sfx: on ? 'click' : 'confirm' }),
+  // room-level intent (NOT g.*): the host frees a spectator seat while the match runs — the server takes room.removeSpectator at
+  // any time (server/lobby.js removeSpectator), the game screen had no entry for it (ui/hud.js SpectatorPill; GitHub #120)
+  removeSpectator: (playerId) => act('room.removeSpectator', { playerId }, { sfx: 'back' }),
 };

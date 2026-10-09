@@ -88,7 +88,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     for (const v of collectViolations(m, { limit: 10 })) fail(`invariant: ${v}`);
   };
   const draftGroups = (stage) => stage.groups || [stage];
-  const checkDraftOrder = (stage, label) => {
+  const checkDraftOrder = (stage, label, wholeRoster = false) => {
     const groups = draftGroups(stage);
     const alive = new Set(m.alivePlayers().map((p) => p.playerId));
     const ordered = groups.flatMap((g) => g.order).filter((pid) => alive.has(pid)).sort();
@@ -102,6 +102,23 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
       if (!pool || JSON.stringify(g.playerIds) !== JSON.stringify(pool.playerIds)) fail(`${label} group ${g.id}: fixed membership changed`);
       if (new Set(g.order).size !== g.order.length) fail(`${label} group ${g.id}: duplicate turn`);
       for (const pid of g.order) if (!g.playerIds.includes(pid)) fail(`${label} group ${g.id}: outsider ${pid} in order`);
+      // Upstream 0.2.2 fixes a group's order when the draft starts and only a skip moves a seat inside it. The strategy
+      // draft's order IS the group's seats — a departed or eliminated seat keeps its place and is skipped when its turn
+      // comes (makeDraftGroups without `living`); the 机变 draft draws over the living seats only (enterSpDraft).
+      if (wholeRoster) {
+        const seats = g.playerIds.slice().sort();
+        const drawn = g.order.slice().sort();
+        if (JSON.stringify(drawn) !== JSON.stringify(seats)) fail(`${label} group ${g.id}: order ${g.order} is not the group's seats ${g.playerIds}`);
+      }
+      // 「AI 队友最后选择」: every human seat before every AI seat, kept through a skip (bandSkip re-inserts the skipper
+      // behind the humans still to pick). With the option off the drawn order stands as it is — an AI seat may lead.
+      if (m.aiPicksLast) {
+        let botSeen = false;
+        for (const pid of g.order) {
+          if (m.players.get(pid)?.isBot) botSeen = true;
+          else if (botSeen) fail(`${label} group ${g.id}: human ${pid} ordered after an AI seat with 「AI 队友最后选择」 on`);
+        }
+      }
     }
   };
   const peerClocks = (stage, group) => draftGroups(stage).filter((g) => g !== group)
@@ -121,12 +138,6 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     }
     const timers = groups.filter((x) => !x.done && !x.untimed && x.timer != null).map((x) => x.timer);
     if (new Set(timers).size !== timers.length) fail(`${label}: groups share a turn timer`);
-    const pending = g.order.slice(g.idx).map((pid) => m.players.get(pid)).filter((p) => p?.alive && !p.left);
-    let automatic = false;
-    for (const ps of pending) {
-      if (!m.manualDraftPicker(ps)) automatic = true;
-      else if (automatic) fail(`${label} group ${g.id ?? 1}: manual player ${ps.playerId} ordered after an automatic seat`);
-    }
   };
   const checkBandPicks = (stage) => {
     for (const g of draftGroups(stage)) {
@@ -286,7 +297,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
         if (f0 - ps.funds !== price && !fx && !hasSpendEffects(m, ps)) fail(`${ps.playerId}: level-up paid ${f0 - ps.funds}, price ${price}`);
         const next = gd.upgradeBase(ps.shop.level) ?? 0;
         if (ps.shop.upgradePrice !== next) fail(`${ps.playerId}: upgrade price after level-up ${ps.shop.upgradePrice}, expected ${next}`);
-        // the new level's extra slots open at once (item 19 of 2026-10-06); the cards shown before stay in place
+        // the new level's extra slots open at once, empty (GitHub #332 / PR #333); the cards shown before stay in place
         const { chess, item } = gd.shopSlots(ps.shop.level);
         const want = Math.max(chess, layout0.chess) + Math.max(item, layout0.item);
         if (ps.shop.slots.length !== want) fail(`${ps.playerId}: ${ps.shop.slots.length} shop slots after the level-up to ${ps.shop.level}, expected ${want}`);
@@ -356,7 +367,7 @@ export function attachAudit(m, { invariants = true, limit = 200 } = {}) {
     check('band draft', () => {
       if (m.phase !== PHASE.BAND_DRAFT) return;
       const d = m.draft;
-      checkDraftOrder(d, 'band draft');
+      checkDraftOrder(d, 'band draft', true);
       checkBandPicks(d);
     });
     return r;

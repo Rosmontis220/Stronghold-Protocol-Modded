@@ -9,7 +9,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { ERR, PHASE } from '../../shared/constants.js';
 import { makeMatch, DATA } from '../match/harness.js';
-import { teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, hasManualTeammateAfter } from '../../public/js/screens/bandDraft.js';
+import { teammateBands, timeoutBand, allowedBands, autoPickBand, draftClock, draftTip, draftSelection, canPassTurn } from '../../public/js/screens/bandDraft.js';
 import { BAND_TURN_SECONDS } from '../../server/match/Match.js';
 
 const TURN_MS = BAND_TURN_SECONDS * 1000;
@@ -79,23 +79,25 @@ describe('UI: teammateBands', () => {
   });
 });
 
-test('the skip button only offers a turn to another connected, manual player who has not picked', () => {
+test('the skip button offers a turn to whoever is still to pick after me in my own group order', () => {
+  // upstream 0.2.2 (MatchPhases.bandSkip): the only refusal left is being the last entry of my group's order. An AI
+  // seat, a 托管 seat and a disconnected seat are all valid people to pass to, so connectivity and isBot no longer
+  // matter — the previous "another connected manual teammate" rule was removed with the fork's reprioritisation.
+  const draft = { order: ['me', 'peer', 'bot'], picks: new Map() };
+  assert.equal(canPassTurn(draft, 'me'), true, 'two seats still to pick after me');
+  assert.equal(canPassTurn(draft, 'peer'), true, 'an AI seat after me is enough');
+  assert.equal(canPassTurn(draft, 'bot'), false, 'the last entry of the order has nobody to pass to');
+  assert.equal(canPassTurn(draft, 'me', 0), false, 'no skip left');
+  assert.equal(canPassTurn(draft, 'ghost'), false, 'not in this group order');
+  assert.equal(canPassTurn({ order: ['me'] }, 'me'), false, 'a group of one cannot skip');
+  assert.equal(canPassTurn(null, 'me'), false);
+  // a 托管 / disconnected peer is not filtered out any more (the old helper's four assertions, inverted)
   const players = [
     { playerId: 'me', alive: true, connected: true, isBot: false, autoplay: false },
-    { playerId: 'bot', alive: true, connected: true, isBot: true, autoplay: false },
-    { playerId: 'peer', alive: true, connected: true, isBot: false, autoplay: false },
+    { playerId: 'peer', alive: true, connected: false, isBot: false, autoplay: true },
   ];
-  const draft = { order: ['me', 'peer', 'bot'], picks: new Map() };
-  assert.equal(hasManualTeammateAfter(draft, players, 'me'), true);
-  assert.equal(hasManualTeammateAfter(draft, players, 'peer'), false, 'only AI remains');
-  draft.picks.set('peer', 'band_amiya');
-  assert.equal(hasManualTeammateAfter(draft, players, 'me'), false, 'peer already picked');
-  draft.picks.clear();
-  players[2].connected = false;
-  assert.equal(hasManualTeammateAfter(draft, players, 'me'), false, 'offline peer cannot manually pick');
-  players[2].connected = true;
-  players[2].autoplay = true;
-  assert.equal(hasManualTeammateAfter(draft, players, 'me'), false, 'AI-controlled peer cannot manually pick');
+  const two = { order: ['me', 'peer'], picks: new Map() };
+  assert.equal(canPassTurn(two, 'me'), true, `offline, AI-controlled peer: ${players.length} seats, still somebody after me`);
 });
 
 describe('UI: draftSelection (review regression)', () => {
@@ -296,11 +298,12 @@ describe('UI: one countdown and the highlighted band (user playtest #4 item 4)',
     assert.equal(draftSelection('band_bldsk', { bands, taken: new Map([['band_bldsk', ['a']]]), myPick: null, myTurn: true }), 'band_amiya', 'taken on my turn ⇒ the default');
     assert.match(draftTip({ timed: true, turnSeconds: 30, autoName: '华法琳' }), /每位博士有 30 秒，超时将自动选择当前选中的「华法琳」/);
     assert.match(draftTip({ timed: true, turnSeconds: 30, autoName: '阿米娅', selected: false }), /超时将自动选择「阿米娅」$/);
-    assert.equal(draftTip({ timed: true, turnSeconds: 30, autoName: null }), '联合模拟有其他手动玩家待选时可跳过一次；每位博士有 30 秒');
-    assert.equal(draftTip({ timed: false, autoName: '华法琳' }), '联合模拟有其他手动玩家待选时可跳过一次；本局不限时');
+    // upstream 0.2.2: the skip no longer needs a manual teammate — any seat still to pick after me is enough
+    assert.equal(draftTip({ timed: true, turnSeconds: 30, autoName: null }), '联合模拟本组还有其他待选席位时可跳过一次；每位博士有 30 秒');
+    assert.equal(draftTip({ timed: false, autoName: '华法琳' }), '联合模拟本组还有其他待选席位时可跳过一次；本局不限时');
   });
 
-  test('a single human with AI teammates: the draft is untimed and cannot skip into the AI block', () => {
+  test('a single human with AI teammates: the draft is untimed and a skip moves the human to the end of its group order', () => {
     const h = draftOf({ humans: 1, bots: 3, seed: 4 });
     const m = h.m;
     h.run(() => m.draftTurn() === 'p_0' || m.phase !== PHASE.BAND_DRAFT, { maxTime: 1000 });
@@ -313,9 +316,19 @@ describe('UI: one countdown and the highlighted band (user playtest #4 item 4)',
     h.sched.advance(10 * 60_000);
     assert.equal(m.phase, PHASE.BAND_DRAFT, 'waits for the player');
     assert.equal(m.draftTurn(), 'p_0');
-    assert.equal(m.draft.order[0], 'p_0', 'the human chooses first');
-    assert.equal(hasManualTeammateAfter({ order: m.draft.order, picks: new Map() }, pub.players, 'p_0'), false);
-    assert.equal(m.handle('p_0', { t: 'g.bandSkip' }).error, ERR.BAD_TARGET, 'no manual teammate to pass to');
+    // upstream 0.2.2: the order is the room's seats after one shuffle — seed 4 draws the human first, and nothing
+    // reorders a human ahead of an AI seat (another seed may put one of them first).
+    assert.deepEqual(m.draft.order.slice().sort(), m.draft.groups[0].playerIds.slice().sort());
+    assert.equal(m.draft.order[0], 'p_0');
+    // the UI now offers the skip here too: the server accepts it, and the lone human goes to the very end of its own
+    // group's order (upstream 0.2.2 — the old helper said "no manual teammate", which is no longer the condition).
+    assert.equal(canPassTurn({ order: m.draft.order }, 'p_0'), true);
+    const order = m.draft.order.slice();
+    assert.deepEqual(m.handle('p_0', { t: 'g.bandSkip' }), { ok: true });
+    assert.deepEqual(m.draft.order, [...order.slice(1), 'p_0'], 'the skipper moves to the end of its group order');
+    h.sched.advance(10 * 60_000);
+    assert.equal(m.phase, PHASE.BAND_DRAFT, 'the AI seats picked at once and the group waits for the human again');
+    assert.equal(m.draftTurn(), 'p_0', 'the skipper comes back at the end of the untimed order');
     m.dispose();
   });
 });

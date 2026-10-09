@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeDraft, normalizeSp } from '../../public/js/ui/gameLogic.js';
-import { otherBandGroups, teammateBands, draftClock, hasManualTeammateAfter } from '../../public/js/screens/bandDraft.js';
+import { otherBandGroups, teammateBands, draftClock, canPassTurn } from '../../public/js/screens/bandDraft.js';
 import { ChoiceView, choicePage, defaultChoiceGroup, cardPickable, armedCard } from '../../public/js/ui/choiceOverlay.js';
 import { draftRequestScope } from '../../public/js/ui/gameActions.js';
 import { validateC2S } from '../../shared/protocol.js';
@@ -49,8 +49,8 @@ test('strategy availability and skip stay local while other-group picks create g
   assert.deepEqual(otherBandGroups(draft, 'band_y').map((g) => g.label), ['B']);
   assert.deepEqual(otherBandGroups(draft, 'band_x'), []);
   assert.deepEqual(draftClock({ deadline: 8000 }, draft), { deadline: 5000, total: 30 });
-  assert.equal(hasManualTeammateAfter(draft, players, 'a2'), true);
-  assert.equal(hasManualTeammateAfter(draft, players, 'a3'), false, 'manual people in B do not enable an A skip');
+  assert.equal(canPassTurn(draft, 'a2'), true);
+  assert.equal(canPassTurn(draft, 'a3'), false, 'a3 is the last entry of group A: manual people in B do not enable an A skip');
 });
 
 test('each contingency page retains stage identity and local indexes; only the own page is selectable', () => {

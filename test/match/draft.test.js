@@ -1,4 +1,4 @@
-// INFO_CHECK, band draft (manual-first order / skip / one turn clock / timeouts / highlighted band / 队友已选) and 机变 SP drafts (order /
+// INFO_CHECK, band draft (the group's drawn order / skip / one turn clock / timeouts / highlighted band / 队友已选) and 机变 SP drafts (order /
 // timers / auto-assign / effects); a single human (solo or co-op with AI teammates) is never timed outside battles.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -65,7 +65,7 @@ test('band draft (co-op): random order, one pick per turn, NOT_YOUR_TURN, one sk
   m.dispose();
 });
 
-test('band draft: manual players precede AI within interleaved fixed groups; skip remains in its group', () => {
+test('band draft: each interleaved fixed group draws its own order; a skip stays in its group and re-inserts the skipper at its end', () => {
   const seats = ['ai_0', 'p_0', 'ai_1', 'p_1', 'p_2', 'ai_2'].map((playerId, seat) => ({
     seat, playerId, name: playerId, isBot: playerId.startsWith('ai_'), connected: true,
   }));
@@ -75,39 +75,67 @@ test('band draft: manual players precede AI within interleaved fixed groups; ski
   h.sched.advance(1);
   assert.equal(m.phase, PHASE.BAND_DRAFT);
   const [a, b] = m.draft.groups;
-  assert.equal(a.order[0], 'p_0');
-  assert.deepEqual(a.order.slice(1).slice().sort(), ['ai_0', 'ai_1']);
-  assert.deepEqual(b.order.slice(0, 2).slice().sort(), ['p_1', 'p_2']);
-  assert.equal(b.order[2], 'ai_2');
-  assert.equal(m.handle('p_0', { t: 'g.bandSkip' }).error, ERR.BAD_TARGET, 'cannot pass a turn to another group');
-  const [first, second] = b.order;
-  assert.deepEqual(m.handle(first, { t: 'g.bandSkip' }), { ok: true });
-  assert.deepEqual(b.order, [second, first, 'ai_2']);
-  assert.equal(m.draftTurn('p_0'), 'p_0', 'the other group retains its current picker');
-  for (const [pid, bandId] of [['p_0', 'band_amiya'], [second, 'band_amiya'], [first, 'band_sarkazb']]) {
+  // upstream 0.2.2: a group's order is its OWN seats after one shuffle — nothing reorders a human ahead of an AI seat.
+  assert.deepEqual(a.order.slice().sort(), a.playerIds.slice().sort());
+  assert.deepEqual(b.order.slice().sort(), b.playerIds.slice().sort());
+  // the AI seats that drew first picked at once, so each group now waits on one of its own humans
+  const pa = m.draftTurn('p_0');
+  const pb = m.draftTurn('p_2');
+  assert.ok(!pa.startsWith('ai_') && !pb.startsWith('ai_'), `each group waits on its own human (${a.order} / ${b.order})`);
+  // a skip never crosses groups: only the skipper's own order moves, and the skipper goes to the END of it
+  const aOrder = a.order.slice();
+  const bAt = b.idx;
+  const bOrder = b.order.slice();
+  assert.deepEqual(m.handle(pb, { t: 'g.bandSkip' }), { ok: true });
+  assert.deepEqual(b.order, [...bOrder.slice(0, bAt), ...bOrder.slice(bAt + 1), pb], 'the skipper goes to the end of its own group');
+  assert.equal(m.draftTurn('p_2'), b.order[bAt], 'the turn passes to the next seat of the same group');
+  const next = m.draftTurn('p_2');
+  assert.ok(!next.startsWith('ai_'), `the group's other human takes the turn (${b.order})`);
+  assert.deepEqual(a.order, aOrder, 'the other group is untouched');
+  assert.equal(m.draftTurn('p_0'), pa, 'the other group retains its current picker');
+  // the last entry of a group's order has nobody to pass to (a skip never crosses groups)
+  assert.equal(a.order.length - a.idx, 1, `group a drew its human last (${a.order})`);
+  assert.equal(m.handle(pa, { t: 'g.bandSkip' }).error, ERR.BAD_TARGET, 'the last entry of a group order has nobody to pass to');
+  assert.deepEqual(a.order, aOrder, 'the refused skip left the order alone');
+  for (const [pid, bandId] of [[pa, 'band_amiya'], [next, 'band_amiya'], [pb, 'band_sarkazb']]) {
     assert.deepEqual(m.handle(pid, { t: 'g.band', bandId }), { ok: true });
   }
-  assert.equal(Object.keys(m.draft.picks).length, 3, 'each group resolves its pending AI after its own manual picks');
+  assert.equal(Object.keys(m.draft.picks).length, 6, 'both groups resolved every seat (the AI seats that drew first picked at once)');
+  for (const g of m.draft.groups) assert.equal(new Set(Object.values(g.picks)).size, g.order.length, 'no strategy twice inside a group');
   h.sched.advance(1);
   assert.equal(m.phase, PHASE.BATTLE_CHECK);
   assert.equal(Object.keys(m.draft.picks).length, 6);
   m.dispose();
 });
 
-test('band draft: disconnect, reconnect and AI control reprioritize only turns not yet played', () => {
+test('band draft: a disconnect, a reconnect and AI 托管 leave the fixed order alone', () => {
   const h = makeMatch({ mode: 'coop', humans: 3, bots: 2, seed: 38 }).start();
   const m = h.m;
   for (const pid of ['p_0', 'p_1', 'p_2']) m.handle(pid, { t: 'g.infoReady' });
   h.sched.advance(1);
-  const [first, second, third] = m.draft.order;
+  const order = m.draft.order.slice();
+  const first = order[0];
+  const other = order.find((pid) => pid !== first && !pid.startsWith('ai_'));
+  // upstream 0.2.2: the order is fixed for the whole draft — a disconnect, a reconnect and a 托管 toggle never reorder it.
   m.onDisconnect(first);
-  assert.equal(m.draftTurn(), second, 'a disconnected picker yields to the other manual players');
+  assert.deepEqual(m.draft.order, order, 'a disconnect never reorders the group');
+  assert.equal(m.draftTurn(), first, 'the disconnected seat keeps its place and its turn');
   m.onReconnect(first);
-  assert.deepEqual(m.draft.order.slice(0, 3), [second, third, first], 'reconnecting returns before the AI block');
-  assert.deepEqual(m.handle(second, { t: 'g.autoplay', on: true }), { ok: true });
-  assert.equal(m.draftTurn(), third, 'AI control yields the turn');
-  assert.deepEqual(m.handle(second, { t: 'g.autoplay', on: false }), { ok: true });
-  assert.deepEqual(m.draft.order.slice(0, 3), [third, first, second], 'manual control rejoins after the current picker');
+  assert.deepEqual(m.draft.order, order, 'a reconnect never reorders the group');
+  assert.equal(m.draftTurn(), first);
+  assert.deepEqual(m.handle(other, { t: 'g.autoplay', on: true }), { ok: true });
+  assert.deepEqual(m.draft.order, order, 'a 托管 toggle never reorders the group');
+  assert.equal(m.draftTurn(), first, 'the current picker keeps the turn');
+  assert.deepEqual(m.handle(other, { t: 'g.autoplay', on: false }), { ok: true });
+  // the turn and the picks still resolve, in that fixed order
+  assert.deepEqual(m.handle(first, { t: 'g.band', bandId: 'band_amiya' }), { ok: true });
+  assert.equal(h.ps(first).bandId, 'band_amiya');
+  assert.equal(m.draftTurn(), order[1], 'the next seat of the fixed order takes the turn');
+  h.sched.advance(1);
+  assert.equal(m.draftTurn(), other, 'the AI seats pick at once, then the next human of the order takes the turn');
+  const bandId = m.defaultBand(other);
+  assert.deepEqual(m.handle(other, { t: 'g.band', bandId }), { ok: true });
+  assert.equal(h.ps(other).bandId, bandId);
   m.dispose();
 });
 
@@ -196,6 +224,8 @@ test('机变 (co-op): 6 shared cards, random order, 30 s first / 16 s others, ti
   assert.deepEqual(sp.order.slice().sort(), ['p_0', 'p_1', 'p_2']);
   assert.equal(Math.round((m2.deadline - h2.sched.now()) / 1000), 30, 'first picker 30 s');
   const [a, b, c] = sp.order;
+  assert.equal(m2.handle(a, { t: 'g.choice', idx: 2, choiceId: 'old.choice.1' }).error, ERR.WRONG_PHASE);
+  assert.deepEqual(m2.sp.picks, {}, 'personal IDs never fall through to the global draft');
   assert.equal(m2.handle(b, { t: 'g.choice', idx: 0 }).error, ERR.NOT_YOUR_TURN);
   assert.deepEqual(m2.handle(a, { t: 'g.choice', idx: 2 }), { ok: true });
   assert.equal(m2.handle(a, { t: 'g.choice', idx: 3 }).error, ERR.ALREADY);
@@ -212,7 +242,7 @@ test('机变 (co-op): 6 shared cards, random order, 30 s first / 16 s others, ti
   m2.dispose();
 });
 
-test('every co-op 机变 puts active manual players before AI, including after a disconnect and reconnect', () => {
+test('every co-op 机变 orders its group\'s living seats; a disconnect and a reconnect never reorder them', () => {
   const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', humans: 2, bots: 2, seed: 39, fake: true }).start();
   const m = h.m;
   h.toPrep(1);
@@ -220,16 +250,20 @@ test('every co-op 机变 puts active manual players before AI, including after a
   for (const round of m.gd.spRounds()) {
     assert.ok(h.drive(() => m.phase === PHASE.ROUND_START && m.round === round), `reached round ${round}`);
     assert.ok(h.run(() => m.phase === PHASE.SP_DRAFT), `reached round ${round} 机变`);
-    const manual = m.alivePlayers().filter((ps) => !ps.isBot).map((ps) => ps.playerId).sort();
-    assert.deepEqual(m.sp.order.slice(0, manual.length).slice().sort(), manual, `round ${round}: humans first`);
-    assert.ok(m.sp.order.slice(manual.length).every((pid) => m.players.get(pid).isBot), `round ${round}: AI later`);
+    // upstream 0.2.2: the 机变 order is the group's LIVING seats after one shuffle — nothing reorders a human ahead of an
+    // AI seat (round 6 of this seed draws ai_0 first), and no connectivity change reorders it either.
+    const group = m.sp.groups[0];
+    const living = group.playerIds.filter((pid) => m.players.get(pid).alive).sort();
+    assert.deepEqual(m.sp.order.slice().sort(), living, `round ${round}: the order is the group's living seats`);
     if (round === m.gd.spRounds()[0]) {
+      const order = m.sp.order.slice();
       const first = m.spTurn();
-      const other = manual.find((pid) => pid !== first);
       m.onDisconnect(first);
-      assert.equal(m.spTurn(), other, 'the other manual player takes the turn');
+      assert.deepEqual(m.sp.order, order, 'a disconnect never reorders the 机变 order');
+      assert.equal(m.spTurn(), first, 'the disconnected seat keeps its turn');
       m.onReconnect(first);
-      assert.deepEqual(m.sp.order.slice(0, 2), [other, first], 'reconnected player stays ahead of AI');
+      assert.deepEqual(m.sp.order, order, 'a reconnect never reorders it either');
+      assert.equal(m.spTurn(), first);
     }
   }
   m.dispose();

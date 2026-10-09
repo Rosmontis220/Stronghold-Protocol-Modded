@@ -127,7 +127,7 @@ export function autoPickBand(sel, { bands, taken, myPick = null, defaultId = DEF
  *   selected: the auto pick is the highlighted band (not the default standing in for a band a teammate holds)
  */
 export function draftTip({ timed, turnSeconds = null, autoName = null, selected = true }) {
-  const skip = t('联合模拟有其他手动玩家待选时可跳过一次');
+  const skip = t('联合模拟本组还有其他待选席位时可跳过一次');
   if (!timed) return t('{skip}；本局不限时', { skip });
   const clock = Number(turnSeconds) > 0 ? t('每位博士有 {n} 秒', { n: Math.round(turnSeconds) }) : t('每位博士限时决策');
   if (!autoName) return t('{skip}；{clock}', { skip, clock });
@@ -135,16 +135,22 @@ export function draftTip({ timed, turnSeconds = null, autoName = null, selected 
     : t('{skip}；{clock}，超时将自动选择「{autoName}」', { skip, clock, autoName });
 }
 
-/** A skip may only yield to another player who can still choose manually, before any automated seat. */
-export function hasManualTeammateAfter(draft, players, myId) {
+/**
+ * The server's skip rule, mirrored for the button (MatchPhases.bandSkip): a skip is legal while somebody is still to
+ * pick after me in MY group's order — that is the only refusal left (`nobody to pass to` when I am the last entry).
+ * Upstream 0.2.2 keeps the order fixed and sends the skipper to the end of the group (behind the humans still to pick
+ * when 「AI 队友最后选择」 is on), so an AI seat, a 托管 seat and a disconnected seat are all valid people to pass to.
+ * The second return value is the reason to show on the disabled button.
+ * @param {any} draft the normalized own group (order / picks / skipsLeft)
+ * @param {any} players m.public players
+ * @param {string} myId
+ * @returns {boolean} whether the skip is accepted
+ */
+export function canPassTurn(draft, myId, skipsLeft = 1) {
   if (!Array.isArray(draft?.order)) return false;
   const at = draft.order.indexOf(myId);
   if (at < 0) return false;
-  const picks = draft.picks instanceof Map ? draft.picks : new Map(Object.entries(draft.picks || {}));
-  return draft.order.slice(at + 1).some((pid) => {
-    const p = players.find((row) => row.playerId === pid);
-    return p && p.alive && p.connected && !p.isBot && !p.autoplay && !picks.has(pid);
-  });
+  return skipsLeft > 0 && draft.order.length - at > 1;
 }
 
 /**
@@ -207,8 +213,7 @@ export function BandDraftScreen() {
   const myPick = draft.picks.get(myId) || priv?.bandId || null;
   const myTurn = !myPick && (solo || draft.turnPid === myId);
   const skipsLeft = draft.skipsLeft.has(myId) ? draft.skipsLeft.get(myId) : (skipped ? 0 : 1);
-  const manualTeammateAfter = hasManualTeammateAfter(draft, players, myId);
-  const canSkip = !solo && myTurn && skipsLeft > 0 && manualTeammateAfter;
+  const canSkip = !solo && myTurn && canPassTurn(draft, myId, skipsLeft);
   const taken = solo ? new Map() : teammateBands(draft.picks, myId);
   const pickers = new Map(); // bandId → players
   for (const [pid, bid] of draft.picks) {
@@ -359,7 +364,7 @@ export function BandDraftScreen() {
             : !myTurn ? html`<p class="draft-detail__status"><${Icon} name="hourglass" />${turnName ? t('{turnName} 正在决策…', { turnName }) : t('等待轮到你')}</p>` : null}
           <div class="draft-detail__btns">
             ${!solo ? html`<${Button} variant="secondary" size="lg" icon="chevrons" disabled=${!canSkip} loading=${busy === 'skip'} onClick=${skip}
-              title=${skipsLeft <= 0 ? t('跳过次数已用完') : manualTeammateAfter ? t('让其他手动玩家先选，稍后再选') : t('没有其他待选的手动玩家')}>${t('跳过')}${skipsLeft > 0 ? '' : t('（已用）')}<//>` : null}
+              title=${skipsLeft <= 0 ? t('跳过次数已用完') : canSkip ? t('跳过本轮，稍后再选') : t('本组没有其他待选席位')}>${t('跳过')}${skipsLeft > 0 ? '' : t('（已用）')}<//>` : null}
             <${Button} variant="primary" size="lg" icon="check" disabled=${!myTurn || !band || selTaken} loading=${busy === 'pick'} onClick=${confirm}>${selTaken ? t('队友已选') : t('确认选择')}<//>
           </div>
         </div>

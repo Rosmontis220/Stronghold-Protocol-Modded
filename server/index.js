@@ -25,6 +25,24 @@
 //     (maxConnectionsPerAddr, refused at upgrade with 429), rooms and running matches (lobby.js).
 //   * Graceful shutdown on SIGINT/SIGTERM (rooms get room.closed{reason:'shutdown'}, sockets close 1001).
 //
+// This fork's entry owns the request path itself (it adds the admin API, the notice board and the resource index of
+// the offline clients). Upstream 0.2.2 keeps the same behaviour in the split modules below, which stay in the tree —
+// the entry imports bindCandidates / displayHost / runMain from them:
+//   http/config.js     ROOT, the served directories, the environment (PORT 3000, HOST '::' dual-stack, TRUST_PROXY auto, DEBUG),
+//                      which startServer() options go to net.js / lobby.js, the console logger
+//   http/websocket.js  session wiring (SessionRegistry → Lobby → Network) and the WebSocket at /ws (maxPayload 64 KB;
+//                      refused at upgrade with 404 / 429 per network / 503)
+//   http/static.js     the static mounts (/ → public/, /data/, /shared/, /sim/ `.js` only), the /data.js browser stand-in,
+//                      the content packs (/packs/index.json, /packs/<id>/<file> — the registry is packs.js)
+//   http/media.js      /media/bgm/act1 → public/assets/audio/bgm/act1.mp3 (audio addressed without its extension)
+//   http/files.js      one file → response: MIME, gzip + memory cache, ETag / Last-Modified / 304, Cache-Control, ranges
+//   http/buildTag.js   the build tag of the served browser runtime (/healthz `build`, public/js/ui/buildGuard.js)
+//   http/routes.js     the request listener: security headers, 414 / 400 / 405, GET /healthz → JSON status, else static
+//   http/common.js     what every answer shares: security headers, URL split, error page, JSON replies, bare 400
+//   http/boot.js       a pending update package first (update.js: old files deleted, the install verified against
+//                      MANIFEST.json), banner (Local / LAN / tunnel URLs), port-in-use hint, graceful shutdown on SIGINT /
+//                      SIGTERM
+//
 // Programmatic use (tests): `const srv = await startServer({ port: 0, quiet: true }); … await srv.close();`
 // The server only auto-listens when this file is the process entry point.
 
@@ -50,7 +68,11 @@ import { createResourceIndex, EMPTY_LOCAL_MANIFEST } from './resource-index.js';
 import { RESOURCE_INDEX_URL } from '../shared/resource-plan.js';
 import { createPackRegistry } from './packs.js';
 import { PACKS_URL, PACK_INDEX_FILE } from '../shared/packs.js';
-import { runMain } from './http/boot.js';
+// server/http/*: this fork's entry owns the request path itself (the body below defines MIME, the gzip cache, the
+// static handler, the build tag and startServer), so only the helpers it still calls come from the split modules
+// upstream keeps in the tree: bindCandidates (HOST candidates) and displayHost / runMain (boot banner, signal handling).
+import { bindCandidates, listenAddress } from './http/config.js';
+import { displayHost, runMain } from './http/boot.js';
 
 /** Repository root. */
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -136,11 +158,14 @@ const MAX_URL_LENGTH = 4096;
  * without this signal a deployed fix could never reach a player who does not reload — a client-only battle fix
  * shipped exactly that way and stayed invisible on a page that had been opened before the deploy.
  *
- * `server/`, `data/` and `shared/` are deliberately NOT in here: this process read them once at startup, so when they
- * change without a restart the server still runs the old simulation and data — a page that reloaded into the new files
- * would be out of step with the server that validates its battles (and DEPLOY.md restarts the server for every update).
+ * `server/sim`, `shared` and `data` ARE in here (upstream 0.2.2 widened the list): the browser imports the simulation
+ * from `/sim/` and the shared code from `/shared/`, and caches JSON from `/data/`, all served straight off disk by the
+ * static handler — so a simulation-only or data-only deploy must reach an old page too. This process read them once at
+ * startup and keeps running the old copy until it restarts, which DEPLOY.md does for every update; a page that reloaded
+ * into the new files while the old process still served them would be out of step, and the restart is what closes that
+ * window. The rest of `server/` and downloaded media are not included.
  */
-export const BUILD_INPUTS = Object.freeze(['public/index.html', 'public/js', 'public/css']);
+export const BUILD_INPUTS = Object.freeze(['public/index.html', 'public/js', 'public/css', 'server/sim', 'shared', 'data']);
 
 /** Names the static server never serves: dot files (`.DS_Store`, `.main.js.swp`) and editor backups (`main.js~`). */
 const isIgnoredBuildName = (name) => name.startsWith('.') || name.endsWith('~');
@@ -640,9 +665,10 @@ function makeLogger(quiet) {
  *                     close: () => Promise<void> }>}
  */
 export async function startServer(opts = {}) {
-  const port = opts.port ?? (process.env.PORT != null && process.env.PORT !== '' ? Number(process.env.PORT) : 3000);
-  const host = opts.host ?? process.env.HOST ?? '0.0.0.0';
-  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new RangeError(`invalid PORT ${port}`);
+  // One source of truth for the listen address (server/http/config.js): the default is the dual-stack `::` — the
+  // server then answers IPv6 and IPv4 alike on a single socket — and `HOST=0.0.0.0` still means IPv4 only. An explicit
+  // host stays literal; bindCandidates() below is what retries the default as IPv4 on a host with IPv6 switched off.
+  const { port, host } = listenAddress(opts);
   const log = opts.log || makeLogger(!!opts.quiet);
   const publicDir = opts.publicDir || path.join(ROOT, 'public');
   const dataDir = opts.dataDir || path.join(ROOT, 'data');
@@ -763,14 +789,35 @@ export async function startServer(opts = {}) {
     }
   });
 
+  // The address actually bound. The default may fall back to IPv4; the returned host and url follow that.
+  let boundHost;
   try {
-    await new Promise((resolve, reject) => {
-      const onError = (e) => { server.off('listening', onListening); reject(e); };
-      const onListening = () => { server.off('error', onError); resolve(); };
-      server.once('error', onError);
-      server.once('listening', onListening);
-      server.listen(port, host);
-    });
+    // A host with IPv6 switched off refuses '::'. Fall back to IPv4 rather than not booting. Only the default is
+    // retried: an explicit HOST is literal (server/http/config.js bindCandidates).
+    let bound = null;
+    let lastError = null;
+    const candidates = bindCandidates(host);
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      try {
+        await new Promise((resolve, reject) => {
+          const onError = (e) => { server.off('listening', onListening); reject(e); };
+          const onListening = () => { server.off('error', onError); resolve(); };
+          server.once('error', onError);
+          server.once('listening', onListening);
+          server.listen(port, candidate);
+        });
+        bound = candidate;
+        break;
+      } catch (e) {
+        lastError = e;
+        const retry = ['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes(e.code) && i < candidates.length - 1;
+        if (!retry) break;
+        log.warn(`[boot] cannot bind ${candidate} (${e.code}) — falling back to IPv4 only`);
+      }
+    }
+    if (bound === null) throw lastError;
+    boundHost = bound;
   } catch (e) {
     network.close(); // stop heartbeat/sweep timers of the half-built server
     throw e;
@@ -779,7 +826,7 @@ export async function startServer(opts = {}) {
 
   const addr = server.address();
   const actualPort = typeof addr === 'object' && addr ? addr.port : port;
-  const url = `http://${host === '0.0.0.0' || host === '::' ? 'localhost' : host}:${actualPort}`;
+  const url = `http://${displayHost(boundHost)}:${actualPort}`;
 
   let closing = null;
   async function close() {
@@ -798,7 +845,7 @@ export async function startServer(opts = {}) {
     return closing;
   }
 
-  return { port: actualPort, host, url, server, wss, lobby, network, registry, packs, notice: noticeBoard, close };
+  return { port: actualPort, host: boundHost, url, server, wss, lobby, network, registry, packs, notice: noticeBoard, close };
 }
 
 // ---------------------------------------------------------------------------------------------------

@@ -2,7 +2,8 @@
 
 import { isObj } from './shared.js';
 import { poolGroupIdentity, poolGroups as normalizePoolGroups } from './groups.js';
-import { MAX_DRAFT_CARDS } from '../../../../shared/constants.js';
+import { MAX_DRAFT_CARDS, PHASE } from '../../../../shared/constants.js';
+import { t } from '../../../../shared/i18n.js';
 
 const playerIds = (players) => (Array.isArray(players) ? players : []).filter(isObj).map((p) => p.playerId);
 const stringIds = (ids) => Array.isArray(ids) ? [...new Set(ids.filter((id) => typeof id === 'string' && id))] : [];
@@ -139,5 +140,17 @@ export function normalizeSp(sp, players = [], myId = null, fixedGroups = [], vie
   return {
     ...page, id: stageId(sp), groupId: selected?.id ?? mine, ownGroupId: mine, groups,
     allDone: groups.length ? groups.every((group) => group.done) : page.done,
+  };
+}
+
+/** Adapt only the recipient's current PREP choice; never write it into the public draft. */
+export function normalizePersonalChoice(pub, priv, myId) {
+  const choice = priv?.personalChoice;
+  if (pub?.phase !== PHASE.PREP || !priv || priv.playerId !== myId || priv.alive === false
+    || !choice || choice.round !== pub.round) return null;
+  return {
+    ...normalizeSp({ family: 'bounty', name: t('教鞭 · 战术特训'), desc: t('请选择一项战术特训'),
+      cards: choice.cards, turn: myId, order: [myId], picks: {} }),
+    id: choice.id,
   };
 }
