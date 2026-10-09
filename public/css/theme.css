@@ -362,6 +362,12 @@ h1, h2, h3, h4, p { margin: 0; }
 .boot__dl-local { display: flex; flex-wrap: wrap; align-items: center; gap: .08rem; }
 .boot__dl-local .boot__retry { padding: .06rem .14rem; font-size: .13rem; }
 .boot__dl-local .boot__dl-note { flex: 1 1 100%; }
+/* the start page's load choice (boot.js): 预下载 vs 边玩边下 — shown once, the saved choice (sp.pref.download) and a
+   complete local snapshot skip the page */
+.boot__choice-btns { display: flex; flex-wrap: wrap; gap: .08rem; justify-content: center; }
+.boot__choice-btn { padding: .07rem .18rem; border: 1px solid var(--mint-700); background: rgba(78, 216, 175, .08); color: var(--mint-400); font: inherit; font-size: .13rem; cursor: pointer; }
+.boot__choice-btn:hover { background: rgba(78, 216, 175, .16); }
+.boot__choice-btn--primary { background: var(--mint-500); border-color: var(--mint-500); color: #0d1110; font-weight: 700; }
 .boot__music:disabled { opacity: .45; cursor: default; }
 .boot__err { max-width: 6rem; text-align: center; color: var(--text-lo); font-size: .16rem; }
 @keyframes boot-spin { to { transform: rotate(360deg); } }

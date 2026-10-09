@@ -227,6 +227,19 @@ async function inspectSnapshot(index, wanted, port) {
   port.postMessage({ type: 'LOCAL_SNAPSHOT', cached, missing, complete: missing === 0, hash: index.hash });
 }
 
+async function activateIndex(index, port, clientId) {
+  if (index?.version !== 2 || !Array.isArray(index.files) || !index.files.length
+    || !/^[a-f0-9]{64}$/.test(index.hash || '')) throw new Error('资源清单无效');
+  // The streamed mode (the player chose 边玩边下载) registers the same records WITHOUT downloading: the fetch
+  // handler below resolves every requested file and downloads + verifies it on demand into the object cache.
+  await writeMeta(ACTIVE_KEY, index);
+  if (clientId) await writeMeta(clientKey(clientId), index);
+  // The streamed downloads land in the same object cache (all of them are index files), so the prune here only
+  // removes objects of older snapshots.
+  await prune(index).catch((err) => console.warn('[resources] cleanup failed', err));
+  port.postMessage({ type: 'INDEX_ACTIVE', hash: index.hash, files: index.files.length });
+}
+
 self.addEventListener('message', (event) => {
   const data = event.data || {};
   if (data.type === 'SKIP_WAITING') { event.waitUntil(self.skipWaiting()); return; }
@@ -234,6 +247,12 @@ self.addEventListener('message', (event) => {
   if (!port) return;
   if (data.type === 'INSPECT_SNAPSHOT') {
     event.waitUntil(inspectSnapshot(data.index, data.wanted, port).catch((err) => {
+      try { port.postMessage({ type: 'ERROR', message: String(err?.message || err) }); } catch {}
+    }));
+    return;
+  }
+  if (data.type === 'ACTIVATE_INDEX') {
+    event.waitUntil(activateIndex(data.index, port, event.source?.id).catch((err) => {
       try { port.postMessage({ type: 'ERROR', message: String(err?.message || err) }); } catch {}
     }));
     return;

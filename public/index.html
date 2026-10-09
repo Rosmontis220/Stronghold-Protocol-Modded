@@ -70,6 +70,15 @@
         <p class="boot__dl-head">正在准备完整资源 <span class="num" id="boot-dl-total"></span></p>
         <p class="boot__dl-note" id="boot-dl-note">缺少必需资源，将自动完整下载并校验。</p>
       </div>
+      <div id="boot-choice" class="boot__dl boot__choice" hidden>
+        <p class="boot__dl-head">首次进入需要获取游戏资源 <span class="num" id="boot-choice-total"></span></p>
+        <p class="boot__dl-note">预下载在启动时一次完成，之后进入无需等待；也可以跳过，游玩时按需下载（游戏中可能需要短暂等待）。</p>
+        <div class="boot__choice-btns">
+          <button id="boot-choice-predl" class="boot__choice-btn boot__choice-btn--primary" type="button">预下载全部资源（推荐）</button>
+          <button id="boot-choice-stream" class="boot__choice-btn" type="button">跳过，边玩边下载</button>
+        </div>
+        <p class="boot__dl-note">选择会被记住，下次启动不再询问；之后可在 设置 → 资源预下载 中更改。</p>
+      </div>
       <div id="boot-audio" class="boot__audio" hidden>
         <button id="boot-music" class="boot__music" type="button" aria-pressed="false">开启下载期间音乐</button>
         <button id="boot-mute" class="boot__music" type="button" aria-pressed="false">静音</button>

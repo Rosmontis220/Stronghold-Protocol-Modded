@@ -1,7 +1,8 @@
-// Do not execute the game shell until its local resource snapshot is complete and verified.
-import { prepareAssets, validateResourceIndex, inspectCachedSnapshot } from './preload.js';
+// Do not execute the game shell until its local resource snapshot is complete and verified — unless the player chose
+// 边玩边下载 (the start page's picker, saved in sp.pref.download): then the cache service is registered without
+// downloading and every asset verifies + caches on demand while the game plays.
+import { prepareAssets, inspectCachedSnapshot, fetchResourceIndex, activateStreamIndex, readDownloadPref, saveDownloadPref } from './preload.js';
 import { createPreloadEffects } from './preload-effects.js';
-import { RESOURCE_INDEX_URL } from '../../shared/resource-plan.js';
 
 const status = document.getElementById('boot-status');
 const detail = document.getElementById('boot-detail');
@@ -17,23 +18,17 @@ const audioPanel = document.getElementById('boot-audio');
 const dl = document.getElementById('boot-download');
 const dlTotal = document.getElementById('boot-dl-total');
 const dlNote = document.getElementById('boot-dl-note');
+const choice = document.getElementById('boot-choice');
+const choiceTotal = document.getElementById('boot-choice-total');
+const choicePredl = document.getElementById('boot-choice-predl');
+const choiceStream = document.getElementById('boot-choice-stream');
 
 let preloadStarted = false;
 let indexPromise = null;
 
 /** Fetch + validate the cloud index once: use one authoritative list for verification and download. */
 function fetchIndex() {
-  if (!indexPromise) {
-    indexPromise = (async () => {
-      const abort = new AbortController();
-      const timer = setTimeout(() => abort.abort(), 120000);
-      try {
-        const response = await fetch(RESOURCE_INDEX_URL, { cache: 'no-store', signal: abort.signal });
-        if (!response.ok) throw new Error(`云端资源清单 HTTP ${response.status}`);
-        return validateResourceIndex(await response.json());
-      } finally { clearTimeout(timer); }
-    })();
-  }
+  if (!indexPromise) indexPromise = fetchResourceIndex().catch((err) => { indexPromise = null; throw err; });
   return indexPromise;
 }
 
@@ -121,6 +116,56 @@ async function start() {
 
 if (dl) dl.hidden = true;
 
+/** The start page's picker (the player chooses once; the choice is remembered): the two tiles of #boot-choice. */
+function showChoice(index) {
+  if (!choice) { saveDownloadPref('predownload'); begin(); return; }
+  if (choiceTotal) choiceTotal.textContent = `${index.files.length} 项 · ${mb(index.bytes)}`;
+  choice.hidden = false;
+  if (status) status.textContent = '选择资源获取方式';
+  if (progress) progress.setAttribute('aria-hidden', 'true');
+  if (choicePredl) choicePredl.onclick = () => choose('predownload');
+  if (choiceStream) choiceStream.onclick = () => choose('stream');
+}
+
+function choose(mode) {
+  saveDownloadPref(mode);
+  if (choice) choice.hidden = true;
+  if (mode === 'stream') {
+    if (status) status.textContent = '正在启动（边玩边下载）…';
+    if (detail) detail.textContent = '进入游戏后资源在用到时下载并校验；建议 Wi-Fi 下游玩。';
+    audioPanel?.setAttribute('hidden', '');
+    beginStream();
+    return;
+  }
+  if (status) status.textContent = '正在准备完整下载…';
+  if (detail) detail.textContent = '下载期间可以开启音乐。';
+  begin();
+}
+
+/** Streamed mode: register the verified index with the cache service (no downloads), then run the game shell. */
+async function beginStream() {
+  if (preloadStarted) return;
+  preloadStarted = true;
+  if (dl) dl.hidden = true;
+  try {
+    const index = await fetchIndex();
+    await activateStreamIndex(index);
+    window.__spPreloadResult = { type: 'STREAMED', version: index.hash, total: index.files.length };
+    if (status) status.textContent = '正在进入游戏…';
+    await import('./main.js');
+    effects.finish();
+  } catch (err) {
+    console.error('[boot] streamed start failed', err);
+    saveDownloadPref(null); // the mode failed — ask again next time
+    if (error) {
+      error.textContent = `边玩边下载启动失败：${String(err?.message || err).slice(0, 220)}。可稍后刷新重试，或重新选择完整下载。`;
+      error.setAttribute('data-final', '1');
+    }
+    if (retry) { retry.hidden = false; retry.onclick = () => { saveDownloadPref(null); location.reload(); }; }
+    if (status) status.textContent = '启动未完成';
+  }
+}
+
 async function bootFromLocalOrDownload() {
   // Packaged assets are validated at build time and served directly from the installation.
   if (globalThis.__SP_PACKAGED || new URLSearchParams(location.search).get('packaged') === '1') {
@@ -135,14 +180,27 @@ async function bootFromLocalOrDownload() {
       begin();
       return;
     }
-    if (dl) dl.hidden = false;
-    if (status) status.textContent = '本地资源不完整，正在准备完整下载…';
-    renderDownloadSummary(index);
-    begin();
+    // The player already chose: 预下载 runs the verified full download as before; 边玩边下载 starts right away.
+    const pref = readDownloadPref();
+    if (pref === 'predownload' || pref === 'stream') {
+      if (pref === 'stream') {
+        if (status) status.textContent = '正在启动（边玩边下载）…';
+        beginStream();
+      } else {
+        if (dl) dl.hidden = false;
+        if (status) status.textContent = '本地资源不完整，正在准备完整下载…';
+        renderDownloadSummary(index);
+        begin();
+      }
+      return;
+    }
+    // First visit (or a previous mode failed): let the player pick once. The download panel stays hidden meanwhile.
+    showChoice(index);
   } catch (err) {
     // A manifest failure is a verification error, not proof that the player should see the download picker.
     // Keep every download control hidden until required-resource absence has been confirmed by a valid index.
     if (dl) dl.hidden = true;
+    choice && (choice.hidden = true);
     audioPanel?.setAttribute('hidden', '');
     if (error) error.textContent = '资源校验服务暂时不可用，请稍后刷新重试。';
   }

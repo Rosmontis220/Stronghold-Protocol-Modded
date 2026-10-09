@@ -312,9 +312,9 @@ node scripts/notice.mjs --clear                                         # 手动
 
 安全边界：`/api/admin/*` 全部要求 token（除 `login`），请求体上限 64 KB；`admin.html` 同样带 `noindex`，且 `robots.txt` 全站 `Disallow`（第 4 节）。操作台**只是调用同一套公告文件与只读视图**，不改变游戏协议。
 
-## 9. 预下载：选择下载内容与本地素材导入
+## 9. 预下载：获取方式选择与本地素材导入
 
-浏览器第一次进站会先经 `/data/resource-manifest.json` 校对本地素材（第 6 节）。启动页上还能决定**下载哪些**：按 `shared/resource-plan.js` 的分类，**音频**（`/assets/audio/**`，约 27 MB）与**玩法说明教程页**（`/assets/ui/guide/**`，约 21 MB）是可选项，其余（游戏数据、字体、敌人与干员模型、立绘、头像、界面美术、各类图标）都是必需项，不给关。面板显示每组真实文件数与体积，`完整` / `精简` 两个预设按钮，选择存 `localStorage`（`sp.pref.download`）下次沿用；首次访问不会卡住——8 秒后按当前选择自动开始，期间点「保存并下载」可立即按新选择开始（改选后重载，已下好的文件照旧复用）。跳过的文件就是缓存里没有对象：版本校验仍按**完整**清单，下次进站可以再补下。
+浏览器第一次进站会先经 `/data/resource-manifest.json` 校对本地素材（第 6 节）。资源完整时直接进入游戏；确认缺失后启动页显示**获取方式选择页**（`public/js/boot.js` + `public/index.html` 的 `#boot-choice`）：「预下载全部资源（推荐）」按完整清单一次下载并校验（进度、失败重试同原下载流程），「跳过，边玩边下载」不下载、立刻进入游戏。选择存 `localStorage`（`sp.pref.download`，`public/js/preload.js` 的 `DOWNLOAD_PREF_KEY`：`'predownload'` 或 `'stream'`），下次启动不再询问——选了预下载的照旧完整下载，选了边玩边下载的直接启动。边玩边下载的实现：页面给 Service Worker 发 `ACTIVATE_INDEX`（`public/sw.js`），Worker 把同一份完整索引写进活动记录（`ACTIVE_KEY` / 客户端键）并清理旧快照对象，**不下载**；之后游戏请求的每个资源（`/data`、`/assets`、`/fonts`、`/media`）都被 fetch 处理器拦下，按需下载、按 SHA-256 校验后写进同一份 `sp-resource-objects-v2` 缓存——玩过的文件下次进站校验时直接命中，完整快照攒齐后选择页也不再出现。选了边玩边下载的玩家随时可在「设置 → 资源预下载」（`public/js/ui/settings.js` 的 `PredownloadSection`，方案B）就地补下完整资源（带进度行），成功后把选择改回预下载。已预下载的文件被检测到时跳过选择页直接校验；清掉 `sp.pref.download`（或边玩边下载启动失败时的重试按钮）会重新询问。
 
 **本地素材导入**（`public/js/local-import.js`）：没有网络或想省流量时，可用「选择本地素材文件夹」指向自己那份发布目录（项目根，含 `public/` 与 `data/`；指向 `public/`、`public/assets` 或资源树的任意一层也能识别）。页面逐个文件按**大小 + SHA-256** 校验后写进 Worker 用的同一份 `sp-resource-objects-v2` 缓存，因此运行时读取路径不变，剩下的缺失项才走网络。Chromium 会把目录句柄记在 IndexedDB：下次进站权限仍在就自动导入（缓存为空时尤其有用），权限失效时给一键「继续使用上次的文件夹」（浏览器要求一次点击授权）；Firefox/Safari 无 File System Access，退化为 `<input type="file" webkitdirectory>`（同样校验入缓存，但不能记忆目录）。关掉音频时启动音乐不再尝试播放，启动页显示「音乐未选择下载」；关掉教程页时「玩法说明」走文字要点回退。
 

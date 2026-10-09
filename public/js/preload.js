@@ -38,6 +38,30 @@ function progressText(progress, onProgress) {
   try { onProgress?.(progress); } catch { /* UI progress is best effort */ }
 }
 
+/** The saved 资源选择 (the start page's picker): 'predownload' | 'stream', or null (ask at the next boot). */
+export const DOWNLOAD_PREF_KEY = 'sp.pref.download';
+export function readDownloadPref() {
+  try {
+    const raw = localStorage.getItem(DOWNLOAD_PREF_KEY);
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { return raw; }
+  } catch { return null; }
+}
+export function saveDownloadPref(value) {
+  try { localStorage.setItem(DOWNLOAD_PREF_KEY, JSON.stringify(value)); } catch { /* private browsing */ }
+}
+
+/** Fetch + validate the cloud index once: use one authoritative list for verification and download. */
+export async function fetchResourceIndex() {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 120000);
+  try {
+    const response = await fetch(RESOURCE_INDEX_URL, { cache: 'no-store', signal: abort.signal });
+    if (!response.ok) throw new Error(`云端资源清单 HTTP ${response.status}`);
+    return validateResourceIndex(await response.json());
+  } finally { clearTimeout(timer); }
+}
+
 function waitForActivation(worker) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => finish(new Error('本地缓存服务启动超时，请刷新重试')), 30000);
@@ -71,6 +95,33 @@ export async function inspectCachedSnapshot(index, selection = null) {
     worker.postMessage({ type: 'INSPECT_SNAPSHOT', index, wanted: selected.map((file) => file.url) }, [channel.port2]);
   });
   return { ...result, selected: selected.length, selectedBytes: selected.reduce((sum, file) => sum + file.bytes, 0) };
+}
+
+/**
+ * Streamed mode (the player chose 边玩边下载): register the index with the worker WITHOUT downloading, so its fetch
+ * handler verifies + caches every asset on demand while the game plays. The boot page stays download-free.
+ */
+export async function activateStreamIndex(index) {
+  if (!('serviceWorker' in navigator) || !('MessageChannel' in window) || !('caches' in window)) {
+    throw new Error('当前浏览器无法保存本地资源，请通过 HTTPS 或 localhost 使用最新版浏览器');
+  }
+  const worker = await activeWorker();
+  return new Promise((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timer = setTimeout(() => finish(reject, new Error('本地缓存服务激活超时，请刷新重试')), 30000);
+    function finish(fn, value) {
+      clearTimeout(timer);
+      channel.port1.close();
+      fn(value);
+    }
+    channel.port1.onmessage = (event) => {
+      const data = event.data || {};
+      if (data.type === 'INDEX_ACTIVE') finish(resolve, data);
+      else if (data.type === 'ERROR') finish(reject, new Error(data.message || '本地缓存服务激活失败'));
+    };
+    try { worker.postMessage({ type: 'ACTIVATE_INDEX', index }, [channel.port2]); }
+    catch (err) { finish(reject, err); }
+  });
 }
 
 async function activeWorker() {

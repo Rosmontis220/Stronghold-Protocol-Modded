@@ -15,6 +15,8 @@ import { sanitizeSettings as sanitizeBaseSettings, HOTKEY_ACTIONS, DEFAULT_HOTKE
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
+// The fork's 资源预下载 (the start page's picker, 方案B): the player who chose 边玩边下载 predownloads here.
+import { prepareAssets, fetchResourceIndex, saveDownloadPref } from '../preload.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const sanitizeSettings = (raw) => ({ ...sanitizeBaseSettings(raw), voiceLang: raw?.voiceLang === 'cn' ? 'cn' : 'jp' });
@@ -153,6 +155,41 @@ function HotkeySection({ keys, touchUi }) {
 }
 
 /**
+ * 资源预下载 (方案B — the start page's picker runs once, this is the player's way to change later): the same complete
+ * verified download as the boot page, with a progress line; success saves the 预下载 choice so the next boot verifies
+ * instead of asking. Hidden on a packaged client (the assets ship with the installation).
+ */
+function PredownloadSection() {
+  const [state, setState] = useState('idle'); // idle | busy | done | failed
+  const [pct, setPct] = useState(0);
+  const [note, setNote] = useState('');
+  if (globalThis.__SP_PACKAGED) return null;
+  const startPredl = async () => {
+    if (state === 'busy') return;
+    setState('busy'); setPct(0); setNote('');
+    try {
+      const index = await fetchResourceIndex();
+      await prepareAssets({ index, onProgress: (p) => {
+        if (Number.isFinite(p?.total) && p.total > 0) setPct(Math.round(((p.done || 0) / p.total) * 100));
+      } });
+      saveDownloadPref('predownload');
+      setState('done');
+      setNote('预下载完成，下次启动直接校验进入');
+    } catch (err) {
+      setState('failed');
+      setNote(`预下载未完成：${String(err?.message || err).slice(0, 160)}`);
+    }
+  };
+  const label = state === 'busy' ? `下载中 ${pct}%` : state === 'failed' ? '重试预下载' : '预下载全部资源';
+  return html`<div class="set-row">
+    <span class="set-row__label">${'资源预下载'}<${MicroLabel}>RESOURCES<//></span>
+    <${Button} variant="secondary" size="sm" disabled=${state === 'busy'} onClick=${startPredl} class="set-predl__btn">${label}<//>
+  </div>
+  <p class="set-hint" role="status" aria-live="polite">${state === 'busy' ? '正在下载并校验全部资源，可以继续游玩…'
+    : note || '边玩边下载时资源在用到时下载；预下载后启动无需等待'}</p>`;
+}
+
+/**
  * Settings modal.
  * @param {{ open: boolean, onClose: Function }} props
  */
@@ -185,6 +222,7 @@ export function SettingsModal({ open, onClose }) {
         </div>
       </div>
       <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
+      <${PredownloadSection} />
       <p class="set-hint">${touchUi ? '触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向' : '右键查看详情'}</p>
     </div>
   <//>`;
