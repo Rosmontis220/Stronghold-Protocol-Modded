@@ -1,10 +1,30 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { startServer } from '../server/index.js';
 import { StubMatch } from '../server/match/StubMatch.js';
 import { TestClient } from './helpers/wsClient.js';
 import { ROOM_CAPACITIES, DEFAULT_SEATS, MAX_SEATS, MAX_DRAFT_CARDS } from '../shared/constants.js';
 import { validateC2S } from '../shared/protocol.js';
+import { BOT_NAMES, BOT_AVATARS } from '../server/lobby.js';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+test('every AI teammate name wears an operator avatar this build actually ships', () => {
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, 'data/assets.json'), 'utf8'));
+  assert.ok(BOT_NAMES.length >= MAX_SEATS - 1, `a full room needs ${MAX_SEATS - 1} distinct AI names, pool has ${BOT_NAMES.length}`);
+  assert.equal(new Set(BOT_NAMES).size, BOT_NAMES.length, 'the pool holds no duplicate');
+  for (const name of BOT_NAMES) {
+    const charId = BOT_AVATARS[name];
+    assert.ok(charId, `${name} has no avatar mapping`);
+    const rec = manifest.chars[charId];
+    assert.ok(rec, `${name} → ${charId} is not in data/assets.json`);
+    assert.match(rec.avatar, /^\/assets\/char\/avatar\/.+\.png$/, `${name} → ${charId} has no avatar art`);
+  }
+  assert.deepEqual(Object.keys(BOT_AVATARS).sort(), [...BOT_NAMES].sort(), 'the mapping covers exactly the pool');
+});
 
 test('capacity and high seat/card indexes are bounded at the protocol boundary', () => {
   for (const capacity of ROOM_CAPACITIES) {

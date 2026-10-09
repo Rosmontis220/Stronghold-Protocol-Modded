@@ -119,8 +119,30 @@ export const LOBBY_DEFAULTS = Object.freeze({
 export const SOLO_RECONNECT_FALLBACK_SEC = 86_400;
 
 /** Display names for AI teammates (the tutorial NPCs first, then a few familiar faces). */
-export const BOT_NAMES = Object.freeze(['AI·迷迭香', 'AI·银灰', 'AI·惊蛰', 'AI·德克萨斯', 'AI·佩佩', 'AI·能天使', 'AI·玛恩纳', 'AI·阿米娅', 'AI·古米', 'AI·角峰', 'AI·野鬃', 'AI·刺玫', 'AI·铃兰', 'AI·巫恋', 'AI·陈', 'AI·杰西卡', 'AI·缪尔赛思', 'AI·芬', 'AI·杜宾']);
-export const BOT_AVATARS = Object.freeze({ 'AI·迷迭香': 'char_391_rosmon', 'AI·银灰': 'char_172_svrash', 'AI·惊蛰': 'char_306_leizi', 'AI·德克萨斯': 'char_102_texas', 'AI·佩佩': 'char_4058_pepe', 'AI·能天使': 'char_103_angel', 'AI·玛恩纳': 'char_4064_mlynar', 'AI·阿米娅': 'char_002_amiya', 'AI·古米': 'char_196_sunbr', 'AI·角峰': 'char_199_yak', 'AI·野鬃': 'char_496_wildmn', 'AI·刺玫': 'char_494_vendla', 'AI·铃兰': 'char_358_lisa', 'AI·巫恋': 'char_254_vodfox', 'AI·陈': 'char_010_chen', 'AI·杰西卡': 'char_235_jesica', 'AI·缪尔赛思': 'char_249_mlyss', 'AI·芬': 'char_123_fang', 'AI·杜宾': 'char_130_doberm' });
+/**
+ * Display names for AI teammates, drawn at random per bot (see `addBot`), and the operator avatar each one wears (a
+ * character id from data/assets.json `chars` — the same id space `hello.avatar` uses; ui/avatarSkin.js joins it with
+ * the operator's skin). A full 20-seat room holds 19 AI, and the pool holds exactly 19 names, so a room always fills
+ * with 19 distinct operators; `addBot` never repeats a name that is already seated.
+ *
+ * Every name here must resolve to avatar art in this build's manifest. Operators this build's pool does not carry
+ * (阿米娅 / 杰西卡 / 芬 / 杜宾) have no art and are therefore not listed.
+ */
+export const BOT_NAMES = Object.freeze([
+  'AI·迷迭香', 'AI·银灰', 'AI·惊蛰', 'AI·德克萨斯', 'AI·佩佩', 'AI·能天使', 'AI·玛恩纳',
+  'AI·华法琳', 'AI·焰影苇草', 'AI·白面鸮', 'AI·拉普兰德', 'AI·初雪', 'AI·维娜·维多利亚',
+  'AI·缇缇', 'AI·蕾缪安', 'AI·诗怀雅', 'AI·远牙', 'AI·赫默', 'AI·塞雷娅',
+]);
+/** The operator avatar of each AI name: character id → data/assets.json `chars`. */
+export const BOT_AVATARS = Object.freeze({
+  'AI·迷迭香': 'char_391_rosmon', 'AI·银灰': 'char_172_svrash', 'AI·惊蛰': 'char_306_leizi',
+  'AI·德克萨斯': 'char_102_texas', 'AI·佩佩': 'char_4058_pepe', 'AI·能天使': 'char_103_angel',
+  'AI·玛恩纳': 'char_4064_mlynar',
+  'AI·华法琳': 'char_171_bldsk', 'AI·焰影苇草': 'char_1020_reed2', 'AI·白面鸮': 'char_128_plosis',
+  'AI·拉普兰德': 'char_140_whitew', 'AI·初雪': 'char_174_slbell', 'AI·维娜·维多利亚': 'char_1019_siege2',
+  'AI·缇缇': 'char_4056_titi', 'AI·蕾缪安': 'char_4193_lemuen', 'AI·诗怀雅': 'char_308_swire',
+  'AI·远牙': 'char_430_fartth', 'AI·赫默': 'char_108_silent', 'AI·塞雷娅': 'char_202_demkni',
+});
 
 const OK = Object.freeze({ ok: true });
 const fail = (code, detail) => (detail ? { error: code, detail } : { error: code });
@@ -536,9 +558,10 @@ export class Lobby {
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
-    // the first name not in use (the reference branch's rule): stable across a room's lifetime, and a freed name is
-    // reused by the next bot. 19 names cover a full 20-seat room (one human + 19 bots).
-    const name = BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`;
+    // drawn at random from the names not taken yet: a 19-name pool for 19 AI seats, so a full room fields every
+    // operator exactly once (the fallback only triggers for a hand-made seat beyond the pool)
+    const availableNames = BOT_NAMES.filter((n) => !used.has(n));
+    const name = availableNames.length ? availableNames[randomInt(availableNames.length)] : `AI·${idx + 1}`;
     let playerId;
     do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
     room.seats[idx] = { seat: idx, playerId, name, avatar: BOT_AVATARS[name] || null, isBot: true, ready: true, connected: true, left: false };

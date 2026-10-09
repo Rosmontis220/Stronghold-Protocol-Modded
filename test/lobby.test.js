@@ -14,7 +14,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { startServer, parseRange, acceptsGzip, parseTrustProxy } from '../server/index.js';
 import { loadData, lookup, getChess, getBond, getBand, getMode, getConfig, INDEXED_FILES } from '../server/data.js';
 import * as dataModule from '../server/data.js';
-import { CODE_ALPHABET, BOT_NAMES } from '../server/lobby.js';
+import { CODE_ALPHABET, BOT_NAMES, BOT_AVATARS } from '../server/lobby.js';
 import { sanitizeName, TokenBucket, SessionRegistry, clientAddress, normalizeIp, isLocalIp, limitKeyOf } from '../server/net.js';
 import { StubMatch as Match } from '../server/match/StubMatch.js';
 import { Match as RealMatch } from '../server/match/Match.js';
@@ -762,11 +762,14 @@ describe('websocket lobby', () => {
     const s1 = await host.waitFor('room.state', (s) => s.seats[1]?.isBot);
     assert.equal(s1.seats[1].ready, true);
     assert.equal(s1.seats[1].connected, true);
-    assert.equal(s1.seats[1].name, BOT_NAMES[0]);
+    assert.ok(BOT_NAMES.includes(s1.seats[1].name), 'the name comes from the AI pool');
+    assert.equal(s1.seats[1].avatar, BOT_AVATARS[s1.seats[1].name], 'and it wears that operator avatar');
     assert.match(s1.seats[1].playerId, /^ai_[0-9a-f]{8}$/);
     await expectOk(host, { t: 'room.addBot' });
     const s2 = await host.waitFor('room.state', (s) => s.seats[2]?.isBot);
-    assert.equal(s2.seats[2].name, BOT_NAMES[1]);
+    assert.notEqual(s2.seats[2].name, s2.seats[1].name, 'a name already seated is never drawn again');
+    assert.ok(BOT_NAMES.includes(s2.seats[2].name));
+    assert.equal(s2.seats[2].avatar, BOT_AVATARS[s2.seats[2].name]);
 
     await expectError(host, { t: 'room.removeBot', seat: 0 }, ERR.BAD_TARGET); // human seat
     await expectError(host, { t: 'room.removeBot', seat: 3 }, ERR.BAD_TARGET); // empty seat
@@ -775,7 +778,9 @@ describe('websocket lobby', () => {
     assert.ok(s3);
     await expectOk(host, { t: 'room.addBot' });
     const s4 = await host.waitFor('room.state', (s) => s.seats[1]?.isBot);
-    assert.equal(s4.seats[1].name, BOT_NAMES[0], 'freed bot name is reused');
+    const names = s4.seats.filter((s) => s && s.isBot).map((s) => s.name);
+    assert.equal(new Set(names).size, names.length, 'the freed name may come back, but never twice at once');
+    assert.equal(s4.seats[1].avatar, BOT_AVATARS[s4.seats[1].name]);
 
     await expectOk(host, { t: 'room.leave' });
     const probe = await pool.player('Probe');
