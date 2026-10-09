@@ -85,6 +85,13 @@ try {
   if (voiceBad.length) throw new Error(`voice files are not served: ${JSON.stringify(voiceBad)}`);
   if (!Object.keys(voice.cn).length || !Object.keys(voice.jp).length) throw new Error(`no voice slots: ${JSON.stringify(voice)}`);
   await page.waitForSelector('.team__list');
+  // the nineteen AI teammates: a full 20-seat room must field 19 distinct operators, each wearing its own avatar
+  const bots = await page.evaluate(() => __SP__.store.get().match.public.players.filter((p) => p.isBot)
+    .map((p) => ({ name: p.name, avatar: p.avatar })));
+  if (bots.length !== 19) throw new Error(`expected 19 AI teammates, got ${bots.length}`);
+  if (new Set(bots.map((b) => b.name)).size !== 19) throw new Error(`duplicate AI names: ${JSON.stringify(bots.map((b) => b.name))}`);
+  if (bots.some((b) => !/^char_/.test(String(b.avatar)))) throw new Error(`an AI has no avatar: ${JSON.stringify(bots)}`);
+  if (new Set(bots.map((b) => b.avatar)).size !== 19) throw new Error('two AI share an operator avatar');
   const roster = await page.evaluate(() => {
     const list = document.querySelector('.team__list');
     list.scrollTop = list.scrollHeight;
@@ -93,7 +100,7 @@ try {
     const box = list.getBoundingClientRect();
     return {rows:rows.length,scrollable:list.scrollHeight>list.clientHeight,scrolled:list.scrollTop>0,lastVisible:last.top>=box.top&&last.bottom<=box.bottom+2};
   });
-  console.log(result, { errors, roster, avatar, carried, drawn, voice });
+  console.log(result, { errors, roster, avatar, carried, drawn, voice, bots: bots.length });
   if (roster.rows!==20||!roster.scrollable||!roster.scrolled||!roster.lastVisible) throw new Error('Roster scroll failed');
   await page.screenshot({path:'test/e2e/out/twenty-roster.png'});
   if (errors.length || result.seats !== 20) throw new Error('Offline integration failed');
