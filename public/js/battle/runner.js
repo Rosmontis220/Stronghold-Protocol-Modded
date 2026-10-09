@@ -74,7 +74,6 @@ import { store as appStore } from '../store.js';
 import { unitStatsEntry, fxForm, RESULT_LIMITS } from '../../../shared/protocol.js';
 import { MAX_SEATS } from '../../../shared/constants.js';
 import { spectateEffects } from './observe.js';
-import { recordError, setBattleSource } from '../diag.js';
 
 const TICK = 1 / 30;
 /** Fast-forward budget per frame (ticks) when far behind. */
@@ -168,11 +167,10 @@ export async function loadBrowserSim({ base = '/sim/', dataBase = '/data/', fetc
 }
 
 /**
- * Battle logger: content errors are isolated by the sim; report them as warnings (the server logs its own) and keep
- * them for the diagnostics a player copies (diag.js).
+ * Battle logger: content errors are isolated by the sim and reported as warnings (the server logs its own).
  */
 const SIM_LOGGER = Object.freeze({
-  error: (...a) => { console.warn('[sim]', ...a); recordError('sim', a.length === 1 ? a[0] : a.map(String).join(' ')); },
+  error: (...a) => console.warn('[sim]', ...a),
   warn: (...a) => console.warn('[sim]', ...a),
   info() {},
   debug() {},
@@ -365,7 +363,6 @@ export function createBattleRunner(deps) {
     } catch (err) {
       stats.errors++;
       console.warn('[runner] battle step failed', err);
-      recordError('runner', err, 'battle step failed');
       try { b.forceEnd('timeout'); } catch { /* ignore */ }
     }
     const dt = now() - t;
@@ -408,7 +405,7 @@ export function createBattleRunner(deps) {
       const list = catchingUp ? s.ev.filter(keepsState) : s.ev;
       if (list.length) emit('ev', { t: 'b.ev', fieldId: e.fieldId, gt: s.gt, ev: list });
     }
-    try { emit('snap', frameOf(e)); } catch (err) { console.warn('[runner] snapshot failed', err); recordError('runner', err, 'snapshot failed'); }
+    try { emit('snap', frameOf(e)); } catch (err) { console.warn('[runner] snapshot failed', err); }
   }
 
   /**
@@ -485,7 +482,7 @@ export function createBattleRunner(deps) {
         // The server must see every surviving enemy. A compactResult list cap or an oversized frame would otherwise
         // silently undercharge a leaker, or close the socket at the 64 KB inbound limit.
         wire = tooManyEntries ? null : e.sim.spec.fitResult(result, { bossLike: bossLike(e), battleId: e.battleId });
-      } catch (err) { console.warn('[runner] result failed', err); recordError('runner', err, 'result failed'); }
+      } catch (err) { console.warn('[runner] result failed', err); }
       e.result = wire || result;
       e.deliveryType = wire ? 'b.result' : 'b.yield';
       if (e.result) {
@@ -521,7 +518,6 @@ export function createBattleRunner(deps) {
         } else {
           e.delivery = 'delivered';
           console.warn(`[runner] ${type} refused`, code);
-          recordError('runner', code, `${type} refused`);
         }
         return null;
       });
@@ -701,7 +697,6 @@ export function createBattleRunner(deps) {
       let sim;
       try { sim = await ensureSim(); } catch (err) {
         console.warn('[runner] simulation unavailable', err);
-        recordError('runner', err, 'simulation unavailable');
         return;
       }
       if (!wanted()) return;
@@ -710,7 +705,6 @@ export function createBattleRunner(deps) {
         battle = sim.spec.createBattleFromSpec(e.spec, sim.ds, { logger });
       } catch (err) {
         console.warn('[runner] battle construction failed', err);
-        recordError('runner', err, 'battle construction failed');
         return;
       }
       stats.battles++;
@@ -840,7 +834,7 @@ export function createBattleRunner(deps) {
     },
     state,
     /**
-     * The battle on screen as a report attaches it (diag.js): its b.start fields and its game time; null without one.
+     * The battle on screen: its b.start fields and its game time; null without one.
      * @returns {{ battleId: string, fieldId: string, kind: string, spec: object, time: number|null }|null}
      */
     currentBattle() {
@@ -912,4 +906,3 @@ export const battleRunner = typeof window !== 'undefined' && typeof document !==
   ? createBattleRunner({ net: appNet, store: appStore })
   : null;
 if (battleRunner) globalThis.__SP_RUNNER__ = battleRunner; // dev / E2E introspection
-if (battleRunner) setBattleSource(() => battleRunner.currentBattle());

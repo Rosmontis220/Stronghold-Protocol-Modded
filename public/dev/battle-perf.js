@@ -81,7 +81,7 @@ function deviceInfo() {
   };
 }
 
-/** The copyable report: one item per line, the panel's terms and units (pasted into feedback as is). */
+/** The copyable report: one item per line, the panel's terms and units. */
 function report(spec, title, quality, s) {
   const d = deviceInfo();
   const lines = [

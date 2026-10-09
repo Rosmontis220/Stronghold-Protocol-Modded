@@ -1,10 +1,8 @@
 // Player settings (BGM/SFX/voice volume, the voice dub 语音语言, mute, damage numbers, render quality, the shortcut keys): a
 // tiny observable store persisted in localStorage (`sp.pref.settings`), applied to the audio manager on every change, plus
-// the settings modal — which also holds the language switch (ui/lang.js; kept apart in `sp.pref.lang`; under it a note
-// while the current language's pack is a machine translation, `_meta.machineTranslated`) and the 快捷键
-// section that rebinds the in-match shortcuts (the key map: ui/gameLogic/shortcuts.js; the community request
-// 「快捷键可不可以自己设置」, the owner's decision of 2026-10-07) and 问题反馈, which copies the diagnostics of this page
-// for a bug report (diag.js: the error log, this browser, optionally the battle on screen; nothing is uploaded). The
+// the settings modal and the 快捷键 section that rebinds the in-match shortcuts (the key map:
+// ui/gameLogic/shortcuts.js; the community request
+// 「快捷键可不可以自己设置」, the owner's decision of 2026-10-07). The
 // lobby and the room open it from a 设置 button next to 玩法说明 (SettingsButton, GitHub #238); the title screen and the
 // match have their own gear.
 
@@ -17,10 +15,6 @@ import { sanitizeSettings as sanitizeBaseSettings, HOTKEY_ACTIONS, DEFAULT_HOTKE
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
-import { LangToggle, machineTranslationNote } from './lang.js';
-import { t, tc, N_ } from '../../../shared/i18n.js';
-import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
-import { copyText } from './clipboard.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 const sanitizeSettings = (raw) => ({ ...sanitizeBaseSettings(raw), voiceLang: raw?.voiceLang === 'cn' ? 'cn' : 'jp' });
@@ -65,19 +59,18 @@ function Toggle({ label, micro, value, onChange }) {
   return html`<div class="set-row">
     <span class="set-row__label">${label}<${MicroLabel}>${micro}<//></span>
     <button type="button" class=${`set-toggle${value ? ' is-on' : ''}`} role="switch" aria-checked=${value ? 'true' : 'false'}
-      onClick=${() => onChange(!value)}><i></i><span>${value ? tc('toggle', '开启') : tc('toggle', '关闭')}</span></button>
+      onClick=${() => onChange(!value)}><i></i><span>${value ? '开启' : '关闭'}</span></button>
   </div>`;
 }
 
-const QUALITY = [['high', N_('高')], ['medium', N_('中')], ['low', N_('低')]];
+const QUALITY = [['high', '高'], ['medium', '中'], ['low', '低']];
 /**
- * 语音语言: each dub named in its own language, like the interface language switch (ui/lang.js) — the owner's
- * 「中文 / 日本語」 (2026-10-08); VOICE_LANGS order.
+ * 语音语言: each dub named in its own language — the owner's 「中文 / 日本語」 (2026-10-08); VOICE_LANGS order.
  */
-const VOICE_LANG_NAMES = { cn: '中文', jp: '日本語' }; // i18n-ignore
-/** The rebindable shortcuts' names (msgids), by action. */
-const HOTKEY_NAMES = { refresh: N_('刷新商店'), freeze: N_('冻结 / 解冻商店'), levelUp: N_('升级调度中心'), retreat: N_('撤退选中干员'),
-  sell: N_('出售选中干员'), ready: N_('准备就绪 / 暂停（独立模拟）') };
+const VOICE_LANG_NAMES = { cn: '中文', jp: '日本語' };
+/** The rebindable shortcuts' names, by action. */
+const HOTKEY_NAMES = { refresh: '刷新商店', freeze: '冻结 / 解冻商店', levelUp: '升级调度中心', retreat: '撤退选中干员',
+  sell: '出售选中干员', ready: '准备就绪 / 暂停（独立模拟）' };
 
 /**
  * 快捷键: each shortcut with its key. Click its key (or Enter / Space on it) and press the new one: Esc cancels (the
@@ -94,7 +87,7 @@ function HotkeySection({ keys, touchUi }) {
   // end the wait, never reach the dialog's own Esc)
   useLayoutEffect(() => {
     if (!waiting) return undefined;
-    const name = t(HOTKEY_NAMES[waiting]);
+    const name = (HOTKEY_NAMES[waiting]);
     const onKey = (e) => {
       const r = captureHotkey(e);
       if (r.kind === 'leave') { setWaiting(null); return; } // Tab: the focus moves on
@@ -105,12 +98,12 @@ function HotkeySection({ keys, touchUi }) {
       const cur = settingsStore.get().keys;
       if (r.kind === 'cancel') {
         setWaiting(null);
-        setNote({ text: t('已取消，「{action}」仍是 {key}', { action: name, key: hotkeyLabel(cur[waiting]) }) });
+        setNote({ text: `已取消，「${(name) ?? ''}」仍是 ${(hotkeyLabel(cur[waiting])) ?? ''}` });
         return;
       }
       if (r.kind === 'refuse') {
-        setNote({ warn: true, text: r.reason === 'modifier' ? t('快捷键只能是单个按键，不能搭配 Ctrl、Alt 或 ⌘')
-          : t('{key} 不能设为快捷键：Esc、Tab、Enter、方向键和功能键留给界面使用', { key: r.name }) });
+        setNote({ warn: true, text: r.reason === 'modifier' ? '快捷键只能是单个按键，不能搭配 Ctrl、Alt 或 ⌘'
+          : `${(r.name) ?? ''} 不能设为快捷键：Esc、Tab、Enter、方向键和功能键留给界面使用` });
         return;
       }
       const res = rebindHotkey(cur, waiting, r.code);
@@ -118,8 +111,8 @@ function HotkeySection({ keys, touchUi }) {
       setWaiting(null);
       const key = hotkeyLabel(r.code);
       setNote({ text: res.swapped
-        ? t('「{action}」已改为 {key}；「{other}」原来用 {key}，已换成 {old}', { action: name, key, other: t(HOTKEY_NAMES[res.swapped]), old: hotkeyLabel(res.keys[res.swapped]) })
-        : t('「{action}」已改为 {key}', { action: name, key }) });
+        ? `「${(name) ?? ''}」已改为 ${(key) ?? ''}；「${(HOTKEY_NAMES[res.swapped]) ?? ''}」原来用 ${(key) ?? ''}，已换成 ${(hotkeyLabel(res.keys[res.swapped])) ?? ''}`
+        : `「${(name) ?? ''}」已改为 ${(key) ?? ''}` });
     };
     // a press anywhere but the waiting key ends the wait (another key starts its own)
     const onDown = (e) => { if (!(e.target instanceof Element) || !e.target.closest('.set-key.is-waiting')) setWaiting(null); };
@@ -128,83 +121,34 @@ function HotkeySection({ keys, touchUi }) {
     return () => { window.removeEventListener('keydown', onKey, true); window.removeEventListener('pointerdown', onDown, true); };
   }, [waiting]);
 
-  const status = note ? note.text : waiting ? t('请按下「{action}」的新按键（Esc 取消）', { action: t(HOTKEY_NAMES[waiting]) }) : '';
+  const status = note ? note.text : waiting ? `请按下「${(HOTKEY_NAMES[waiting]) ?? ''}」的新按键（Esc 取消）` : '';
   const list = html`<ul class="set-keys__list">
     ${HOTKEY_ACTIONS.map((a) => {
       const on = waiting === a;
       const label = hotkeyLabel(keys?.[a]);
       return html`<li key=${a} class="set-keys__row">
-        <span class="set-keys__name">${t(HOTKEY_NAMES[a])}</span>
+        <span class="set-keys__name">${(HOTKEY_NAMES[a])}</span>
         <button type="button" class=${cx('set-key', on && 'is-waiting')} data-action=${a} aria-pressed=${on ? 'true' : 'false'}
-          aria-label=${t('更改「{action}」的快捷键（当前：{key}）', { action: t(HOTKEY_NAMES[a]), key: label })}
+          aria-label=${`更改「${(HOTKEY_NAMES[a]) ?? ''}」的快捷键（当前：${(label) ?? ''}）`}
           onClick=${() => { setNote(null); setWaiting((w) => (w === a ? null : a)); }}>
-          ${on ? html`<span class="set-key__wait">${t('按下新按键…')}</span>` : html`<kbd>${label}</kbd>`}
+          ${on ? html`<span class="set-key__wait">${'按下新按键…'}</span>` : html`<kbd>${label}</kbd>`}
         </button>
       </li>`;
     })}
     <li class="set-keys__row is-fixed">
-      <span class="set-keys__name">${t('取消 / 关闭')}</span>
-      <span class="set-key is-fixed"><kbd>Esc</kbd><small>${t('不可更改')}</small></span>
+      <span class="set-keys__name">${'取消 / 关闭'}</span>
+      <span class="set-key is-fixed"><kbd>Esc</kbd><small>${'不可更改'}</small></span>
     </li>
   </ul>
   <p class=${cx('set-keys__note', note?.warn && 'is-warn')} role="status" aria-live="polite">${status}</p>`;
   return html`<section class="set-keys" aria-labelledby="set-keys-title">
     <div class="set-keys__head">
-      <span class="set-row__label" id="set-keys-title">${t('快捷键')}<${MicroLabel}>HOTKEYS<//></span>
+      <span class="set-row__label" id="set-keys-title">${'快捷键'}<${MicroLabel}>HOTKEYS<//></span>
       <${Button} variant="ghost" size="sm" icon="refresh" class="set-keys__reset" disabled=${isDefaultHotkeys(keys)}
-        onClick=${() => { setWaiting(null); updateSettings({ keys: DEFAULT_HOTKEYS }); setNote({ text: t('已恢复默认快捷键') }); }}>${t('恢复默认')}<//>
+        onClick=${() => { setWaiting(null); updateSettings({ keys: DEFAULT_HOTKEYS }); setNote({ text: '已恢复默认快捷键' }); }}>${'恢复默认'}<//>
     </div>
-    ${touchUi ? html`<p class="set-hint">${t('快捷键需要实体键盘；触屏设备连接键盘后可用')}</p>
-      <details class="set-keys__more"><summary>${t('查看 / 更改快捷键')}</summary>${list}</details>` : list}
-  </section>`;
-}
-
-/** Where a report goes: the upstream issue tracker (shown as text the player can select; a link may open nothing). */
-export const ISSUES_URL = 'https://github.com/sganggs/Stronghold-Protocol/issues';
-
-/**
- * 问题反馈: copy the diagnostics of this page (diag.js) for a GitHub issue — the errors recorded since the page opened,
- * this browser and device, where the player is, and, switched on by default while a battle is on screen, that battle's
- * spec (the dev tools replay it). Player names, the room code and the token are replaced; nothing is uploaded. Laid out
- * like 快捷键 above it (a head with its button, a hint, the result line); the battle switch is the settings' Toggle, and
- * when the clipboard refuses (some in-app browsers), the report is shown selected in a box styled like 干员调配's 导出.
- */
-/** The result line of 复制诊断信息, by outcome (msgids: translated when shown, so a language switch reaches it). */
-const DIAG_NOTES = { copied: N_('已复制诊断信息，可以粘贴到 GitHub issue 中'), refused: N_('无法写入剪贴板，请手动复制下面的内容') };
-
-function DiagSection() {
-  const [attach, setAttach] = useState(true);
-  const [note, setNote] = useState(null);       // 'copied' | 'refused' | null: the result line
-  const [manual, setManual] = useState(null);   // the report, when the clipboard refused it
-  const boxRef = useRef(null);
-  // the box opens selected for a manual copy, scrolled to its first line (select() leaves it at the end)
-  useLayoutEffect(() => {
-    const el = boxRef.current;
-    if (manual && el) { el.focus(); el.select(); el.scrollTop = 0; }
-  }, [manual]);
-  const n = errorCount();
-  const battle = currentBattle();
-  const copy = async () => {
-    const text = diagnosticsText({ state: store.get(), settings: settingsStore.get(), attachBattle: attach && !!battle });
-    const ok = await copyText(text);
-    setManual(ok ? null : text);
-    setNote(ok ? 'copied' : 'refused');
-  };
-  return html`<section class="set-diag" aria-labelledby="set-diag-title">
-    <div class="set-keys__head">
-      <span class="set-row__label" id="set-diag-title">${t('问题反馈')}<${MicroLabel}>DIAGNOSTICS<//></span>
-      <${Button} variant="ghost" size="sm" icon="copy" class="set-diag__copy" data-testid="diag-copy" onClick=${copy}>${t('复制诊断信息')}<//>
-    </div>
-    <p class="set-hint">${t('遇到问题时，复制诊断信息并粘贴到 GitHub issue 中，开发者就能看到出错时的情况。诊断信息只在本机生成，不会自动上传；玩家名和房间号会被替换。')}</p>
-    <div class="set-diag__meta">
-      <span class="set-diag__stat">${t('已记录的错误')}<b class=${cx('set-diag__count num', n > 0 && 'is-warn')} data-testid="diag-count">${n}</b></span>
-      <span class="set-diag__url">${ISSUES_URL.replace(/^https:\/\//, '')}</span>
-    </div>
-    ${battle ? html`<${Toggle} label=${t('附上本场战斗')} micro="BATTLE DATA" value=${attach} onChange=${setAttach} />
-      <p class="set-hint set-diag__battle-hint">${t('开发者可以用附上的战斗数据重现这场战斗。')}</p>` : null}
-    ${note ? html`<p class=${cx('set-keys__note', note === 'refused' && 'is-warn')} role="status" aria-live="polite">${t(DIAG_NOTES[note])}</p>` : null}
-    ${manual ? html`<textarea ref=${boxRef} class="set-diag__text" data-testid="diag-text" spellcheck=${false} readOnly
-      aria-label=${t('诊断信息')} value=${manual}></textarea>` : null}
+    ${touchUi ? html`<p class="set-hint">${'快捷键需要实体键盘；触屏设备连接键盘后可用'}</p>
+      <details class="set-keys__more"><summary>${'查看 / 更改快捷键'}</summary>${list}</details>` : list}
   </section>`;
 }
 
@@ -216,39 +160,32 @@ export function SettingsModal({ open, onClose }) {
   const s = useSettings();
   const [tested, setTested] = useState(false);
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
-  const mtNote = machineTranslationNote(); // a pack marked as machine translation says so under the switch
-  return html`<${Modal} open=${open} onClose=${onClose} title=${t('设置')} micro="SETTINGS" width="7.4rem"
-    actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${t('玩法说明')}<//>
-      <${Button} variant="primary" icon="check" onClick=${onClose}>${t('完成')}<//>`}>
+  return html`<${Modal} open=${open} onClose=${onClose} title=${'设置'} micro="SETTINGS" width="7.4rem"
+    actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${'玩法说明'}<//>
+      <${Button} variant="primary" icon="check" onClick=${onClose}>${'完成'}<//>`}>
     <div class="set-list">
+      <${Slider} label=${'背景音乐'} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
+      <${Slider} label=${'干员语音'} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
       <div class="set-row">
-        <span class="set-row__label">${t('语言')}<${MicroLabel}>LANGUAGE<//></span>
-        <${LangToggle} class="set-lang" />
-      </div>
-      ${mtNote ? html`<p class="set-hint set-lang-note" data-testid="lang-mt-note">${mtNote}</p>` : null}
-      <${Slider} label=${t('背景音乐')} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
-      <${Slider} label=${t('干员语音')} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
-      <div class="set-row">
-        <span class="set-row__label">${t('语音语言')}<${MicroLabel}>VOICE LANGUAGE<//></span>
-        <div class="set-seg" role="radiogroup" aria-label=${t('语音语言')} data-testid="voice-lang">
+        <span class="set-row__label">${'语音语言'}<${MicroLabel}>VOICE LANGUAGE<//></span>
+        <div class="set-seg" role="radiogroup" aria-label=${'语音语言'} data-testid="voice-lang">
           ${VOICE_LANGS.map((id) => html`<button key=${id} type="button" role="radio" aria-checked=${s.voiceLang === id ? 'true' : 'false'}
             lang=${id === 'jp' ? 'ja' : 'zh'} class=${s.voiceLang === id ? 'is-on' : ''} onClick=${() => updateSettings({ voiceLang: id })}>${VOICE_LANG_NAMES[id]}</button>`)}
         </div>
       </div>
-      <${Slider} label=${t('音效')} micro="SFX" icon="signal" value=${s.sfx}
+      <${Slider} label=${'音效'} micro="SFX" icon="signal" value=${s.sfx}
         onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
-      <${Toggle} label=${t('静音')} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
-      <${Toggle} label=${t('显示伤害数字')} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
+      <${Toggle} label=${'静音'} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
+      <${Toggle} label=${'显示伤害数字'} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
       <div class="set-row">
-        <span class="set-row__label">${t('画面质量')}<${MicroLabel}>QUALITY<//></span>
+        <span class="set-row__label">${'画面质量'}<${MicroLabel}>QUALITY<//></span>
         <div class="set-seg" role="radiogroup">
           ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
-            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${t(label)}</button>`)}
+            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${(label)}</button>`)}
         </div>
       </div>
       <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
-      <${DiagSection} />
-      <p class="set-hint">${touchUi ? t('触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向') : t('右键查看详情')}</p>
+      <p class="set-hint">${touchUi ? '触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向' : '右键查看详情'}</p>
     </div>
   <//>`;
 }
@@ -259,9 +196,9 @@ export function SettingsModal({ open, onClose }) {
  * (mounted only while open). The same modal as the title screen's and the match's: nothing in it is match-only.
  * @param {{ class?: string, size?: 'sm'|'md'|'lg'|'xl', variant?: string, label?: string }} props
  */
-export function SettingsButton({ class: cls, size = 'sm', variant = 'ghost', label = t('设置') }) {
+export function SettingsButton({ class: cls, size = 'sm', variant = 'ghost', label = '设置' }) {
   const [open, setOpen] = useState(false);
   return html`<${Button} variant=${variant} size=${size} class=${cx('settings-btn', cls)} onClick=${() => setOpen(true)}
-      title=${t('设置')} aria-label=${t('设置')} data-testid="settings-btn"><${GIcon} name="gear" class="btn__icon" />${label}<//>
+      title=${'设置'} aria-label=${'设置'} data-testid="settings-btn"><${GIcon} name="gear" class="btn__icon" />${label}<//>
     ${open ? html`<${SettingsModal} open=${true} onClose=${() => setOpen(false)} />` : null}`;
 }
