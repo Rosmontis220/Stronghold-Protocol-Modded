@@ -21,6 +21,9 @@ mobile-web/admin.html
 mobile-web/robots.txt
 mobile-web/sw.js
 mobile-web/vendor/
+# language packs: public/i18n is copied, packs/ (folder packs + the static index) is generated for the static host
+mobile-web/i18n/
+mobile-web/packs/
 # Capacitor generated web sync and local Android outputs
 android/app/src/main/assets/public/
 android/app/src/main/assets/capacitor.config.json

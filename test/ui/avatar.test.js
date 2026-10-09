@@ -80,7 +80,7 @@ describe('custom avatar', () => {
   test('the protocol-selection screen is the only place to change it; the room only displays it (no half-body portrait)', () => {
     const lobby = readFileSync(path.join(ROOT, 'public/js/screens/lobby.js'), 'utf8');
     assert.match(lobby, /class="me-chip me-chip--pick"[\s\S]{0,220}openAvatarPicker\(\)/, 'the top-right 博士 chip is the trigger');
-    assert.match(lobby, /src=\$\{myAvatar \? chessAvatarUrl\(avatarAssets, \{ charId: myAvatar \}\) : null\}/, 'the chip shows the picked operator');
+    assert.match(lobby, /src=\$\{myAvatarSrc\}/, 'the chip shows the picked operator, in the skin picked for them');
     assert.match(lobby, /<\$\{AvatarPicker\} \/>/, 'the picker is mounted by this screen');
     const room = readFileSync(path.join(ROOT, 'public/js/screens/room.js'), 'utf8');
     assert.match(room, /avatarRecord\(data\.list\('chess'\), seat\.avatar\)/, 'the seat resolves the operator for its 头像');
@@ -104,6 +104,6 @@ describe('custom avatar', () => {
     assert.match(client, /if \(typeof avatar === 'string' && AVATAR_ID\.test\(avatar\)\) msg\.avatar = avatar;/, 'only a valid id is announced');
     assert.match(client, /resendHello\(\) \{/, 'the picker re-announces on the live socket');
     const avatars = readFileSync(path.join(ROOT, 'public/js/ui/gameComponents.js'), 'utf8');
-    assert.match(avatars, /chessAvatarUrl\(data\.get\('assets'\), \{ charId: player\.avatar \}\)/, 'the chip avatar resolves the character id');
+    assert.match(avatars, /playerAvatarUrl\(data\.get\('assets'\), player\)/, 'the chip avatar follows the skin picked for that operator');
   });
 });

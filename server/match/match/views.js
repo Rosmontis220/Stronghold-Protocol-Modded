@@ -72,6 +72,9 @@ export class MatchViews {
         seat: ps.seat,
         name: ps.name,
         avatar: ps.avatar,
+        // 头像跟随皮肤: the skins this player picked in 干员调配, so a teammate's avatar shows the skin's own art
+        // (client ui/avatarSkin.js joins the character id with the chess-keyed choice). null when none / a bot.
+        skins: Object.keys(ps.skins || {}).length ? ps.skins : null,
         isBot: ps.isBot,
         connected: ps.isBot || (ps.connected && !ps.left),
         alive: ps.alive,

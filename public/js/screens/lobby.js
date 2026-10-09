@@ -19,9 +19,11 @@ import { GuideButton } from '../ui/guide.js';
 import { LoadoutButton } from './loadout.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
-import { getConfig, getMode, getStage, useData } from '../data.js';
+import { getConfig, getMode, getStage, useData, data } from '../data.js';
 import { t, tc, N_ } from '../../../shared/i18n.js';
-import { AvatarPicker } from '../ui/avatarPicker.js';
+import { AvatarPicker, openAvatarPicker } from '../ui/avatarPicker.js';
+import { selfAvatarUrl } from '../ui/avatarSkin.js';
+import { skinsStore } from '../ui/skins.js';
 
 /** Official mode texts (activity_table act2autochess.modeDataDict), fallback when config.json is absent. */
 export const MODE_TEXT = {
@@ -240,7 +242,9 @@ function DifficultyCard({ roomMode, difficulty, selected, onSelect }) {
 export function LobbyScreen() {
   const me = useStore((s) => s.me, shallowEqual);
   const conn = useStore((s) => s.connection, shallowEqual);
-  useData('config');
+  // 头像跟随皮肤: the chip re-renders when 干员调配 picks another skin (the choice is per browser, ui/skins.js)
+  useStore((s) => s.entries, Object.is, skinsStore);
+  useData('config', 'chess', 'assets', 'skins');
   const [roomMode, setRoomMode] = useState(() => (loadPref('lobby.mode', 'coop') === 'solo' ? 'solo' : 'coop'));
   const [difficulty, setDifficulty] = useState(() => {
     const d = loadPref('lobby.difficulty', 'FUNNY');
@@ -259,6 +263,9 @@ export function LobbyScreen() {
 
   const online = conn.status === 'online';
   const codeOk = CODE_RE.test(code);
+  // 头像跟随皮肤: the chip is the picker's trigger and draws the picked operator's skin art (ui/avatarSkin.js)
+  const myAvatar = identity.loadAvatar();
+  const myAvatarSrc = selfAvatarUrl(data.get('assets'), myAvatar);
 
   const pickMode = (m) => { setRoomMode(m); savePref('lobby.mode', m); };
   const pickDifficulty = (d) => { setDifficulty(d); savePref('lobby.difficulty', d); };
@@ -320,13 +327,13 @@ export function LobbyScreen() {
         <${AvatarPicker} />
         <${GuideButton} class="lobby-guide" variant="secondary" label=${t('玩法说明')} />
         <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" label=${t('干员调配')} />
-        <div class="me-chip">
-          <${AvatarFrame} size="sm" name=${me.name} seat=${0} self=${true} />
+        <button type="button" class="me-chip me-chip--pick" onClick=${() => openAvatarPicker()} title=${t('选择头像')}>
+          <${AvatarFrame} size="sm" name=${me.name} src=${myAvatarSrc} seat=${0} self=${true} />
           <div class="me-chip__text">
             <span class="me-chip__name">${me.name || t('博士')}</span>
             <${MicroLabel}>${me.playerId != null ? `DOCTOR #${doctorNo(me.playerId)}` : 'DOCTOR'}<//>
           </div>
-        </div>
+        </button>
       </div>
     </header>
 

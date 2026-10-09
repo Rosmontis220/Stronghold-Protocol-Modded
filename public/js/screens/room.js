@@ -26,7 +26,7 @@ import { difficultyInfo } from './lobby.js';
 import { t, tc } from '../../../shared/i18n.js';
 import { data } from '../data.js';
 import { avatarRecord } from '../ui/avatarPicker.js';
-import { chessAvatarUrl } from '../ui/assetUrls.js';
+import { playerAvatarUrl } from '../ui/avatarSkin.js';
 
 /**
  * Seats padded to the room's capacity (co-op 4–20, solo 1), each null or a seat record.
@@ -107,7 +107,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
     </article>`;
   }
   const avatar = avatarRecord(data.list('chess'), seat.avatar);
-  const avatarSrc = seat.avatar ? chessAvatarUrl(data.get('assets'), {charId: seat.avatar}) : null;
+  const avatarSrc = playerAvatarUrl(data.get('assets'), { avatar: seat.avatar, skins: seat.skins });
   const isMe = seat.playerId === myId;
   const isHostSeat = seat.playerId === room.hostId;
   const offline = seat.connected === false && !seat.isBot;
@@ -120,7 +120,7 @@ function SeatCard({ seat, index, room, facts, myId, busy, onAddBot, onRemoveBot,
       <${MicroLabel}>SEAT ${String(index + 1).padStart(2, '0')}<//>
       ${isHostSeat ? html`<span class="seat__host"><${Icon} name="crown" />${t('创建者')}</span>` : null}
     </header>
-    <div class="seat__art">
+    <div class="seat__art" title=${avatar ? avatar.name : null}>
       <div class="seat__stripes" aria-hidden="true"></div>
       <${AvatarFrame} size="xl" name=${seat.name} src=${avatarSrc} seat=${index} bot=${seat.isBot} self=${isMe} ready=${state === 'ready'} offline=${offline} />
       ${seat.isBot ? html`<span class="seat__bot-label"><${Icon} name="robot" />${t('AI 队友')}</span>` : null}

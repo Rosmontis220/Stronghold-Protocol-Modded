@@ -7,6 +7,7 @@ import { data, useData, localAsset } from '../data.js';
 import { parseRichText, rtClassName } from './richText.js';
 import { t as tr } from '../../../shared/i18n.js';
 import { avatarUrl } from '../assets.js';
+import { playerAvatarUrl } from './avatarSkin.js';
 import {
   uiUrl, chessAvatarUrl, chessPortraitUrl, itemIconUrl, tokenAvatarUrl, enemyIconUrl, bondIconUrl, bandIconUrl,
 } from './assetUrls.js';
@@ -116,7 +117,10 @@ export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showT
   if (kind === 'chess') {
     const c = rec || data.lookup('chess', id);
     si = rec && typeof rec.standInFor === 'string' && rec.standInFor ? rec : null;
-    src = chessAvatarUrl(m, c);
+    // 头像跟随皮肤: with a skin chosen for this operator, the thumb draws that skin's art (ui/avatarSkin.js holds the
+    // join between a chess record and its character id); a skin without its own avatar art falls back to the base one.
+    const charId = c?.assets?.avatar || c?.charId;
+    src = (skin && charId ? avatarUrl(m, charId, { skin }) : null) || chessAvatarUrl(m, c);
     name = c?.name || '';
     t = t ?? c?.tier;
     golden = golden ?? !!c?.isGolden;
@@ -152,7 +156,7 @@ export function UnitThumb({ kind = 'chess', id, golden, size = 'md', tier, showT
 export function PieceThumb({ piece, size = 'md', class: cls, badge }) {
   if (!piece) return null;
   return html`<${UnitThumb} kind=${piece.kind === 'item' ? 'item' : piece.kind === 'token' ? 'token' : 'chess'} id=${piece.id}
-    golden=${!!piece.golden} tier=${piece.tier} size=${size} class=${cls} badge=${badge} />`;
+    golden=${!!piece.golden} tier=${piece.tier} size=${size} class=${cls} badge=${badge} skin=${piece.skin || null} />`;
 }
 
 /**
@@ -257,7 +261,7 @@ export function RichTip({ text, children, placement = 'top' }) {
  * @param {{ player: any, size?: 'sm'|'md', self?: boolean, class?: string }} props
  */
 export function PlayerAvatar({ player, size = 'md', self = false, class: cls }) {
-  const src = player?.avatar ? chessAvatarUrl(data.get('assets'), { charId: player.avatar }) : null;
+  const src = playerAvatarUrl(data.get('assets'), player);
   const glyph = [...(player?.name || '').trim()][0] || '?';
   const dead = player?.alive === false || player?.status === 'dead';
   const left = player?.status === 'left';

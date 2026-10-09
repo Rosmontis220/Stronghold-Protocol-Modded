@@ -13,6 +13,8 @@ import { createStore, useStore } from '../store.js';
 import { data, useData } from '../data.js';
 import { identity, net } from '../net.js';
 import { chessAvatarUrl } from './assetUrls.js';
+import { avatarSkinMap } from './avatarSkin.js';
+import { skinsStore } from './skins.js';
 
 /** Open/closed state of the picker (a store so the room's seat card can open it). */
 export const avatarStore = createStore({ open: false });
@@ -57,12 +59,14 @@ export function avatarRecord(list, id) {
  * @param {{ assets:any, list:any[], mine:string|null, mineRec:any, query?:string,
  *   onQuery?:(v:string)=>void, onPick?:(id:string|null)=>void }} props
  */
-export function AvatarPickerBody({ assets, list, mine, mineRec, query = '', onQuery = () => {}, onPick = () => {} }) {
+export function AvatarPickerBody({ assets, list, mine, mineRec, query = '', onQuery = () => {}, onPick = () => {}, skinMap = null }) {
   const q = String(query).trim().toLowerCase();
   const shown = q ? list.filter((c) => `${c.name || ''}${avatarId(c) || ''}`.toLowerCase().includes(q)) : list;
+  // 头像跟随皮肤: an operator whose skin this browser picked shows that skin's avatar art (ui/avatarSkin.js)
+  const withSkin = (rec) => (rec && skinMap?.get(avatarId(rec)) ? { charId: avatarId(rec), skin: skinMap.get(avatarId(rec)) } : rec);
   return html`<p class="avpick__hint">选择一名干员作为头像：准备大厅里其他博士会在你的座位卡上看到该干员的头像。</p>
     <div class="avpick__head">
-      <${AvatarFrame} size="md" name=${mineRec?.name || ''} src=${mineRec ? chessAvatarUrl(assets, mineRec) : null} self=${true} />
+      <${AvatarFrame} size="md" name=${mineRec?.name || ''} src=${mineRec ? chessAvatarUrl(assets, withSkin(mineRec)) : null} self=${true} />
       <div class="avpick__cur">
         <b>${mineRec ? mineRec.name : '跟随默认'}</b>
         <span>${mineRec ? '当前头像' : '未选择干员头像（座位色图标）'}</span>
@@ -74,7 +78,7 @@ export function AvatarPickerBody({ assets, list, mine, mineRec, query = '', onQu
     <div class="avpick__grid" role="listbox" aria-label="干员">
       ${shown.map((c) => { const id = avatarId(c); return html`<button key=${id} type="button" role="option" aria-selected=${mine === id ? 'true' : 'false'}
           class=${`avpick__one${mine === id ? ' is-on' : ''}`} title=${c.name || id} onClick=${() => onPick(id)}>
-        <${UnitThumb} kind="chess" id=${c.chessId} size="sm" />
+        <${UnitThumb} kind="chess" id=${c.chessId} size="sm" skin=${skinMap?.get(id) || null} />
         <span class="avpick__name">${c.name || id}</span>
       </button>`; })}
       ${shown.length ? null : html`<p class="avpick__empty">没有匹配的干员</p>`}
@@ -85,6 +89,8 @@ export function AvatarPickerBody({ assets, list, mine, mineRec, query = '', onQu
 export function AvatarPicker() {
   const { open } = useStore((s) => s, Object.is, avatarStore);
   const ready = useData('chess', 'assets');
+  // the skins this browser picked, so the grid and the preview show the skin's avatar (头像跟随皮肤)
+  useStore((s) => s.entries, Object.is, skinsStore);
   const [query, setQuery] = useState('');
   const assets = data.get('assets');
   const list = useMemo(() => avatarChoices(data.list('chess'), assets), [ready, open, assets]);
@@ -93,7 +99,8 @@ export function AvatarPicker() {
   const pick = (id) => { applyAvatar(id); closeAvatarPicker(); };
   return html`<${Modal} open=${open} onClose=${closeAvatarPicker} title="选择头像" micro="AVATAR // PICK AN OPERATOR"
       width="min(9.4rem, 96vw)" class="avpick">
-    <${AvatarPickerBody} assets=${assets} list=${list} mine=${mine} mineRec=${mineRec} query=${query} onQuery=${setQuery} onPick=${pick} />
+    <${AvatarPickerBody} assets=${assets} list=${list} mine=${mine} mineRec=${mineRec} query=${query} onQuery=${setQuery} onPick=${pick}
+      skinMap=${avatarSkinMap(skinsStore.get().entries)} />
   </${Modal}>`;
 }
 

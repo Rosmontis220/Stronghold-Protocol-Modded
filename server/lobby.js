@@ -207,7 +207,10 @@ export class Room {
       capacity: this.capacity,
       inMatch: !!this.match,
       seats: this.seats.map((s) => (s
-        ? { seat: s.seat, playerId: s.playerId, name: s.name, avatar: s.avatar ?? null, isBot: s.isBot, ready: s.ready, connected: s.connected && !s.left }
+        ? { seat: s.seat, playerId: s.playerId, name: s.name, avatar: s.avatar ?? null, isBot: s.isBot, ready: s.ready,
+            // 头像跟随皮肤: the seat chips draw the skin's own avatar art (client ui/avatarSkin.js); a bot picks none
+            skins: s.isBot ? null : s.skins || null,
+            connected: s.connected && !s.left }
         : null)),
       spectators: this.spectators.map((s) => ({ playerId: s.playerId, name: s.name, connected: s.connected })),
     };
@@ -533,8 +536,9 @@ export class Lobby {
     const idx = room.freeSeat();
     if (idx < 0) return fail(ERR.ROOM_FULL);
     const used = new Set(room.seats.filter((s) => s && s.isBot).map((s) => s.name));
-    const availableNames = BOT_NAMES.filter((n) => !used.has(n));
-    const name = availableNames.length ? availableNames[randomInt(availableNames.length)] : `AI·${idx + 1}`;
+    // the first name not in use (the reference branch's rule): stable across a room's lifetime, and a freed name is
+    // reused by the next bot. 19 names cover a full 20-seat room (one human + 19 bots).
+    const name = BOT_NAMES.find((n) => !used.has(n)) || `AI·${idx + 1}`;
     let playerId;
     do playerId = 'ai_' + randomBytes(4).toString('hex'); while (room.seatOf(playerId));
     room.seats[idx] = { seat: idx, playerId, name, avatar: BOT_AVATARS[name] || null, isBot: true, ready: true, connected: true, left: false };
