@@ -36,6 +36,43 @@ import { hotkeyLabelOf } from './settings.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
+ * 同盟成员 capsule of the in-match top bar: the room's human members (room.state keeps coming while the match runs), so
+ * the host can remove one who dropped and cannot return — room.kick takes it at any time (server/lobby.js kick; during a
+ * match the seat is handled as 中途退出) and nobody waits for the countdown with them. A small user icon + the count; a tap
+ * opens the roster, with the host's ✕ on every other human's row behind a confirm. Renders nothing in a solo room.
+ * @param {{ members: any[]|null, myId: any, isHost: boolean, onKick: ((seat: any, playerId: any) => any)|null }} props
+ */
+export function MembersPill({ members, myId, isHost, onKick }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(null);
+  const list = Array.isArray(members) ? members.filter((s) => s && typeof s === 'object') : [];
+  useEffect(() => { if (!list.length) setOpen(false); }, [list.length]);
+  if (list.length < 2) return null;
+  const kick = async (m) => {
+    if (!onKick) return;
+    setBusy(m.playerId);
+    try { await onKick(m.seat, m.playerId); } finally { setBusy(null); }
+  };
+  return html`<${Button} variant="ghost" size="sm" icon="user" class=${cx('specpill', 'mempill', list.some((s) => s.playerId === myId) && 'is-me')}
+      onClick=${() => setOpen(true)} data-testid="members" title=${'同盟成员'} aria-label=${'同盟成员'}>
+      <span class="specpill__num num">${list.length}</span>
+    <//>
+    ${open ? html`<${Modal} open=${true} title=${'同盟成员'} micro="MEMBERS" width="6.4rem" onClose=${() => setOpen(false)}
+        actions=${html`<${Button} variant="secondary" onClick=${() => setOpen(false)}>${'关闭'}<//>`}>
+      <ul class="spec__roster" data-testid="member-roster">
+        ${list.map((m) => html`<li key=${m.playerId} class=${cx('spec__row', m.playerId === myId && 'is-me', m.connected === false && 'is-offline')}>
+          <${Icon} name=${m.connected === false ? 'wifiOff' : 'user'} class="spec__ico" />
+          <span class="spec__name">${m.name || '博士'}</span>
+          ${m.playerId === myId ? html`<span class="seat__you">${'你'}</span>` : null}
+          ${isHost && onKick && m.playerId !== myId ? html`<${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === m.playerId} data-testid="member-kick"
+            onClick=${() => kick(m)} aria-label=${`移出成员 ${(m.name || '') ?? ''}`} title=${'移出该成员（按中途退出处理）'} />` : null}
+        </li>`)}
+      </ul>
+      <p class="spec__hint t-lo">${'创建者可以把意外退出且无法返回的成员移出，被移出的人按中途退出处理，其余人无需等待读秒。'}</p>
+    <//>` : null}`;
+}
+
+/**
  * 观战席 capsule of the in-match top bar (GitHub #120, PR #120 by @salt-fishes; the spectator seats of community report #26):
  * the room's spectators, which the room screen lists in a strip but the game screen — the route after 开始 — used to hide
  * completely, so a spectator could only be removed before the match or after it. A small eye + the count beside the latency;
@@ -352,15 +389,18 @@ export function PauseButton({ paused, busy = false, onToggle }) {
  *   pen?:boolean, penAvail?:boolean, onPen?:(on:boolean)=>void, config?: any, frozenAt?: number|null,
  *   pause?: { show: boolean, paused: boolean, busy?: boolean, onToggle: () => void } | null,
  *   live?: { pending: number, unite: boolean, left?: number|null } | null,
- *   spectators?: any[]|null, myId?: any, isHost?: boolean, onRemoveSpectator?: ((playerId: any) => any)|null }} props
+ *   spectators?: any[]|null, myId?: any, isHost?: boolean, onRemoveSpectator?: ((playerId: any) => any)|null,
+ *   members?: any[]|null, onKick?: ((seat: any, playerId: any) => any)|null }} props
  *   spectators: the room's spectator seats (room.state) — the 观战席 capsule beside the latency (SpectatorPill; the host removes)
+ *   members: the room's human seats (room.state) — the 同盟成员 capsule beside it (MembersPill; the host kicks, any time)
  *   frozenAt: the server time every clock shows while the solo match is paused (null = live)
  *   live: the own battle's pending LP loss (liveLp): the tower shows lp − pending in red with a −N tick, 联防中 during 联防;
  *     `left` (a leaker in 联防): its enemies still standing — the capsule's ×N tag
  */
 export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, onReady, readyBusy, readyCount, playerCount, pen = false, penAvail = false, onPen = () => {},
   config = null, frozenAt = null, pause = null, live = null, spectator = false,
-  spectators = null, myId = null, isHost = false, onRemoveSpectator = null, onUniteSkipVote = () => {} }) {
+  spectators = null, myId = null, isHost = false, onRemoveSpectator = null, onUniteSkipVote = () => {},
+  members = null, onKick = null }) {
   const phase = pub?.phase;
   const boss = isBossPhase(phase);
   const lp = boss && Number.isFinite(pub?.teamLp) ? pub.teamLp : Number.isFinite(priv?.lp) ? priv.lp : null;
@@ -388,6 +428,7 @@ export function TopBar({ pub, priv, conn, hud, total, drawer, onExit, onDrawer, 
       <div class="gtop__meta">
         <div class="gtop__net">
           <${PingPill} ms=${conn?.ping} online=${conn?.status === 'online'} />
+          <${MembersPill} members=${members} myId=${myId} isHost=${isHost} onKick=${onKick} />
           <${SpectatorPill} spectators=${spectators} myId=${myId} isHost=${isHost} onRemove=${onRemoveSpectator} />
         </div>
         ${pub?.difficulty ? html`<${DifficultyTag} difficulty=${pub.difficulty} size="sm" />` : null}

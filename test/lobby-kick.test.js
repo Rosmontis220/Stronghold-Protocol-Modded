@@ -1,6 +1,8 @@
-// test/lobby-kick.test.js — room.kick (community report #17, owner approved): before the match the host removes another
-// human like an AI seat (server/lobby.js kick). The player gets room.closed {kicked} (now, or on the next resume when
-// offline), the reconnect token no longer leads back to the seat, and the player may join again (no ban) [ASSUMED].
+// test/lobby-kick.test.js — room.kick (community report #17, owner approved): the host removes another human, any time —
+// server/lobby.js kick. In the lobby the seat is freed; during a match removeMember marks the seat departed and
+// match.onLeave handles it (中途退出 = elimination) — the owner's fix: a member who dropped and cannot return no longer
+// holds the whole room until the prep countdown ends. The player gets room.closed {kicked} (now, or on the next resume
+// when offline), the reconnect token no longer leads back to the seat, and the player may join again (no ban) [ASSUMED].
 // The message names the confirmed player too: a seat that changed hands while the host's dialog was open is refused.
 import { describe, test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -109,7 +111,7 @@ describe('room.kick (lobby)', () => {
     await err(again, { t: 'room.ready', ready: true }, ERR.NOT_IN_ROOM);
   });
 
-  test('refusals: not the host, yourself, an AI seat, an empty seat, during a match', async () => {
+  test('refusals: not the host, yourself, an AI seat, an empty seat', async () => {
     const host = await pool.player('Host');
     const st = await createRoom(host);
     const guest = await pool.player('Guest');
@@ -124,11 +126,25 @@ describe('room.kick (lobby)', () => {
     await err(host, { t: 'room.kick', seat: 1 }, ERR.BAD_MSG);
     const stranger = await pool.player('Stranger');
     await err(stranger, { t: 'room.kick', seat: 1, playerId: guest.id }, ERR.NOT_IN_ROOM);
+  });
+
+  test('during a match: the seat is handled as 中途退出 (onLeave), the room goes on', async () => {
+    const host = await pool.player('Host');
+    const st = await createRoom(host);
+    const guest = await pool.player('Guest');
+    await joinRoom(guest, st.code);
     await ok(guest, { t: 'room.ready', ready: true });
     await host.waitFor('room.state', (s) => seatOf(s, guest.id)?.ready);
     await ok(host, { t: 'room.start' });
     await host.waitFor('room.state', (s) => s.inMatch === true);
-    await err(host, { t: 'room.kick', seat: 1, playerId: guest.id }, ERR.ROOM_STARTED);
+    guest.clearInbox();
+    await ok(host, { t: 'room.kick', seat: 1, playerId: guest.id });
+    const closed = await guest.waitFor('room.closed');
+    assert.equal(closed.reason, 'kicked');
+    // the departed seat keeps its place in the match's seats (connected false — room.state has no `left` field) and the match carries on
+    const after = await host.waitFor('room.state', (s) => s.inMatch === true && seatOf(s, guest.id)?.connected === false);
+    assert.equal(after.inMatch, true);
+    await err(guest, { t: 'room.ready', ready: true }, ERR.NOT_IN_ROOM);
   });
 
   test('a seat that changed hands while the host confirmed is refused: the newcomer stays (review of #17)', async () => {

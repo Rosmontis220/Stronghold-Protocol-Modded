@@ -170,6 +170,13 @@ function MatchScreen() {
     list: Array.isArray(s.room?.spectators) ? s.room.spectators : null,
     isHost: !!s.room && s.room.hostId === s.me.playerId,
   }), shallowEqual);
+  // the room's human seats for the top bar's 同盟成员 capsule (ui/hud.js MembersPill): room.state keeps coming while the
+  // match runs, so the host can remove a member who dropped and cannot return — room.kick is served at any time now, the
+  // seat is handled as 中途退出 (中途退出 = elimination) and nobody waits for the countdown with them
+  const memberFacts = useStore((s) => ({
+    list: Array.isArray(s.room?.seats) ? s.room.seats.filter((x) => x && !x.isBot) : null,
+    isHost: !!s.room && s.room.hostId === s.me.playerId,
+  }), shallowEqual);
   const gd = useGameData();
 
   const hostRef = useRef(null);
@@ -292,7 +299,7 @@ function MatchScreen() {
     getChess: (id) => { const c = gd.chess(id); return ownDiyRecord(c, priv, { chess: data.get('chess'), backups: data.get('backups') }) || c; },
     getToken: gd.token, getItem: gd.item, getEffect: gd.effect, backups: gd.backups,
   }), [priv, pub?.stageId, editable, gd.ready, deployField]);
-  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused };
+  live.current = { pub, priv, field, editable, hasPersonalChoice, placeCtx, watching, watchWho, home, myId, alive, spectator, detail, drawer, bondOpen, emoteOpen, settingsOpen, exitOpen, drag, facing, sel, selBusy, pen, collapsedNow: collapsed, localDone: false, canPause: false, paused, members: memberFacts.list };
 
   // ---- camera: every request goes through setCam, which remembers it for the pen's way back -----------------------
   // the own prep board: the normal board, or — in the prep of a boss round — the player's half of the boss field
@@ -751,6 +758,14 @@ function MatchScreen() {
   // ---- actions ----------------------------------------------------------------------------------------------
   const buy = useCallback((i) => actions.buy(i), []);
   const removeSpectator = useCallback((playerId) => actions.removeSpectator(playerId), []);
+  // the host removes a member while the match runs (MembersPill ✕): asked first, the seat and the confirmed player's id
+  // go along — a seat that changed hands while the dialog was open is refused by the server (BAD_TARGET)
+  const kickMember = useCallback(async (seat, playerId) => {
+    const L = live.current;
+    const m = (Array.isArray(L.members) ? L.members : []).find((x) => x && x.playerId === playerId);
+    const ok = await confirmDialog({ title: '移出成员', text: `确定将「${(m?.name || '博士') ?? ''}」移出同盟吗？其席位按中途退出处理，对方可以凭同盟密钥重新加入。`, okText: '移出', danger: true });
+    if (ok) await actions.kick(seat, playerId);
+  }, []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not
   // under AI 托管 — gameLogic.readyFundsPrompt). The button and Space both come here.
   const askingReady = useRef(false);
@@ -1420,6 +1435,7 @@ function MatchScreen() {
         pause=${canPause || paused ? { show: canPause, paused, busy: pauseBusy, onToggle: () => togglePause(!paused) } : null}
         live=${liveLpNow} spectator=${spectator}
         spectators=${specFacts.list} myId=${myId} isHost=${specFacts.isHost} onRemoveSpectator=${removeSpectator}
+        members=${memberFacts.list} onKick=${memberFacts.isHost ? kickMember : null}
         onUniteSkipVote=${actions.uniteSkipVote} />
 
       <div class="gm__bonds">
