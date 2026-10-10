@@ -8,7 +8,7 @@
 import { PHASE, ERR } from '../../../shared/constants.js';
 import { buildNormalWave, buildBossWave } from '../waves.js';
 import { pairPlayers } from '../finalAssault.js';
-import { botPickBand } from '../bot.js';
+import { botPickBand, BOT_BAND_NEVER } from '../bot.js';
 import { OK, fail, DELAYS, BAND_TURN_SECONDS } from './common.js';
 
 /** Single-pool diagnostics and old fixtures keep their readable/writable first-group fields. */
@@ -210,10 +210,11 @@ export class MatchPhases {
       if (this.phase !== PHASE.BAND_DRAFT || this.draft !== d || token !== g.token) return;
       const ps = this.players.get(g.order[g.idx]);
       if (!ps || !ps.botControlled) return;
-      // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one
+      // a strategy a teammate already took is not selectable (队友已选): the bot re-draws, else the first free one —
+      // the fallback skips the AI-banned bands too (botPickBand never returns one, the belt for its braces)
       let id = botPickBand(this, ps);
-      for (let k = 0; k < 8 && this.bandTaken(id, ps.playerId); k++) id = botPickBand(this, ps);
-      if (this.bandTaken(id, ps.playerId)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId)) || id;
+      for (let k = 0; k < 8 && (this.bandTaken(id, ps.playerId) || BOT_BAND_NEVER.has(id)); k++) id = botPickBand(this, ps);
+      if (this.bandTaken(id, ps.playerId) || BOT_BAND_NEVER.has(id)) id = this.gd.bandIds().find((b) => !this.bandTaken(b, ps.playerId) && !BOT_BAND_NEVER.has(b)) || id;
       this._applyBand(ps, id, { dedupe: true });
     });
   }

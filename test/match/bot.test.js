@@ -394,15 +394,31 @@ test('merge rewards: a merge completed while buying is followed by taking its fr
   m.dispose();
 });
 
-test('band pick: alone, the bot avoids a band that withholds the first rounds\' funds (老鲤); in co-op it may take it', () => {
-  const counts = { solo: 0, coop: 0 };
-  for (let seed = 1; seed <= 60; seed++) {
+test('band pick: the AI never drafts 鸭爵 / 老鲤 / 坎诺特 (owner\'s rule); an avatar-less seat drafts the plain strategies only', () => {
+  const NEVER = new Set(['band_ducklord', 'band_lmlee', 'band_cannot']);
+  for (let seed = 1; seed <= 40; seed++) {
     for (const mode of ['solo', 'coop']) {
       const h = makeMatch({ mode, difficulty: 'NORMAL', seats: [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }], seed, fake: true });
-      if (botPickBand(h.m, h.m.order[0]) === 'band_lmlee') counts[mode]++;
+      const pick = botPickBand(h.m, h.m.order[0]);
+      assert.ok(!NEVER.has(pick), `${mode} seed ${seed}: the AI took ${pick}`);
+      assert.equal(h.m.gd.bandBondIds(pick).length, 0, `${mode} seed ${seed}: no operator, no 盟约-exclusive strategy (${pick})`);
       h.m.dispose();
     }
   }
-  assert.ok(counts.solo <= 1, `solo picks 老鲤 ${counts.solo}/60`);
-  assert.ok(counts.coop >= 1, `co-op may pick it (${counts.coop}/60)`);
+});
+
+test('a bot drafts for its own 盟约 first (银灰 → 休露丝, 初雪 the same); taken by a teammate, another bond strategy', () => {
+  const seats = [
+    { seat: 0, playerId: 'ai_0', name: 'AI·银灰', avatar: 'char_172_svrash', isBot: true, connected: true },
+    { seat: 1, playerId: 'ai_1', name: 'AI·初雪', avatar: 'char_174_slbell', isBot: true, connected: true },
+  ];
+  const h = makeMatch({ mode: 'coop', difficulty: 'NORMAL', seats, seed: 5, fake: true }).start();
+  h.run(() => h.m.phase !== 'INFO_CHECK' && h.m.phase !== 'BAND_DRAFT', { maxSteps: 1e5 });
+  const bands = seats.map((s) => h.m.players.get(s.playerId).bandId);
+  const sciurus = bands.filter((id) => id === 'band_sciurus').length;
+  assert.equal(sciurus, 1, `银灰 and 初雪 share 谢拉格: exactly one drafts 休露丝 (${bands.join(', ')})`);
+  const other = bands.find((id) => id !== 'band_sciurus');
+  assert.ok(h.m.gd.bandBondIds(other).length > 0, `the other drafts another 盟约's strategy (${other})`);
+  assert.ok(!['band_ducklord', 'band_lmlee', 'band_cannot'].includes(other), other);
+  h.m.dispose();
 });

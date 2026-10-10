@@ -163,29 +163,14 @@ describe('§21.26 3 — strategies tied to a bond the mode switches off', () => 
     assert.ok(new Set(solo).size >= 15 && new Set(coop).size >= 25, 'the other strategies are still spread out');
   });
 
-  test('绝境: the same seeds still give those strategies (nothing switched off), picks unchanged from the LP-only weighting', () => {
+  test('绝境: nothing switched off — the AI still never drafts 鸭爵 / 老鲤 / 坎诺特; the avatar-less seats of this harness stick to the plain strategies (the own-盟约 preference: test/match/bot.test.js)', () => {
+    const NEVER = new Set(['band_ducklord', 'band_lmlee', 'band_cannot']);
     const { solo, coop } = picks('HARD');
-    assert.ok(solo.filter((id) => TIED.has(id)).length > 0, `solo ${solo.filter((id) => TIED.has(id)).length}/200`);
-    assert.ok(coop.filter((id) => TIED.has(id)).length > 0, `co-op ${coop.filter((id) => TIED.has(id)).length}/800`);
-    // the pre-0.1.1 pick (starting LP only), replayed on the same rng: identical where no bond is off
-    const before = (m) => {
-      const ids = m.gd.bandIds();
-      const lateFunds = (id) => /暂存/.test(String(m.gd.band(id)?.desc || ''));
-      const pairs = ids.map((id) => [id, Math.max(1, (m.gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
-      let r = m.rngBots() * pairs.reduce((a, [, w]) => a + w, 0);
-      for (const [id, w] of pairs) { r -= w; if (r < 0) return id; }
-      return pairs[pairs.length - 1][0];
-    };
-    for (const difficulty of ['NORMAL', 'HARD', 'ABYSS']) {
-      for (let seed = 1; seed <= 200; seed++) {
-        const seats = [{ seat: 0, playerId: 'ai_0', name: 'AI', isBot: true, connected: true }];
-        const a = makeMatch({ mode: 'solo', difficulty, seats, seed, fake: true });
-        const b = makeMatch({ mode: 'solo', difficulty, seats, seed, fake: true });
-        assert.equal(botPickBand(a.m, a.m.order[0]), before(b.m), `${difficulty} seed ${seed}`);
-        a.m.dispose();
-        b.m.dispose();
-      }
-    }
+    assert.equal(solo.filter((id) => NEVER.has(id)).length, 0, 'solo: never the three');
+    assert.equal(coop.filter((id) => NEVER.has(id)).length, 0, 'co-op: never the three');
+    // makeMatch seats carry no avatar → no 主盟约 → the plain strategies only (both modes)
+    assert.ok(solo.every((id) => (DATA.bands[id]?.bondIds || []).length === 0), 'solo: no 盟约-exclusive strategy');
+    assert.ok(coop.every((id) => (DATA.bands[id]?.bondIds || []).length === 0), 'co-op: no 盟约-exclusive strategy');
   });
 
   test('deterministic per seed; one rng draw per pick; with every offered band excluded, the default band', () => {
@@ -278,9 +263,10 @@ test('§21.26 docs: DESIGN (the subsection and the normative lines), META, PLAYI
   assert.match(doc('docs/DATA.md'), /\| `bondIds` \| `\["lateranoShip"\]` \(潘格尼尼\) \/ `\[\]` \|/, 'DATA.md bands.json bondIds');
   assert.match(DESIGN, /bonds:\[\{bondId,count,active,tier,layers,harmony\? \/\* 调和's \+1 is in count, §21\.26 \*\/\}\]/, '§8.2');
   assert.match(DESIGN, /bonds: \[ \{ bondId, count, active, tier, layers, harmony\? \/\* 调和's \+1 is in count, §21\.26 \*\/, thresholds, countsHand \} \]/, '§8.3');
-  assert.match(DESIGN, /Strategy \(§21\.6\): pick a band \(weighted by starting LP; never one built around a bond the mode switches off — `gd\.bandBondIds`, §21\.26\)/, '§6.6');
+  assert.match(DESIGN, /Strategy \(§21\.6\): pick a band \(own 盟约 first — the seat avatar's operator record `bonds` \(`botSeatBond`\) prefers the free band tied to it, 鸭爵 \/ 老鲤 \/ 坎诺特 never, one built around a bond the mode switches off never — `gd\.bandBondIds`, §21\.26; no 主盟约 → the plain strategies only\)/, '§6.6');
   const META = doc('docs/META.md');
-  assert.match(META, /\*\*Strategy\*\* \(`botPickBand`\)/);
+  assert.match(META, /\*\*Strategy\*\* \(`botPickBand`, owner's rule v2\.5\)/);
+  assert.match(META, /botSeatBand|m/);
   assert.match(META, /carries `harmony: 1` in both lists/);
   assert.match(doc('docs/PLAYING.md'), /盟约详情会写「含调和 \+1」/);
   const log = doc('CHANGELOG.md');

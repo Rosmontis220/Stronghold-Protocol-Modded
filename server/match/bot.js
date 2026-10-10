@@ -134,32 +134,79 @@ const ECON_TRAIT_RE = /GOLD|REFRESH|COIN/;
 const DEFAULT_MELEE_RANGE = [[0, 0], [0, 1]];
 
 /**
- * Band pick among the strategies the mode offers (gd.bandIds): weighted by starting LP (sturdier strategies are
- * preferred). Alone, a band that withholds the first rounds' funds (老鲤 "资金暂存": no operator in R1–R2, every enemy
- * leaks) is avoided — only 联防 teammates cover that. A band whose mechanic rides on a bond the mode switches off
- * (gd.bandBondIds ∩ gd.modeInactiveBonds — 标准: 潘格尼尼 <拉特兰>, 克莱门莎 <阿戈尔>, 玛恩纳 <卡西米尔>) weighs 0, never taken
- * (DESIGN §21.26); with every band excluded, the default band. One rng draw per call (deterministic per seed); modes
- * without inactive bonds keep exactly the earlier picks.
+ * Strategy draft rules (botPickBand):
+ *   0. never 鸭爵「神秘顾客」/ 老鲤「得闲饮茶」/ 坎诺特「利滚利」 (BOT_BAND_NEVER, owner's rule 2026-11);
+ *   1. a seat drafts for its own 盟约 first (botSeatBond — the avatar operator's bond, 银灰 / 初雪 → 休露丝); when every
+ *      strategy riding it is taken (队友已选), the strategies riding another bond — "选择其他盟约";
+ *   2. a seat whose operator belongs to no strategy's bond never takes a 盟约-exclusive strategy — the plain ones only;
+ *   3. never a strategy riding a bond the mode switches off (gd.modeInactiveBonds — DESIGN §21.26, unchanged).
+ */
+export const BOT_BAND_NEVER = Object.freeze(new Set(['band_ducklord', 'band_lmlee', 'band_cannot']));
+
+/** botSeatBond memo, per data view (gd) — a WeakMap keeps released matches collectable. */
+const seatBondCache = new WeakMap();
+
+/**
+ * The bond an AI seat drafts for — "自身所属的主盟约": the seat avatar operator's bond that a strategy of this mode
+ * rides (chess.json `bonds` of the avatar's charId — 银灰 / 初雪 → kjeragShip → 休露丝). null when the seat has no
+ * avatar, the operator is not in the shop data, or none of the operator's bonds is carried by any strategy.
+ * @param {import('./Match.js').Match} m @param {object|null} ps
+ * @returns {string|null}
+ */
+export function botSeatBond(m, ps) {
+  const gd = ps?.gd || m?.gd;
+  const avatar = typeof ps?.avatar === 'string' ? ps.avatar : null;
+  if (!gd || !avatar) return null;
+  let memo = seatBondCache.get(gd);
+  if (!memo) { memo = new Map(); seatBondCache.set(gd, memo); }
+  if (memo.has(avatar)) return memo.get(avatar);
+  const list = Array.isArray(gd.visibleChess) ? gd.visibleChess : [];
+  let rec = null;
+  for (const id of list) {
+    const c = gd.chess(id);
+    if (c && !c.isGolden && c.charId === avatar) { rec = c; break; }
+  }
+  if (!rec) { memo.set(avatar, null); return null; }
+  const ridden = new Set();
+  for (const id of gd.bandIds()) for (const b of gd.bandBondIds(id)) ridden.add(b);
+  const out = (Array.isArray(rec.bonds) ? rec.bonds : []).find((b) => ridden.has(b)) || null;
+  memo.set(avatar, out);
+  return out;
+}
+
+/**
+ * Band pick among the strategies the mode offers (gd.bandIds), the rules of the header above. Within a tier the pick
+ * stays LP-weighted (sturdier strategies preferred). One rng draw per call (deterministic per seed); modes without
+ * inactive bonds keep the draw count. A strategy a teammate already took (队友已选) is skipped — the tier cascade steps
+ * over it, so a taken own-bond strategy leads to another bond's strategy (the draft's 队友已选 rule, phases.js).
  */
 export function botPickBand(m, ps) {
   const gd = ps?.gd || m.gd;
   const ids = gd.bandIds();
   if (!ids.length) return gd.defaultBandId;
-  const lateFunds = (id) => /暂存/.test(String(gd.band(id)?.desc || ''));
   const offBond = (id) => gd.bandBondIds(id).some((b) => gd.modeInactiveBonds.has(b));
-  const pairs = ids.map((id) => [id, offBond(id) ? 0 : Math.max(1, (gd.startLp(id) - 18) ** 2) * (m.isSolo && lateFunds(id) ? 0.02 : 1)]);
-  let total = 0;
-  for (const [, w] of pairs) total += w;
-  let r = m.rngBots() * total;
-  if (!(total > 0)) return gd.defaultBandId;
-  let last = null;
-  for (const [id, w] of pairs) {
-    if (!(w > 0)) continue;
-    last = id;
-    r -= w;
-    if (r < 0) return id;
-  }
-  return last;
+  const free = (id) => typeof m.bandTaken !== 'function' || !m.bandTaken(id, ps.playerId);
+  const pick = (pool) => {
+    let total = 0;
+    const pairs = pool.map((id) => [id, Math.max(1, (gd.startLp(id) - 18) ** 2)]);
+    for (const [, w] of pairs) total += w;
+    let r = m.rngBots() * total;
+    let last = null;
+    for (const [id, w] of pairs) { last = id; r -= w; if (r < 0) return id; }
+    return last;
+  };
+  const legal = ids.filter((id) => !BOT_BAND_NEVER.has(id) && !offBond(id));
+  const rides = (id) => gd.bandBondIds(id).length > 0;
+  const own = botSeatBond(m, ps);
+  const tiers = own
+    ? [
+        legal.filter((id) => free(id) && gd.bandBondIds(id).includes(own)),
+        legal.filter((id) => free(id) && rides(id)),
+        legal.filter((id) => free(id) && !rides(id)),
+      ]
+    : [legal.filter((id) => free(id) && !rides(id))];
+  for (const tier of tiers) if (tier.length) return pick(tier);
+  return gd.defaultBandId;
 }
 
 /**
