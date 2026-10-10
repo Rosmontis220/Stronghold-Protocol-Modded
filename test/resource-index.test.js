@@ -82,3 +82,15 @@ test('index serves fresh no-store JSON and blocks incomplete resources', async (
   const unavailable = await fetch(url);
   assert.equal(unavailable.status, 503);
 });
+
+test('the optional CDN origin (SP_ASSET_BASE) rides along as index.base and never changes the hash', async (t) => {
+  const dirs = await fixture(t);
+  const plain = await createResourceIndex(dirs)();
+  assert.equal(plain.base, undefined, 'no base without the env');
+  const withBase = await createResourceIndex({ ...dirs, assetBase: 'https://cdn.example.com' })();
+  assert.equal(withBase.base, 'https://cdn.example.com');
+  assert.equal(withBase.hash, plain.hash, 'the origin is not part of the content hash: caches stay valid');
+  assert.throws(() => createResourceIndex({ ...dirs, assetBase: 'https://user@cdn.example.com' }), /Invalid SP_ASSET_BASE/);
+  assert.throws(() => createResourceIndex({ ...dirs, assetBase: 'https://cdn.example.com/assets' }), /Invalid SP_ASSET_BASE/);
+  assert.throws(() => createResourceIndex({ ...dirs, assetBase: 'notaurl' }), /Invalid SP_ASSET_BASE/);
+});

@@ -398,7 +398,9 @@ export function createStaticHandler({ publicDir, dataDir, sharedDir, simDir = pa
   const shimBody = Buffer.from(DATA_SHIM_JS);
   const shimTag = `"shim-${shimBody.length.toString(16)}"`;
   const gzipCache = new GzipCache();
-  const resourceIndex = createResourceIndex({ publicDir, dataDir });
+  // SP_ASSET_BASE (optional): the CDN origin the manifest offers for asset downloads (e.g. https://cdn.example.com);
+  // the client falls back to this server when the CDN is unavailable (server/resource-index.js validates the value).
+  const resourceIndex = createResourceIndex({ publicDir, dataDir, assetBase: process.env.SP_ASSET_BASE || '' });
 
   return async function serveStatic(req, res, rawPath, query) {
     let decoded;

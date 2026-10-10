@@ -54,11 +54,14 @@ async function verifiedBody(response, file) {
   return bytes;
 }
 
-async function downloadOnce(file) {
+async function downloadOnce(file, base) {
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 30000);
   try {
-    const response = await fetch(file.runtime || file.url, { cache: 'no-store', signal: abort.signal });
+    // The optional CDN origin (the manifest's base, SP_ASSET_BASE server-side): every body is SHA-256 verified
+    // below, so a stale or lying origin fails verification and download() falls back to this server.
+    const path = file.runtime || file.url;
+    const response = await fetch(base ? `${base}${path}` : path, { cache: 'no-store', signal: abort.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const bytes = await verifiedBody(response, file);
     if (!bytes) throw new Error('文件大小或 SHA-256 校验不符，请重试');
@@ -71,10 +74,12 @@ async function downloadOnce(file) {
   } finally { clearTimeout(timer); }
 }
 
-async function download(file) {
+async function download(file, base) {
   let last;
   for (let attempt = 0; attempt < 3; attempt++) {
-    try { return await downloadOnce(file); }
+    // The CDN origin on the first attempts; the last one always goes to this server (the CDN may be offline,
+    // blocked or stale — the digest check above rejects anything that does not match the manifest).
+    try { return await downloadOnce(file, attempt < 2 ? base : undefined); }
     catch (err) {
       last = err;
       if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
@@ -168,7 +173,7 @@ async function preloadBatch(index, offset, port, clientId, wanted = null) {
             }
           }
           if (!migrated) {
-            const response = await download(file);
+            const response = await download(file, index.base);
             await objects.put(key, response);
             downloaded++;
             downloadedBytes += file.bytes;
@@ -280,7 +285,7 @@ self.addEventListener('fetch', (event) => {
       const hit = await cache.match(objectKey(file));
       if (hit) return hit;
       // A browser can evict storage. Re-download the expected content rather than serving another version.
-      const response = await download(file);
+      const response = await download(file, index?.base);
       await cache.put(objectKey(file), response.clone());
       return response;
     }

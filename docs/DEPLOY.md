@@ -319,6 +319,43 @@ node scripts/notice.mjs --clear                                         # 手动
 
 **本地素材导入**（`public/js/local-import.js`）：没有网络或想省流量时，可用「选择本地素材文件夹」指向自己那份发布目录（项目根，含 `public/` 与 `data/`；指向 `public/`、`public/assets` 或资源树的任意一层也能识别）。页面逐个文件按**大小 + SHA-256** 校验后写进 Worker 用的同一份 `sp-resource-objects-v2` 缓存，因此运行时读取路径不变，剩下的缺失项才走网络。Chromium 会把目录句柄记在 IndexedDB：下次进站权限仍在就自动导入（缓存为空时尤其有用），权限失效时给一键「继续使用上次的文件夹」（浏览器要求一次点击授权）；Firefox/Safari 无 File System Access，退化为 `<input type="file" webkitdirectory>`（同样校验入缓存，但不能记忆目录）。关掉音频时启动音乐不再尝试播放，启动页显示「音乐未选择下载」；关掉教程页时「玩法说明」走文字要点回退。
 
+### 9.1 CDN 加速素材下载（可选）
+
+服务器带宽小（例如 5 Mbps）时，多个玩家**边玩边下载**会把上行占满。可以把素材下载交给 CDN：游戏本体（页面、代码、`/ws`）**照旧直连服务器，延迟零变化**，只有清单列出的素材/数据/字体文件改从 CDN 域名取。
+
+- **服务器端**：设置环境变量 `SP_ASSET_BASE=https://<cdn 域名>`（`server/index.js` 读取，Docker 加进 `compose.production.yml` 的 `environment`）。`server/resource-index.js` 校验它必须是纯来源（无路径/凭据），然后把它作为 `base` 写进 `/data/resource-manifest.json`。`base` **不参与清单哈希**——改/换/撤掉 CDN 都不会让玩家已有的缓存失效。
+- **客户端回退**：`public/sw.js` 的 `download` 先试 CDN 源（前两次尝试），最后一次**总是回退本源**；每个文件落地前都按清单的 SHA-256 校验，所以 CDN 上的旧文件 / 被投毒的响应过不了校验，自动回退。CDN 域名不存在（DNS 失败）或挂掉时同样回退——**设置这个变量本身不会弄坏任何下载**。
+- **CDN 域名（Cloudflare 免费版）**：
+  1. 把**根域**（如 `rosmontis220.top`）接入 Cloudflare；扫描导入的现有记录全部保持**灰云（仅 DNS）**——主站解析和直连完全一样；
+  2. 阿里云把根域的 NS 改成 Cloudflare 分配的两个 NS（只是 DNS 托管搬家，记录不变）；
+  3. 加**一条橙云（代理）记录**：`wsxycdn` A → 服务器 IP。主机名必须是根域的**一级**子域（免费通用证书只覆盖 `根域` + `*.<根域>`，`cdn.wsxy.…` 这种两级域名不在覆盖内）；
+  4. SSL/TLS 模式设为「完全」（非严格）：源站证书只覆盖游戏主域名，素材本身客户端逐文件 SHA-256 校验，安全不受影响。想要「完全（严格）」就在 Cloudflare 后台生成 Origin CA 证书（覆盖 `*.<根域>`）装到 nginx 再切。
+- **网关 nginx**：给 CDN 主机名加一个 server 块，和主站一样反代到应用，另加两样——跨域头（Worker 的 fetch 需要它）和源站缓存时长：
+  ```nginx
+  server {
+      listen 443 ssl;
+      http2 on;
+      server_name wsxycdn.rosmontis220.top;
+      ssl_certificate     /etc/nginx/certs/wsxy-fullchain.pem;   # 或 Origin CA 证书
+      ssl_certificate_key /etc/nginx/certs/wsxy-privkey.pem;
+      ssl_protocols TLSv1.2 TLSv1.3;
+      location ~ ^/(assets|fonts|media)/ {
+          add_header Access-Control-Allow-Origin "https://wsxy.rosmontis220.top" always;
+          add_header Cache-Control "public, max-age=604800" always;   # 素材 7 天；清单哈希变了客户端会自动回源
+          proxy_pass http://stronghold:3000;
+          proxy_set_header Host $host;
+      }
+      location /data/ {
+          add_header Access-Control-Allow-Origin "https://wsxy.rosmontis220.top" always;
+          add_header Cache-Control "public, max-age=3600" always;     # 数据文件 1 小时
+          proxy_pass http://stronghold:3000;
+          proxy_set_header Host $host;
+      }
+  }
+  ```
+  （更新素材后，旧缓存最多活到 TTL；`sw.js` 按 SHA-256 校验发现不符就回退本源拿新文件，不会渲染旧素材。）
+- **测试**：`test/resource-index.test.js`（`base` 随清单走、不进哈希、非法值拒绝）、`test/preload.test.js`（客户端校验 `base` 是纯来源）、`test/preload.browser.test.js`（CDN 源真的接管下载；CDN 挂掉自动回退本源）。
+
 ## 10. 打包发布（维护者）
 
 Releases 的 zip（完整包、精简包，0.2.1 起还有更新包）由 `tools/package.mjs` 生成，在**源码仓库**里运行（整合包里没有这个工具）：

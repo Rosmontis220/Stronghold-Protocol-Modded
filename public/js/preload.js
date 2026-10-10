@@ -6,6 +6,12 @@ export function validateResourceIndex(index) {
   if (index?.version !== 2 || !/^[a-f0-9]{64}$/.test(index.hash) || !Array.isArray(index.files) || !index.files.length) {
     throw new Error('云端资源清单无效');
   }
+  // The optional CDN origin the server offers for asset downloads (SP_ASSET_BASE): the worker tries it first and
+  // falls back to this server (public/sw.js download), so a broken origin degrades instead of failing.
+  if (index.base != null && (typeof index.base !== 'string' || !/^https?:\/\/[a-z0-9.-]+(?::\d+)?$/.test(index.base)
+    || /[@?#]/.test(index.base))) {
+    throw new Error('云端资源清单的加速源无效');
+  }
   const paths = new Set();
   let bytes = 0;
   for (const file of index.files) {

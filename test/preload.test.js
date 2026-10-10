@@ -45,3 +45,17 @@ test('cloud index validates sizes, paths, hashes and duplicate entries', () => {
   assert.throws(() => validateResourceIndex({ ...index, startup: { bgm: { loop: '/assets/missing.mp3' }, fonts: [] } }));
   assert.throws(() => validateResourceIndex({ ...index, startup: { fonts: [{ url: '/assets/a.png', family: 'Fake', weight: 400 }] } }));
 });
+
+test('the optional CDN origin (SP_ASSET_BASE) validates as a bare https origin; the files stay relative', () => {
+  const index = { version: 2, hash: digest, bytes: 3, files: [{ url: '/assets/a.png', sha256: digest, bytes: 3 }] };
+  const withBase = { ...index, base: 'https://cdn.example.com' };
+  assert.equal(validateResourceIndex(withBase), withBase, 'a bare origin is accepted');
+  assert.equal(validateResourceIndex({ ...index, base: 'https://cdn.example.com:8443' }).base, 'https://cdn.example.com:8443');
+  for (const bad of ['ftp://cdn.example.com', 'https://cdn.example.com/assets', 'https://user@cdn.example.com',
+    'https://cdn.example.com?x', '//cdn.example.com', 'not a url', 42]) {
+    assert.throws(() => validateResourceIndex({ ...index, base: bad }), `rejects ${String(bad)}`);
+  }
+  // the index hash covers the files only: pointing the client at another origin never invalidates cached objects
+  const noBase = validateResourceIndex({ ...index });
+  assert.equal(noBase.base, undefined);
+});

@@ -319,3 +319,93 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
       repaired: repaired.result.downloaded, retry: retry.downloaded, migrated: migrated.result.downloaded,
       workerUpdate: updated.controlled }));
   });
+
+test('the CDN origin (SP_ASSET_BASE) serves the downloads; a dead CDN falls back to this server',
+  { skip: process.env.PRELOAD_E2E !== '1', timeout: 180000 }, async (t) => {
+    const { default: puppeteer } = await import('puppeteer-core');
+    const root = await fsp.mkdtemp(path.join(os.tmpdir(), 'sp-preload-cdn-'));
+    t.after(async () => { assert.match(root, /sp-preload-cdn-/); await fsp.rm(root, { recursive: true, force: true }); });
+    const publicDir = path.join(root, 'public');
+    const dataDir = path.join(root, 'data');
+    await fsp.mkdir(path.join(publicDir, 'assets'), { recursive: true });
+    await fsp.mkdir(dataDir);
+    for (const url of DATA_URLS) await fsp.writeFile(path.join(dataDir, path.basename(url)), '{}');
+    await fsp.writeFile(path.join(dataDir, 'assets.json'), JSON.stringify({ hash: 'cdn', ui: { a: '/assets/a.png', b: '/assets/b.png' } }));
+    await fsp.writeFile(path.join(publicDir, 'assets', 'a.png'), 'alpha');
+    await fsp.writeFile(path.join(publicDir, 'assets', 'b.png'), 'bravo');
+    const codeHandler = createStaticHandler({ publicDir: path.join(ROOT, 'public'), dataDir, sharedDir: path.join(ROOT, 'shared') });
+    const fixtureHandlerLike = createStaticHandler({ publicDir, dataDir, sharedDir: path.join(ROOT, 'shared') });
+    // A second origin playing the CDN: the same files plus the CORS header a cross-origin worker fetch needs.
+    let cdnUp = true;
+    const cdn = http.createServer(async (req, res) => {
+      if (!cdnUp) { res.writeHead(502); res.end('cdn down'); return; }
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      await fixtureHandlerLike(req, res, req.url.split('?')[0], '');
+    });
+    await new Promise((resolve) => cdn.listen(0, '127.0.0.1', resolve));
+    const cdnOrigin = `http://127.0.0.1:${cdn.address().port}`;
+    // The game server offers the CDN as the asset base (the env is read when the handler is created).
+    process.env.SP_ASSET_BASE = cdnOrigin;
+    const fixtureHandler = createStaticHandler({ publicDir, dataDir, sharedDir: path.join(ROOT, 'shared') });
+    delete process.env.SP_ASSET_BASE;
+    const server = http.createServer(async (req, res) => {
+      const url = req.url.split('?')[0];
+      if (url === '/js/main.js') {
+        res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
+        res.end(`window.__gameStarted=true;document.getElementById('boot').classList.add('is-done');`);
+        return;
+      }
+      if (url === '/sw.js') {
+        res.writeHead(200, { 'content-type': 'text/javascript', 'cache-control': 'no-store' });
+        res.end(await fsp.readFile(path.join(ROOT, 'public/sw.js'), 'utf8'));
+        return;
+      }
+      if (/^\/(?:data|assets|media|fonts)\//.test(url)) downloads.push(url);
+      if (url === '/resource-manifest.json' || /^\/(?:data|assets|media|fonts)\//.test(url)) {
+        await fixtureHandler(req, res, url, '');
+      } else { await codeHandler(req, res, url, ''); }
+    });
+    const downloads = [];
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    let browser;
+    t.after(async () => {
+      if (browser) await browser.close();
+      await new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); });
+      cdnUp = false;
+      await new Promise((resolve) => { cdn.close(resolve); cdn.closeAllConnections(); });
+    });
+    browser = await puppeteer.launch({ executablePath: BROWSER, headless: true, pipe: true,
+      args: ['--no-first-run', '--disable-background-networking'] });
+    const page = await browser.newPage();
+    page.on('pageerror', (err) => t.diagnostic(`page error: ${err.message}`));
+    await page.setViewport({ width: 1280, height: 720 });
+    // The player chose 预下载 (the choice page's saved pref): the boot runs the verified download directly.
+    await page.evaluateOnNewDocument(() => localStorage.setItem('sp.pref.download', JSON.stringify('predownload')));
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    const boot = async () => {
+      await page.bringToFront();
+      await page.goto(origin, { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.__gameStarted || !document.getElementById('boot-retry').hidden, { timeout: 60000 });
+      return page.evaluate(() => ({ result: window.__spPreloadResult, started: !!window.__gameStarted,
+        error: document.getElementById('boot-err').textContent }));
+    };
+    // The manifest offers the CDN; the worker downloads from it (the game server sees no asset requests).
+    const first = await boot();
+    assert.equal(first.started, true, first.error);
+    assert.equal(first.result.downloaded, first.result.total);
+    const manifest = await page.evaluate(async () => (await fetch('/resource-manifest.json', { cache: 'no-store' })).json());
+    assert.equal(manifest.base, cdnOrigin);
+    assert.ok(!downloads.some((url) => /^\/(?:data|assets|media|fonts)\//.test(url)), downloads.join(','));
+    // A dead CDN: an evicted object is re-fetched — the CDN attempts fail and the last try uses this server.
+    cdnUp = false;
+    await page.evaluate(async (index) => {
+      const file = index.files.find((item) => item.url === '/assets/a.png');
+      const key = `${location.origin}/__sp_object__/${file.sha256}${encodeURI(file.url)}`;
+      await (await caches.open('sp-resource-objects-v2')).delete(key);
+    }, manifest);
+    downloads.length = 0;
+    const after = await page.evaluate(async () => (await fetch('/assets/a.png')).text());
+    assert.equal(after, 'alpha');
+    assert.ok(downloads.includes('/assets/a.png'), 'the fallback re-downloads from this server');
+    t.diagnostic(JSON.stringify({ total: first.result.total, cdnOrigin }));
+  });

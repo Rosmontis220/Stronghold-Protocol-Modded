@@ -7,9 +7,25 @@ import { buildPreloadPlan, LOCAL_MANIFEST_URL, runtimeResourceUrl, optionalGroup
 export const EMPTY_LOCAL_MANIFEST = JSON.stringify({ version: 1, source: 'none', count: 0, groups: {} });
 const hash = (body) => createHash('sha256').update(body).digest('hex');
 
-export function createResourceIndex({ publicDir, dataDir }) {
+export function createResourceIndex({ publicDir, dataDir, assetBase = '' }) {
   const digests = new Map();
   let pending = null;
+  // The optional CDN origin the client fetches assets from (server/index.js reads SP_ASSET_BASE). Not part of the
+  // index hash: pointing the client at another origin never invalidates already-cached objects.
+  assetBase = normalizeAssetBase(assetBase);
+
+  function normalizeAssetBase(base) {
+    if (!base) return '';
+    if (typeof base !== 'string' || !/^https?:\/\//.test(base) || /[@?#]/.test(base)) {
+      throw new Error(`Invalid SP_ASSET_BASE: ${base}`);
+    }
+    let url;
+    try { url = new URL(base); } catch { throw new Error(`Invalid SP_ASSET_BASE: ${base}`); }
+    if (url.username || url.password || (url.pathname && url.pathname !== '/')) {
+      throw new Error(`Invalid SP_ASSET_BASE: ${base}`);
+    }
+    return base.replace(/\/+$/, '');
+  }
 
   function filePath(url) {
     const root = path.resolve(url.startsWith('/data/') ? dataDir : publicDir);
@@ -105,7 +121,7 @@ export function createResourceIndex({ publicDir, dataDir }) {
     const required = compactFiles.filter((file) => !optionalGroupOf(file.url));
     const optional = compactFiles.filter((file) => optionalGroupOf(file.url));
     return { version: 2, hash: hash(JSON.stringify(compactFiles)), bytes: compactFiles.reduce((sum, item) => sum + item.bytes, 0),
-      files: compactFiles, required, optional, startup: { bgm, fonts } };
+      files: compactFiles, required, optional, startup: { bgm, fonts }, ...(assetBase ? { base: assetBase } : {}) };
   }
 
   // Share concurrent requests, but stat again on the next request so in-place edits are detected.
