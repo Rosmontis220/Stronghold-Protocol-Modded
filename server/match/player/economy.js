@@ -22,8 +22,13 @@ export class PlayerEconomy {
   spend(n) {
     const v = Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
     if (v > this.funds) return false;
+    // console money (server/admin.js applyState, ps.adminFunds) stays out of the settlement statistics: what the
+    // player spends is paid from the parked amount first, so stats.gold grows by the earned money only (消耗资金,
+    // the 挥金如土 title stat); the mechanics count every payment either way
+    const fromAdmin = Math.min(this.adminFunds || 0, v);
+    if (fromAdmin > 0) this.adminFunds -= fromAdmin;
     this.funds -= v;
-    this.stats.gold += v;
+    this.stats.gold += v - fromAdmin;
     this.round.spent += v;
     this.dirty();
     return true;

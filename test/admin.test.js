@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createAdminApi, passwordDigest, sameDigest, writeNoticeFile } from '../server/admin.js';
 import { parseNotice, readNotice } from '../server/notice.js';
+import { PlayerEconomy } from '../server/match/player/economy.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -131,12 +132,17 @@ describe('operator console', () => {
     assert.equal(last, 429);
   });
 
-  test('a live player state can be adjusted (clamped, flushed, private and public pushed)', async () => {
+  test('a live player state can be adjusted (clamped, flushed, private and public pushed); console money stays out of the stats', async () => {
     const { lobby, ps, calls } = fakeLobby();
+    // the stats fields the funds case reads (PlayerState stats, read-only for the panel)
+    ps.stats = { gold: 0, fundsGained: 0 };
     const api = createAdminApi({ lobby });
     assert.equal(api.applyState({ code: 'ABCD', playerId: 'p_1', action: 'funds', value: 10 }).body.player.funds, 17);
+    assert.equal(ps.adminFunds, 10, 'the granted amount is parked');
+    assert.equal(ps.stats.fundsGained, 0, 'never counted as earned');
     api.applyState({ code: 'ABCD', playerId: 'p_1', action: 'funds', value: -1000 });
     assert.equal(ps.funds, 0, 'never negative');
+    assert.equal(ps.adminFunds, 0, 'a negative grant parks nothing');
     api.applyState({ code: 'ABCD', playerId: 'p_1', action: 'lp', value: 5 });
     assert.equal(ps.lp, 35);
     api.applyState({ code: 'ABCD', playerId: 'p_1', action: 'layers', bondId: 'yanShip', value: 4 });
@@ -148,5 +154,17 @@ describe('operator console', () => {
     assert.equal(api.applyState({ code: 'ABCD', playerId: 'nobody', action: 'lp', value: 1 }).status, 404);
     assert.equal(api.applyState({ code: 'ABCD', playerId: 'p_1', action: 'layers', value: 1 }).status, 400, 'a bond id is required');
     assert.equal(api.applyState({ code: 'ZZZZ', playerId: 'p_1', action: 'lp', value: 1 }).status, 404);
+  });
+
+  test('a spend pays from the parked console money first, so the settlement stat grows by the earned money only', () => {
+    const { lobby, ps } = fakeLobby();
+    ps.stats = { gold: 0, fundsGained: 0 };
+    const api = createAdminApi({ lobby });
+    api.applyState({ code: 'ABCD', playerId: 'p_1', action: 'funds', value: 30 });  // 7 + 30 = 37, parked 30
+    assert.equal(ps.funds, 37);
+    assert.equal(ps.stats.gold, 0);
+    // the real economy method against a plain stand-in state (PlayerEconomy is a method container: `this` is the state)
+    PlayerEconomy.prototype.spend.call({ funds: ps.funds, adminFunds: ps.adminFunds, stats: ps.stats, round: { spent: 0 }, dirty() {} }, 37);
+    assert.equal(ps.stats.gold, 7, '30 parked + 7 earned: the parked money never enters the stat');
   });
 });

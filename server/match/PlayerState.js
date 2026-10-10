@@ -232,6 +232,9 @@ export class PlayerState {
       dmgDealt: 0, kills: 0, leaks: 0, gold: 0, refreshes: 0, merges: 0, itemMerges: 0, itemsEquipped: 0,
       bossDamage: 0, lpLost: 0, buys: 0, sells: 0, perfectRounds: 0, fundsGained: 0, healing: 0,
     };
+    /** console money parked by the operator panel (server/admin.js applyState 'funds'): its spends are paid from here
+     * first and stay out of the settlement statistics (stats.gold grows by the earned money only, economy.js spend) */
+    this.adminFunds = 0;
     this.eliminatedRound = null;
     this.lpAtFinal = null;
     /** last combat result for this player (unite carry state, bounties) */

@@ -163,7 +163,14 @@ export function createAdminApi({ lobby, noticeBoard = null, noticeFile = null, a
     const value = Number(msg.value);
     if (!Number.isFinite(value)) return { status: 400, body: { error: 'BAD_VALUE' } };
     switch (msg.action) {
-      case 'funds': ps.funds = clamp(ps.funds + value, 0, FUNDS_MAX); break;
+      case 'funds': {
+        // console money stays out of the settlement statistics (the owner's rule: otherwise too obvious): the granted
+        // amount is parked on the player (ps.adminFunds) — addFunds's bookkeeping is bypassed (stats.fundsGained stays)
+        // and what the player spends is paid from the parked amount first, so stats.gold grows by the earned money only
+        ps.adminFunds = Math.max(0, (ps.adminFunds || 0) + clamp(value, -FUNDS_MAX, FUNDS_MAX));
+        ps.funds = clamp(ps.funds + value, 0, FUNDS_MAX);
+        break;
+      }
       case 'lp': ps.lp = clamp(ps.lp + value, 0, LP_MAX); break;
       case 'shopLevel': ps.shop.level = clamp(ps.shop.level + value, SHOP_LEVEL_MIN, SHOP_LEVEL_MAX); break;
       case 'layers': {

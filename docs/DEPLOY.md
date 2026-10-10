@@ -309,6 +309,7 @@ node scripts/notice.mjs --clear                                         # 手动
 | 发布 / 撤回公告 | `POST /api/admin/notice` | 写的就是 `.deploy/notice.json`（第 7 节），写完立即让运行中的公告板刷新，玩家 10 秒内看到 |
 | 服务器状态 | `GET /api/admin/overview` | 进行中的对局数、房间数、在线人数、当前公告 |
 | 旁观对局 | `GET /api/admin/room?code=XXXX` | 每个房间的实时视图：阶段 / 回合 / 每位博士的生命值、资金、就绪与掉线状态；面板每 2 秒刷新（只读，不加入房间） |
+| 调整玩家状态 | `POST /api/admin/state` | 一次改动一位博士的资金 / 生命值 / 商店等级 / 盟约层数。**加的钱不进结算统计**：所加金额挂在 `ps.adminFunds`，之后花费时先从这里扣，`消耗资金`（结算与统计页）只按正常获得的钱增长 |
 
 安全边界：`/api/admin/*` 全部要求 token（除 `login`），请求体上限 64 KB；`admin.html` 同样带 `noindex`，且 `robots.txt` 全站 `Disallow`（第 4 节）。操作台**只是调用同一套公告文件与只读视图**，不改变游戏协议。
 
