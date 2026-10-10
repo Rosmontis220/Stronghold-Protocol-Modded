@@ -111,7 +111,7 @@ describe('room.kick (lobby)', () => {
     await err(again, { t: 'room.ready', ready: true }, ERR.NOT_IN_ROOM);
   });
 
-  test('refusals: not the host, yourself, an AI seat, an empty seat', async () => {
+  test('refusals: not the host, yourself, an empty seat', async () => {
     const host = await pool.player('Host');
     const st = await createRoom(host);
     const guest = await pool.player('Guest');
@@ -119,13 +119,32 @@ describe('room.kick (lobby)', () => {
     await err(guest, { t: 'room.kick', seat: 0, playerId: host.id }, ERR.NOT_HOST);
     const self = await err(host, { t: 'room.kick', seat: 0, playerId: host.id }, ERR.BAD_TARGET);
     assert.match(self.detail || self.msg, /yourself/);
-    await ok(host, { t: 'room.addBot' });
-    const withBot = await host.waitFor('room.state', (s) => s.seats[2]?.isBot);
-    await err(host, { t: 'room.kick', seat: 2, playerId: withBot.seats[2].playerId }, ERR.BAD_TARGET);
     await err(host, { t: 'room.kick', seat: 3, playerId: guest.id }, ERR.BAD_TARGET);
     await err(host, { t: 'room.kick', seat: 1 }, ERR.BAD_MSG);
     const stranger = await pool.player('Stranger');
     await err(stranger, { t: 'room.kick', seat: 1, playerId: guest.id }, ERR.NOT_IN_ROOM);
+  });
+
+  test('an AI seat is kickable too (the owner\'s rule): in the lobby it is freed, during a match it is handled as 中途退出', async () => {
+    const host = await pool.player('Host');
+    const st = await createRoom(host);
+    await ok(host, { t: 'room.addBot' });
+    const withBot = await host.waitFor('room.state', (s) => s.seats[1]?.isBot);
+    const botId = withBot.seats[1].playerId;
+    await ok(host, { t: 'room.kick', seat: 1, playerId: botId });
+    await host.waitFor('room.state', (s) => s.seats[1] == null);
+    // mid-match: the AI seat is departed (connected false — room.state has no `left` field) and the match goes on
+    await ok(host, { t: 'room.addBot' });
+    const again = await host.waitFor('room.state', (s) => s.seats[1]?.isBot);
+    const bot2 = again.seats[1].playerId;
+    await ok(host, { t: 'room.start' });
+    await host.waitFor('room.state', (s) => s.inMatch === true);
+    await ok(host, { t: 'room.kick', seat: 1, playerId: bot2 });
+    const after = await host.waitFor('room.state', (s) => seatOf(s, bot2)?.connected === false);
+    assert.equal(after.inMatch, true);
+    // the match ends when every human is ready (the stub's readiness gate) — the kicked bot does not hold it up
+    await ok(host, { t: 'g.infoReady' });
+    await host.waitFor('room.state', (s) => s.inMatch === false, 4000);
   });
 
   test('during a match: the seat is handled as 中途退出 (onLeave), the room goes on', async () => {

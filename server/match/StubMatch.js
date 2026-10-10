@@ -172,6 +172,16 @@ export class StubMatch {
     this.maybeFinish(false);
   }
 
+  /** The host removed a bot seat mid-match (room.kick on an AI seat): treated like a quit (the seat is departed). */
+  onBotRemove(playerId) {
+    const p = this.players.get(playerId);
+    if (!p || !p.isBot || p.left || this.disposed) return;
+    p.left = true;
+    if (this.ended) return;
+    this.broadcastFn(this.publicView());
+    this.maybeFinish(false);
+  }
+
   dispose() {
     this.disposed = true;
     if (this.timer) { clearTimeout(this.timer); this.timer = null; }

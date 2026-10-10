@@ -36,10 +36,11 @@ import { hotkeyLabelOf } from './settings.js';
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
 
 /**
- * 同盟成员 capsule of the in-match top bar: the room's human members (room.state keeps coming while the match runs), so
- * the host can remove one who dropped and cannot return — room.kick takes it at any time (server/lobby.js kick; during a
- * match the seat is handled as 中途退出) and nobody waits for the countdown with them. A small user icon + the count; a tap
- * opens the roster, with the host's ✕ on every other human's row behind a confirm. Renders nothing in a solo room.
+ * 同盟成员 capsule of the in-match top bar: the room's seats — humans and AI alike (room.state keeps coming while the
+ * match runs) — so the host can remove one who dropped and cannot return, or drop an AI seat: room.kick takes it at any
+ * time (server/lobby.js kick; during a match the seat is handled as 中途退出, an AI is eliminated the same way) and
+ * nobody waits for the countdown with them. A small user icon + the count; a tap opens the roster, with the host's ✕ on
+ * every other row behind a confirm. Renders nothing in a solo room (one seat, nothing to kick).
  * @param {{ members: any[]|null, myId: any, isHost: boolean, onKick: ((seat: any, playerId: any) => any)|null }} props
  */
 export function MembersPill({ members, myId, isHost, onKick }) {
@@ -62,13 +63,14 @@ export function MembersPill({ members, myId, isHost, onKick }) {
       <ul class="spec__roster" data-testid="member-roster">
         ${list.map((m) => html`<li key=${m.playerId} class=${cx('spec__row', m.playerId === myId && 'is-me', m.connected === false && 'is-offline')}>
           <${Icon} name=${m.connected === false ? 'wifiOff' : 'user'} class="spec__ico" />
-          <span class="spec__name">${m.name || '博士'}</span>
+          <span class="spec__name">${m.name || (m.isBot ? 'AI' : '博士')}</span>
+          ${m.isBot ? html`<span class="seat__you">${'AI'}</span>` : null}
           ${m.playerId === myId ? html`<span class="seat__you">${'你'}</span>` : null}
           ${isHost && onKick && m.playerId !== myId ? html`<${Button} variant="ghost" size="sm" square=${true} icon="close" loading=${busy === m.playerId} data-testid="member-kick"
             onClick=${() => kick(m)} aria-label=${`移出成员 ${(m.name || '') ?? ''}`} title=${'移出该成员（按中途退出处理）'} />` : null}
         </li>`)}
       </ul>
-      <p class="spec__hint t-lo">${'创建者可以把意外退出且无法返回的成员移出，被移出的人按中途退出处理，其余人无需等待读秒。'}</p>
+      <p class="spec__hint t-lo">${'创建者可以把意外退出且无法返回的成员移出，也可以移出 AI 席位；被移出的按中途退出处理，其余人无需等待读秒。'}</p>
     <//>` : null}`;
 }
 

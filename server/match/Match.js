@@ -67,6 +67,9 @@
 // onLeave(playerId)         The human quit permanently (g.leave, room.leave, or the 10-minute reconnect
 //                           window expired). They will never return under this playerId in this match;
 //                           treat as quit (AI takes over / eliminated per DESIGN). No onDisconnect follows.
+// onBotRemove(playerId)     The host removed a bot seat mid-match (room.kick on an AI seat, server/lobby.js kick;
+//                           optional for the platform): the bot is treated as quit — eliminated the same way (its own
+//                           field ends). Optional: the lobby calls it only when the room's match has it.
 // dispose()                 Stop every timer/interval and release resources. Idempotent. After dispose the
 //                           platform ignores send/broadcast/onEnd from this instance.
 // addSpectator(id)          (optional for the platform) A spectator seat joined during the match, came back or asked

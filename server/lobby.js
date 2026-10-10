@@ -13,10 +13,12 @@
 //     ▸ room.start requires every other human to be connected and ready; the host's start counts as the host's
 //     ready (the host may still toggle room.ready for display).
 //   * room.kick {seat, playerId} (community report #17, owner approved): any time, the host removes another
-//     human like an AI seat (an AI seat stays room.removeBot's; never the host itself). `playerId` names the player the
+//     human or an AI seat (never the host itself; room.removeBot stays the lobby's way to drop an AI). `playerId` names
+//     the player the
 //     host confirmed: a seat that changed hands meanwhile (left, someone else joined) is refused with BAD_TARGET. In the
-//     lobby the seat is freed at once; during a match removeMember marks the seat departed and match.onLeave handles it
-//     (中途退出: elimination, the server takes over its fields). The player gets `room.closed {reason:'kicked'}` — now, or
+//     lobby the seat is freed at once; during a match a human seat is handled by removeMember + match.onLeave and an AI
+//     seat by match.onBotRemove (中途退出: elimination, the server takes over its fields). The player gets
+//     `room.closed {reason:'kicked'}` — now, or
 //     on the next resume when
 //     offline (with the result replay, as the grace timeout) —, so the reconnect token no longer leads back to the seat
 //     (it stays the player's identity: net.js sessions belong to players, not seats). ▸ No ban: the player may join
@@ -628,7 +630,7 @@ export class Lobby {
     return OK;
   }
 
-  /** Host removes another human, any time (header: room.kick). During a match removeMember marks the seat departed and match.onLeave handles it (中途退出). */
+  /** Host removes another human or an AI seat, any time (header: room.kick). During a match a human seat is handled by removeMember + match.onLeave (中途退出) and an AI seat by match.onBotRemove (eliminated the same way). */
   kick(session, { seat, playerId }) {
     const room = this.roomOf(session);
     if (!room) return fail(ERR.NOT_IN_ROOM);
@@ -636,8 +638,23 @@ export class Lobby {
     this.dropReplay(room, session.playerId);
     const target = room.seats[seat];
     if (!target || target.left) return fail(ERR.BAD_TARGET, 'seat holds no player');
+    if (target.isBot) {
+      // an AI seat is kickable too (the owner's rule): in the lobby the seat is freed like room.removeBot; during a
+      // match the seat is departed and the match eliminates the AI like a quit (its field ends)
+      if (room.match) {
+        target.left = true;
+        target.connected = false;
+        target.ready = false;
+        this.callMatch(room, 'onBotRemove', target.playerId);
+        if (room.disposed) return OK;
+        this.broadcastState(room);
+        return OK;
+      }
+      room.seats[seat] = null;
+      this.broadcastState(room);
+      return OK;
+    }
     if (target.playerId !== playerId) return fail(ERR.BAD_TARGET, 'seat changed hands'); // the confirmed player left meanwhile
-    if (target.isBot) return fail(ERR.BAD_TARGET, 'seat holds an AI (room.removeBot)');
     if (target.playerId === session.playerId) return fail(ERR.BAD_TARGET, 'cannot kick yourself');
     const kicked = this.registry.byId(target.playerId);
     const wasHere = !!kicked && kicked.roomCode === room.code;

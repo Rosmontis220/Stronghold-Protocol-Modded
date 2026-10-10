@@ -170,11 +170,12 @@ function MatchScreen() {
     list: Array.isArray(s.room?.spectators) ? s.room.spectators : null,
     isHost: !!s.room && s.room.hostId === s.me.playerId,
   }), shallowEqual);
-  // the room's human seats for the top bar's 同盟成员 capsule (ui/hud.js MembersPill): room.state keeps coming while the
-  // match runs, so the host can remove a member who dropped and cannot return — room.kick is served at any time now, the
-  // seat is handled as 中途退出 (中途退出 = elimination) and nobody waits for the countdown with them
+  // the room's seats for the top bar's 同盟成员 capsule (ui/hud.js MembersPill): room.state keeps coming while the
+  // match runs, so the host can remove a member who dropped and cannot return — or an AI seat (room.kick takes it at
+  // any time now, an AI seat is eliminated the same way) — the seat is handled as 中途退出 (中途退出 = elimination)
+  // and nobody waits for the countdown with them; the pill hides only in a solo room (one seat, nothing to kick)
   const memberFacts = useStore((s) => ({
-    list: Array.isArray(s.room?.seats) ? s.room.seats.filter((x) => x && !x.isBot) : null,
+    list: Array.isArray(s.room?.seats) ? s.room.seats.filter(Boolean) : null,
     isHost: !!s.room && s.room.hostId === s.me.playerId,
   }), shallowEqual);
   const gd = useGameData();
@@ -758,12 +759,19 @@ function MatchScreen() {
   // ---- actions ----------------------------------------------------------------------------------------------
   const buy = useCallback((i) => actions.buy(i), []);
   const removeSpectator = useCallback((playerId) => actions.removeSpectator(playerId), []);
-  // the host removes a member while the match runs (MembersPill ✕): asked first, the seat and the confirmed player's id
-  // go along — a seat that changed hands while the dialog was open is refused by the server (BAD_TARGET)
+  // the host removes a member (or an AI seat) while the match runs (MembersPill ✕): asked first, the seat and the
+  // confirmed player's id go along — a seat that changed hands while the dialog was open is refused (BAD_TARGET)
   const kickMember = useCallback(async (seat, playerId) => {
     const L = live.current;
     const m = (Array.isArray(L.members) ? L.members : []).find((x) => x && x.playerId === playerId);
-    const ok = await confirmDialog({ title: '移出成员', text: `确定将「${(m?.name || '博士') ?? ''}」移出同盟吗？其席位按中途退出处理，对方可以凭同盟密钥重新加入。`, okText: '移出', danger: true });
+    const bot = !!m?.isBot;
+    const ok = await confirmDialog({
+      title: '移出成员',
+      text: bot
+        ? `确定将 AI「${(m?.name || 'AI') ?? ''}」移出同盟吗？其席位按中途退出处理，本局不会重新加入。`
+        : `确定将「${(m?.name || '博士') ?? ''}」移出同盟吗？其席位按中途退出处理，对方可以凭同盟密钥重新加入。`,
+      okText: '移出', danger: true,
+    });
     if (ok) await actions.kick(seat, playerId);
   }, []);
   // 准备 with funds left asks first: the prep's end wipes them (community report #4; not 坎诺特, not at 0 funds, not

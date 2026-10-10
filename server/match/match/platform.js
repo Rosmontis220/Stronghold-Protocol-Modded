@@ -159,6 +159,24 @@ export class MatchPlatform {
   }
 
   /**
+   * The host removed a bot seat mid-match (room.kick on an AI seat, server/lobby.js kick; the owner's rule): treated
+   * like a quit — the seat is departed, its own field ends and the AI is eliminated (中途退出), the same way a human
+   * seat's leave is. No reconnect, no auto-play: bots never come back and never held a socket.
+   */
+  onBotRemove(playerId) {
+    const ps = this.players.get(playerId);
+    if (!ps || !ps.isBot || ps.left || this.disposed) return;
+    this.guard(() => {
+      ps.left = true;
+      this.watchers.delete(playerId);
+      if (this.ended) return;
+      this._resume();
+      this.markPublic();
+      this._quit(ps);
+    });
+  }
+
+  /**
    * 中途退出 counts as elimination (research 00-INDEX §3, 01 §9, 06 §7 / §10.3): every copy the player holds goes back
    * to the shared pool at once, and the seat has no place in later rounds, the Final Assault pairing or the boss pool
    * (bloodPoint per player alive at the fight's start, DESIGN §25.13.4). Rounds passed = the rounds the player had
