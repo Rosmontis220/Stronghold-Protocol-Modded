@@ -16,6 +16,7 @@ import { chessAvatarUrl, chessPortraitUrl, profIconUrl, skillRecordIconUrl, modu
 import { data } from '../data.js';
 import { PROF_NAME, skillLabel, moduleBadge, fullTraitText } from '../ui/loadoutModel.js';
 import { diySlotList, pickChoices, pickOptions, slotRecord, defaultPick } from '../ui/diyModel.js';
+import { OperatorVoice } from '../ui/operatorVoice.js';
 import { CultivationSelects } from './cultivation.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
@@ -76,6 +77,7 @@ function SlotCard({ m, slot, pick, illegal, onOpen, onClear, ops = {}, onOps = n
       </span>
       ${proto ? html`<small class="diy-slot__cult t-dim">${'原型干员没有潜能与练度'}</small>`
         : onOps ? html`<span class="diy-slot__cult"><${CultivationSelects} charId=${rec.charId} ops=${ops} onSet=${onOps} /></span>` : null}
+      <${OperatorVoice} charId=${rec.charId} />
       ${illegal ? html`<p class="diy-slot__bad"><${Icon} name="warn" />${'这项自选在当前版本不可用，开局时会被移除'}</p>` : null}
     </div>
     <div class="diy-slot__acts">

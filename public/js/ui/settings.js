@@ -1,36 +1,62 @@
-// Player settings (BGM/SFX/voice volume, the voice dub 语音语言, mute, damage numbers, render quality, the shortcut keys): a
-// tiny observable store persisted in localStorage (`sp.pref.settings`), applied to the audio manager on every change, plus
-// the settings modal and the 快捷键 section that rebinds the in-match shortcuts (the key map:
-// ui/gameLogic/shortcuts.js; the community request
-// 「快捷键可不可以自己设置」, the owner's decision of 2026-10-07). The
-// lobby and the room open it from a 设置 button next to 玩法说明 (SettingsButton, GitHub #238); the title screen and the
-// match have their own gear.
+// Player settings (BGM/SFX/voice volume, the voice dub 语音语言, mute, damage numbers, render quality, 文字大小, the
+// shortcut keys): a tiny observable store persisted in localStorage (`sp.pref.settings`), applied to the audio manager
+// and to the document on every change, plus the settings modal and the 快捷键 section that rebinds the in-match
+// shortcuts (the key map: ui/gameLogic/shortcuts.js; the community request 「快捷键可不可以自己设置」, the owner's
+// decision of 2026-10-07) and
+// 问题反馈, which copies the diagnostics of this page for a bug report (diag.js: the error log, this browser, optionally
+// the battle on screen; nothing is uploaded). The lobby and the room open it from a 设置 button next to 玩法说明
+// (SettingsButton, GitHub #238); the title screen and the match have their own gear.
+//
+// 文字大小 (textSize, applied by applyTextSize): the interface text root `--t` of css/theme.css — a phone clamps the
+// layout root `1rem` at 40 px (theme.css), which left the .18rem body text at 7.2 CSS px while the browser's own font
+// settings only inflate the glyphs inside fixed boxes (and page zoom is off: index.html's viewport, ui/device.js).
+// Only font-size declarations read `--t`, so the board, the HUD bands the prep camera keeps clear and the detail
+// card's side do not move — the field is sized from the host element's clientWidth (render/app.js).
 
 import { useLayoutEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { html, Modal, Button, Icon, MicroLabel } from './components.js';
 import { GIcon } from './gameComponents.js';
 import { createStore, useStore, loadPref, savePref, store } from '../store.js';
-// The fork's own wrapper below (line 30) defaults 语音语言 to 日本語, so upstream's sanitizeSettings arrives aliased.
-import { sanitizeSettings as sanitizeBaseSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS } from './gameLogic.js';
+import { sanitizeSettings as sanitizeBaseSettings, HOTKEY_ACTIONS, DEFAULT_HOTKEYS, hotkeyLabel, rebindHotkey, isDefaultHotkeys, captureHotkey, VOICE_LANGS, TEXT_SIZES } from './gameLogic.js';
 import { audio } from '../audio.js';
 import { openGuide } from './guide.js';
 import { detectFeatures } from './device.js';
+import { errorCount, currentBattle, diagnosticsText } from '../diag.js';
+import { copyText } from './clipboard.js';
 // The fork's 资源预下载 (the start page's picker, 方案B): the player who chose 边玩边下载 predownloads here.
 import { prepareAssets, fetchResourceIndex, saveDownloadPref } from '../preload.js';
 
 const cx = (...p) => p.flat().filter(Boolean).join(' ');
+
+// The fork's own wrapper defaults 语音语言 to 日本語 (the owner's 「中文 / 日本語」, 2026-10-08), so upstream's
+// sanitizeSettings arrives aliased; every other setting keeps upstream's shape.
 const sanitizeSettings = (raw) => ({ ...sanitizeBaseSettings(raw), voiceLang: raw?.voiceLang === 'cn' ? 'cn' : 'jp' });
 
-/** Settings store: { bgm, sfx, voice, voiceLang, muted, damageNumbers, quality, keys }. */
+/** Settings store: { bgm, sfx, voice, voiceLang, voiceOverrides, muted, damageNumbers, quality, textSize, keys }. */
 export const settingsStore = createStore(sanitizeSettings(loadPref('settings', null)));
+
+/**
+ * 设置 →「文字大小」: put the step on <html data-text> — css/theme.css turns it into the text root `--t`
+ * (`:root[data-text="md"] { --t: … }`), which every readable font-size reads; no layout value does. The attribute
+ * (not an inline style) keeps the default in the stylesheet: without it — no JavaScript, an old saved profile, a
+ * value a future version dropped — the page is the design's own sizes. Values outside TEXT_SIZES fall back to 小.
+ * @param {'sm'|'md'|'lg'|'xl'} v
+ */
+export function applyTextSize(v) {
+  const el = globalThis.document?.documentElement;
+  if (el) el.dataset.text = TEXT_SIZES.includes(v) ? v : 'sm';
+}
 
 settingsStore.subscribe((s) => {
   savePref('settings', sanitizeSettings(s));
   audio.setVolumes(s);
-  audio.setVoiceLang(s.voiceLang);
+  audio.setVoiceLang(s.voiceLang, s.voiceOverrides);
+  applyTextSize(s.textSize);
 });
 audio.setVolumes(settingsStore.get());
-audio.setVoiceLang(settingsStore.get().voiceLang);
+audio.setVoiceLang(settingsStore.get().voiceLang, settingsStore.get().voiceOverrides);
+// before the first render (main.js boot renders after its imports ran): the stored step is on screen without a flash
+applyTextSize(settingsStore.get().textSize);
 
 /** @param {Partial<ReturnType<typeof sanitizeSettings>>} patch */
 export function updateSettings(patch) {
@@ -66,6 +92,11 @@ function Toggle({ label, micro, value, onChange }) {
 }
 
 const QUALITY = [['high', '高'], ['medium', '中'], ['low', '低']];
+/**
+ * 文字大小: one step of TEXT_SIZES (ui/gameLogic/settings.js) with its label — 小 is the design's own sizes, the others
+ * raise the text root `--t` (css/theme.css) and with it every readable font-size; the board and the HUD's boxes stay.
+ */
+const TEXT_SCALES = [['sm', '小'], ['md', '中'], ['lg', '大'], ['xl', '特大']];
 /**
  * 语音语言: each dub named in its own language — the owner's 「中文 / 日本語」 (2026-10-08); VOICE_LANGS order.
  */
@@ -105,7 +136,7 @@ function HotkeySection({ keys, touchUi }) {
       }
       if (r.kind === 'refuse') {
         setNote({ warn: true, text: r.reason === 'modifier' ? '快捷键只能是单个按键，不能搭配 Ctrl、Alt 或 ⌘'
-          : `${(r.name) ?? ''} 不能设为快捷键：Esc、Tab、Enter、方向键和功能键留给界面使用` });
+          : `${r.name} 不能设为快捷键：Esc、Tab、Enter、方向键和功能键留给界面使用` });
         return;
       }
       const res = rebindHotkey(cur, waiting, r.code);
@@ -154,6 +185,55 @@ function HotkeySection({ keys, touchUi }) {
   </section>`;
 }
 
+/** Where a report goes: the upstream issue tracker (shown as text the player can select; a link may open nothing). */
+export const ISSUES_URL = 'https://github.com/sganggs/Stronghold-Protocol/issues';
+
+/**
+ * 问题反馈: copy the diagnostics of this page (diag.js) for a GitHub issue — the errors recorded since the page opened,
+ * this browser and device, where the player is, and, switched on by default while a battle is on screen, that battle's
+ * spec (the dev tools replay it). Player names, the room code and the token are replaced; nothing is uploaded. Laid out
+ * like 快捷键 above it (a head with its button, a hint, the result line); the battle switch is the settings' Toggle, and
+ * when the clipboard refuses (some in-app browsers), the report is shown selected in a box styled like 干员调配's 导出.
+ */
+/** The result line of 复制诊断信息, by outcome (msgids: translated when shown, so a language switch reaches it). */
+const DIAG_NOTES = { copied: '已复制诊断信息，可以粘贴到 GitHub issue 中', refused: '无法写入剪贴板，请手动复制下面的内容' };
+
+function DiagSection() {
+  const [attach, setAttach] = useState(true);
+  const [note, setNote] = useState(null);       // 'copied' | 'refused' | null: the result line
+  const [manual, setManual] = useState(null);   // the report, when the clipboard refused it
+  const boxRef = useRef(null);
+  // the box opens selected for a manual copy, scrolled to its first line (select() leaves it at the end)
+  useLayoutEffect(() => {
+    const el = boxRef.current;
+    if (manual && el) { el.focus(); el.select(); el.scrollTop = 0; }
+  }, [manual]);
+  const n = errorCount();
+  const battle = currentBattle();
+  const copy = async () => {
+    const text = diagnosticsText({ state: store.get(), settings: settingsStore.get(), attachBattle: attach && !!battle });
+    const ok = await copyText(text);
+    setManual(ok ? null : text);
+    setNote(ok ? 'copied' : 'refused');
+  };
+  return html`<section class="set-diag" aria-labelledby="set-diag-title">
+    <div class="set-keys__head">
+      <span class="set-row__label" id="set-diag-title">${'问题反馈'}<${MicroLabel}>DIAGNOSTICS<//></span>
+      <${Button} variant="ghost" size="sm" icon="copy" class="set-diag__copy" data-testid="diag-copy" onClick=${copy}>${'复制诊断信息'}<//>
+    </div>
+    <p class="set-hint">${'遇到问题时，复制诊断信息并粘贴到 GitHub issue 中，开发者就能看到出错时的情况。诊断信息只在本机生成，不会自动上传；玩家名和房间号会被替换。'}</p>
+    <div class="set-diag__meta">
+      <span class="set-diag__stat">${'已记录的错误'}<b class=${cx('set-diag__count num', n > 0 && 'is-warn')} data-testid="diag-count">${n}</b></span>
+      <span class="set-diag__url">${ISSUES_URL.replace(/^https:\/\//, '')}</span>
+    </div>
+    ${battle ? html`<${Toggle} label=${'附上本场战斗'} micro="BATTLE DATA" value=${attach} onChange=${setAttach} />
+      <p class="set-hint set-diag__battle-hint">${'开发者可以用附上的战斗数据重现这场战斗。'}</p>` : null}
+    ${note ? html`<p class=${cx('set-keys__note', note === 'refused' && 'is-warn')} role="status" aria-live="polite">${(DIAG_NOTES[note])}</p>` : null}
+    ${manual ? html`<textarea ref=${boxRef} class="set-diag__text" data-testid="diag-text" spellcheck=${false} readOnly
+      aria-label=${'诊断信息'} value=${manual}></textarea>` : null}
+  </section>`;
+}
+
 /**
  * 资源预下载 (方案B — the start page's picker runs once, this is the player's way to change later): the same complete
  * verified download as the boot page, with a progress line; success saves the 预下载 choice so the next boot verifies
@@ -198,8 +278,8 @@ export function SettingsModal({ open, onClose }) {
   const [tested, setTested] = useState(false);
   const [touchUi] = useState(() => detectFeatures().coarse && !detectFeatures().fine);
   return html`<${Modal} open=${open} onClose=${onClose} title=${'设置'} micro="SETTINGS" width="7.4rem"
-    actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${'玩法说明'}<//>
-      <${Button} variant="primary" icon="check" onClick=${onClose}>${'完成'}<//>`}>
+                        actions=${html`<${Button} variant="secondary" icon="book" class="set-guide" onClick=${() => openGuide(0)}>${'玩法说明'}<//>
+                        <${Button} variant="primary" icon="check" onClick=${onClose}>${'完成'}<//>`}>
     <div class="set-list">
       <${Slider} label=${'背景音乐'} micro="BGM" icon="play" value=${s.bgm} onInput=${(v) => updateSettings({ bgm: v })} />
       <${Slider} label=${'干员语音'} micro="VOICE" icon="mic" value=${s.voice} onInput=${(v) => updateSettings({ voice: v })} />
@@ -211,22 +291,33 @@ export function SettingsModal({ open, onClose }) {
         </div>
       </div>
       <${Slider} label=${'音效'} micro="SFX" icon="signal" value=${s.sfx}
-        onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
+                 onInput=${(v) => { updateSettings({ sfx: v }); if (!tested) { setTested(true); setTimeout(() => setTested(false), 400); audio.sfx('click'); } }} />
       <${Toggle} label=${'静音'} micro="MUTE" value=${s.muted} onChange=${(v) => updateSettings({ muted: v })} />
       <${Toggle} label=${'显示伤害数字'} micro="DAMAGE NUMBERS" value=${s.damageNumbers} onChange=${(v) => updateSettings({ damageNumbers: v })} />
       <div class="set-row">
         <span class="set-row__label">${'画面质量'}<${MicroLabel}>QUALITY<//></span>
         <div class="set-seg" role="radiogroup">
           ${QUALITY.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.quality === id ? 'true' : 'false'}
-            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${(label)}</button>`)}
+            class=${s.quality === id ? 'is-on' : ''} onClick=${() => updateSettings({ quality: id })}>${label}</button>`)}
         </div>
       </div>
+      <div class="set-row">
+        <span class="set-row__label">${'文字大小'}<${MicroLabel}>TEXT SIZE<//></span>
+        <div class="set-seg set-textsize" role="radiogroup" aria-label=${'文字大小'} data-testid="text-size">
+          ${TEXT_SCALES.map(([id, label]) => html`<button key=${id} type="button" role="radio" aria-checked=${s.textSize === id ? 'true' : 'false'}
+            class=${s.textSize === id ? 'is-on' : ''} onClick=${() => updateSettings({ textSize: id })}>${label}</button>`)}
+        </div>
+      </div>
+      <p class="set-hint set-textsize-note">${'调整界面文字大小，棋盘保持原比例。'}</p>
       <${HotkeySection} keys=${s.keys} touchUi=${touchUi} />
       <${PredownloadSection} />
+      <${DiagSection} />
       <p class="set-hint">${touchUi ? '触屏操作：点击单位选中（撤退 / 出售）· 长按单位或卡牌查看详情 · 拖动部署后滑动选择朝向' : '右键查看详情'}</p>
     </div>
   <//>`;
 }
+
+
 
 /**
  * The 设置 button of the lobby and the room (GitHub #238 — before it the settings were reachable only from the title

@@ -92,6 +92,8 @@ export class MatchPlatform {
       ps.connected = false;
       this.refreshDraftPriority(playerId);
       this.refreshUniteSkipVote();
+      // A disconnected human's silence is never consent to a new setup.
+      this.cancelSetupVote();
       // a paused solo battle resumes (the server takes the field over; nobody is left to resume it)
       this._resume();
       if (this.clientCombat) this._authorityLost(ps, 'disconnect');
@@ -142,6 +144,7 @@ export class MatchPlatform {
     if (!ps || ps.isBot || ps.left || this.disposed) return;
     this.guard(() => {
       ps.left = true;
+      this.cancelSetupVote();
       ps.connected = false;
       ps.autoplay = false;
       this.refreshUniteSkipVote();

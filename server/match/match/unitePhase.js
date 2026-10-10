@@ -9,6 +9,7 @@ import { uniteBattleOpts, uniteSurvivors, plannedUniteSurvivors, nextUnitePlan, 
 import { FieldRunner, timelineAt, uniteBillBounds } from '../fields.js';
 import { uniteLeft } from '../../sim/spec.js';
 import { FLOW_TICKER_PRIORITY, DELAYS, OK, fail } from './common.js';
+import { onStartUnite } from '../botEmotes.js';
 
 export class MatchUnite {
   // Each wave has fresh ballots; approval ends all later waves after the current battle finishes.
@@ -57,6 +58,7 @@ export class MatchUnite {
     this._defaultWatch();
     this.markPublic();
     this.tickerText(`联防阶段：${plan.helpers.map((p) => p.name).filter((s) => s !== '').join('、')} 迎战突破防线的敌人`, FLOW_TICKER_PRIORITY);
+    onStartUnite(this, plan); // an AI helper says "合作愉快" once on the open of a 联防 (enabled by default; SP_BOT_EMOTES=0 silences it)
     this._uniteLeftKey = null;
     this.runner = new FieldRunner(this, this.fields, {
       onTick: (runner) => this._uniteTick(runner),

@@ -667,6 +667,11 @@
 .lo-io__text::placeholder { color: var(--text-lo); }
 .lo-io__file { display: none; }
 
+/* Per-operator voice, a browser-local preference in roster and DIY details. */
+.lo-voice { display: flex; flex-wrap: wrap; align-items: center; gap: .12rem; padding: .14rem 0; font-size: calc(.18 * var(--t)); }
+.lo-voice > small { flex-basis: 100%; color: var(--text-dim); font-size: calc(.15 * var(--t)); }
+.lo-voice .lo-select { min-width: 1.6rem; max-width: 100%; }
+
 /* ---- 皮肤选择 (docs/SKINS.md, ui/skinPicker.js) --------------------------------------------------------------
    单行垂直列表：每款皮肤独占一行，左侧头像、中间完整名称与系列、右侧状态标签。兼容旧机型 (Chromium 80-84)。 */
 .lo-skins {

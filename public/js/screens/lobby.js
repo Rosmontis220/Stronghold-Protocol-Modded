@@ -10,6 +10,7 @@
 // plays 战场#01, 险境 draws one of 8, 绝境 / 终极 one of 7 (m01 excluded).
 // The texts are Chinese literals here and in the module-level tables; the config.json mode texts come from data.js.
 
+import { ResumeMatchButton } from '../ui/resumeMatch.js';
 import { useEffect, useRef, useState } from '../../vendor/hooks.module.js';
 import { DIFFICULTIES, DIFFICULTY_NAMES, DIFFICULTY_COLORS, ROOM_CODE_LEN, MAX_SEATS, DEFAULT_SEATS, ROOM_CAPACITIES, MAX_SPECTATORS, modeIdFor, ERR } from '../../../shared/constants.js';
 import { html, Button, Icon, MicroLabel, Panel, TextField, PingPill, AvatarFrame, Tooltip, Spinner, DifficultyIcon, doctorNo } from '../ui/components.js';
@@ -17,6 +18,7 @@ import { toast, toastError } from '../ui/toasts.js';
 import { GuideButton } from '../ui/guide.js';
 import { openStats } from './stats.js';
 import { SettingsButton } from '../ui/settings.js';
+import { PwaInstallButton } from '../ui/device.js';
 import { LoadoutButton } from './loadout.js';
 import { net, identity } from '../net.js';
 import { store, useStore, shallowEqual, loadPref, savePref } from '../store.js';
@@ -327,6 +329,8 @@ export function LobbyScreen() {
       <div class="topbar__right">
         <${AvatarPicker} />
         <${Button} variant="secondary" size="sm" icon="chart" class="stats-entry" onClick=${openStats} title=${'统计数据'} aria-label=${'统计数据'}>${'统计'}<//>
+        <${ResumeMatchButton} />
+        <${PwaInstallButton} class="lobby-pwa" />
         <${SettingsButton} class="lobby-settings" variant="secondary" label=${'设置'} />
         <${GuideButton} class="lobby-guide" variant="secondary" label=${'玩法说明'} />
         <${LoadoutButton} from="lobby" size="sm" class="lobby-loadout" label=${'干员调配'} />

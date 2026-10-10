@@ -2,7 +2,7 @@
 
 《明日方舟》季节性自走棋塔防玩法「卫戍协议：盟约」的**非官方同人复刻**：支持浏览器、Windows 桌面端和 Android 客户端，可进行独立模拟或最多 20 席位同盟合作。Windows / Android 完整客户端内置资源与本地对局引擎，断网时也能与 AI 队友一起玩。
 
-![version](https://img.shields.io/badge/version-0.2.2-2ea44f)
+![version](https://img.shields.io/badge/version-0.2.3-2ea44f)
 ![license](https://img.shields.io/badge/code%20license-GPL--3.0--or--later-blue)
 ![node](https://img.shields.io/badge/node-22%20%7C%2024-339933)
 
@@ -58,7 +58,7 @@ English summary: [below](#english).
 
 - **独立模拟**（单人）与**同盟模拟**（最多 20 人**合作**，没有 PvP；空位可以加 AI 队友）。
 - 服务器是一个 Node.js 程序，**战斗在各玩家的浏览器里模拟**（和官方一样），服务器只管经济与回合，一台低功耗小主机就能开服。
-- 当前版本标识为 **0.2.2**：在 0.2.1 的基础上融合 Paper `0.1.6.1` 的皮肤和中日语音，以及兼容的 upstream 修复；同盟上限扩展为 20 席位，采用可滚动的完整成员名单；采用开局固定分组卡池、组间并行策略与机变轮选、最多五轮联防和投票跳过后续联防；机变每组独立六张，取消旧的全房六卡重复选取。0.2.2 起干员可以单独设置潜能和练度（默认满潜、精英2 Lv.60），新增统计数据页，按官方补上失衡、整数秒攻击间隔 30 帧等规则，并修复了 0.2.1 发布后玩家和 GitHub 上反馈的问题，详见 [CHANGELOG.md](CHANGELOG.md)；仍有少数规则按推断实现，与官方不一致的地方欢迎在 Issue 里反馈。容量实现范围见 [docs/PLAYER_CAPACITY.md](docs/PLAYER_CAPACITY.md)。融合范围见 [docs/FUSION.md](docs/FUSION.md)，客户端构建与离线行为见 [docs/OFFLINE-CLIENTS.md](docs/OFFLINE-CLIENTS.md)。本版本已引入参考容量分支及其 upstream 0.2.2 引擎基线。
+- 当前版本 **0.2.3**：在 0.2.2 的基础上融合 upstream `0.2.3`——自选编队新增六星克莱门莎，黍和乌尔比安新增模组；新增文字大小、逐干员语音语言、添加到桌面、开局重刷和恢复本机对局，并修复了 0.2.2 发布后玩家和 GitHub 上反馈的问题，详见 [CHANGELOG.md](CHANGELOG.md)；本分支保留：同盟上限扩展为 20 席位、控制台资金挂账与素材下载可接 CDN。0.2.2 起干员可以单独设置潜能和练度（默认满潜、精英2 Lv.60），新增统计数据页，按官方补上失衡、整数秒攻击间隔 30 帧等规则。仍有少数规则按推断实现，与官方不一致的地方欢迎在 Issue 里反馈。容量实现范围见 [docs/PLAYER_CAPACITY.md](docs/PLAYER_CAPACITY.md)。融合范围见 [docs/FUSION.md](docs/FUSION.md)，客户端构建与离线行为见 [docs/OFFLINE-CLIENTS.md](docs/OFFLINE-CLIENTS.md)。
 
 ## 功能一览
 
@@ -163,6 +163,7 @@ npm start          # 启动服务器：http://localhost:3000
 | `TRUST_PROXY` | `auto` | 是否信任 `X-Forwarded-For` 等转发头：`auto` 只信任来自本机 / 内网的代理；`1` 总是；`0` 从不 |
 | `DEBUG` | 空 | 设为任意值输出详细日志 |
 | `SP_NO_BROWSER` | 空 | 设为 `1` 时启动脚本不自动打开浏览器 |
+| `SP_BOT_EMOTES` | 空 | AI 队友的对局表情回应（战斗、整备、合成、联防、收礼时即刻的 `m.emote` 广播）；设为 `0` 时整体关闭 |
 
 设置方式：macOS / Linux `PORT=8080 npm start`；PowerShell `$env:PORT=8080; npm start`；cmd `set "PORT=8080" && npm start`。健康检查：`GET /healthz`。
 
@@ -301,7 +302,7 @@ node tools/perfbench.mjs --cpu 1,4,6 --profile             # 真实战斗的帧�
 An **unofficial, non-commercial fan remake** of Arknights' seasonal auto-chess tower-defense mode *Stronghold Protocol: Alliance*, played in the browser: solo, or up to 20-player co-op (AI teammates can fill seats). Combat is simulated in each player's browser, so a low-power PC can host.
 
 - **Run:** download the full bundle `Stronghold-Protocol-v<version>.zip` (~505 MB, all the art inside, the Chinese and Japanese operator voices included) from [Releases](../../releases/latest) — or the lite one, `…-lite.zip` (~22 MB), which downloads the art (~550 MB) on its first start; from 0.2.1 on, `…-update.zip` holds only the files changed since the earlier 0.2.x releases: stop the server, extract it over an existing 0.2.x folder and start again (the first start deletes the files the new version dropped and verifies the install) — install Node.js 22 or 24, then double-click `scripts\start-windows.bat` (Windows) or run `./scripts/start.sh` (macOS / Linux) and open <http://localhost:3000>. From source: `npm install && npm run setup && npm start` (setup downloads ~550 MB of art from public mirrors, the emotes and the how-to-play pages included; the official 3D board, some official HUD icons, two enemy models and 39 summon models are extracted from a local Arknights client — without one the game uses the 2D board and look-alike stand-ins (the summons show their avatars), and a server can copy `public/assets/local/` and `data/local-assets.json` from the full bundle of the same version). On HTTPS or localhost, the startup screen verifies local file sizes and SHA-256 digests against the server's complete content index: it enters directly when the full resource set is complete, and missing or damaged files trigger one complete download flow without a lean option or resource checkboxes.
-- **Language:** **Simplified Chinese only** — the multilingual interface (English / 日本語 / 한국어 / 繁體中文), the translated game texts and the language switch were removed, so the UI strings are plain Chinese in the code and the data holds the official Chinese texts. The Chinese and Japanese operator voices are not affected (Settings → 语音语言).
+- **Language:** **Simplified Chinese only** — the multilingual interface (English / 日本語 / 한국어 / 繁體中文), the translated game texts and the language switch were removed (this branch's D015), so the UI strings are plain Chinese in the code and the game texts come from the official Chinese data. The Chinese and Japanese operator voices are not affected (Settings → 语音语言, default 日本語 on this branch).
 - **Play with friends:** create a co-op room and share the 4-letter key or the `?room=KEY` link. Pick a custom operator avatar from the lobby's Doctor information bar, or restore the default seat icon; teammates see the selected avatar in the room and team panels. On a LAN, use the address printed at start; otherwise use a virtual-LAN tool, a tunnel or a VPS — see [docs/DEPLOY.md](docs/DEPLOY.md).
 - **Disclaimer:** not affiliated with or endorsed by Hypergryph or Yostar. All Arknights names, art, audio, text and data are © their respective owners and are **not** covered by this project's GPL licence. For study and personal non-commercial use only — no selling, paid distribution, paid servers or monetisation of any kind. Content will be removed on request of the rights holders. Provided "as is", without warranty.
 - **License:** code GPL-3.0-or-later ([LICENSE](LICENSE)); game assets excluded.

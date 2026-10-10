@@ -90,7 +90,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `server/sim/Battle.js` | one battle field; its methods are in `server/sim/battle/` (`lifecycle.js`, `spawns.js`, `deploy.js`, `blocking.js`, `combat.js`, `status.js`, `summons.js`, `displacement.js`, `events.js` …) |
 | `server/sim/` (the rest) | `skills.js`, `ai.js`, `damage.js`, `buffs.js`, `targeting.js`, `grid.js` (pathing), `units.js`, `professions.js`, `snapshot.js`, `spec.js` (the BattleSpec), `simdata.js` (data records → engine defs), `nodeData.js` (the Node-only data loader, never served) |
 | `server/sim/content/` | everything game-specific, installed into a battle by `server/sim/content/index.js` |
-| `server/sim/content/kits/` | the operator kits: `ops/` holds one file per chess (`<chessId>-<codename>.js`, 129), per 补位 stand-in (`standin-<codename>.js`, 9) and per 自选 operator (`op-<codename>.js`, 71); `shared/` the helpers several kits use; `index.js` the registry; `README.md` the guide |
+| `server/sim/content/kits/` | the operator kits: `ops/` holds one file per chess (`<chessId>-<codename>.js`, 129), per 补位 stand-in (`standin-<codename>.js`, 9) and per 自选 operator (`op-<codename>.js`, 72); `shared/` the helpers several kits use; `index.js` the registry; `README.md` the guide |
 | `server/sim/content/enemies/` | the enemy kits by special type (`invisible.js`, `times.js`, `element.js`, `dot.js`, `reflection.js`, `fly.js`, `special.js`) and `leaders.js`; `server/sim/content/enemies.js` dispatches them, `server/sim/content/bosses.js` scripts the leaders |
 | `server/sim/content/garrisons/`, `items/`, `bands/` | 特质, equipment and strategies: `battle.js` is the battle side, `meta.js` the prep side (`registerMeta`, META §2) |
 | `server/sim/content/bonds/` | the 23 bonds: `core.js` the 8 core bonds (both sides), `server/sim/content/bonds/addon/` the 15 add-on bonds (`battle.js`, `meta.js`) |
@@ -107,7 +107,7 @@ so old imports keep working: `public/js/ui/gameLogic.js` (`public/js/ui/gameLogi
 | `public/js/screens/` | `title.js`, `lobby.js`, `room.js`, `loadout.js` (干员调配), `cultivation.js` (its 潜能 / 练度 controls), `ownership.js` (干员持有), `diy.js` (自选编队), `briefing.js`, `bandDraft.js`, `game.js` with `public/js/screens/game/`, `result.js` |
 | `public/js/ui/` | the HUD components (`hud.js`, `shopBar.js`, `detailPanel.js`, `bondStrip.js`, `teamPanel.js` …); `public/js/ui/gameLogic/` the pure in-match logic, unit-tested in Node |
 | `public/js/render/` | the field view: `app.js` with `public/js/render/app/`, `units.js` and `spine.js` (models), `tiles.js`, `projection.js`, `interp.js`, `pick.js`, `drag.js`, `public/js/render/fx/` (effects; `kinds.js` maps the fx kinds), `public/js/render/board3d/` (the official 3D board) |
-| `public/css/` | the styles (one set; the interface is Simplified Chinese only) |
+| `public/css/` | the styles (one set; every readable `font-size` is `calc(… * var(--t))`, the 文字大小 root) |
 
 ### Data, tools, tests
 
@@ -144,10 +144,8 @@ public/assets/ ─────────▶ public/js/render/, public/js/audio
 - **Language.** The interface and the game texts are **Simplified Chinese only**: the i18n layer (UI strings, game-text
   translations, language packs, the language switch) was removed ([D015](development/DECISIONS.md#d015)), player-facing
   strings are Chinese literals in the code, `public/js/data.js` keeps only a fixed `locale: () => 'zh'`, and `fmtNum()`
-  always uses the Chinese units 万 / 亿. The `lang` content-pack type is still validated and listed
-  (`shared/i18nPacks.js`, `server/packs.js`; PACKS.md) but no client loads a language pack and none ships. The server's
-  `m.toast` / `m.ticker` frames carry the Chinese `text` as sent. The Chinese / Japanese operator voices are not a
-  language pack and stay (ASSETS.md).
+  uses 万 / 亿. The server's `m.toast` / `m.ticker` frames carry the Chinese `text` itself. The Chinese / Japanese
+  operator voices are not a language pack and stay (ASSETS.md).
 - **Art and audio** are never committed. `npm run setup` downloads them from public mirrors (`tools/fetch-assets.mjs`,
   planned by `tools/assets/plan.mjs`) into `public/assets/` and writes the manifest `data/assets.json`;
   `tools/local-extract/` can add art from a local game client. The client only requests URLs listed in the manifest.

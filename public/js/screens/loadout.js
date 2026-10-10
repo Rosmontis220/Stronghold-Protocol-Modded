@@ -39,6 +39,7 @@ import {
 import { loadoutStore, openLoadout, closeLoadout, setEntries, setOpsMap, applyLoadoutEntries, setNotOwned, applyOwnershipImport, setDiyPicks, applyDiyImport } from '../ui/loadoutSync.js';
 import { skinsStore, setSkins, setSkin, clearSkin, availableSkins, loadSkinData } from '../ui/skins.js';
 import { SkinSection, skinAvatar } from '../ui/skinPicker.js';
+import { OperatorVoice } from '../ui/operatorVoice.js';
 import { CultivationSelects, CultivationSection } from './cultivation.js';
 import { cultivationCharIds } from '../../../shared/protocol.js';
 import { atPotential } from '../../../shared/potential.js';
@@ -422,6 +423,7 @@ function Detail({ m, chess, golden, entries, ops = {}, onChange, onOps, onReset,
       <button type="button" role="tab" aria-selected=${activeTab === 'skin'} class=${cx('lo-dtab', activeTab === 'skin' && 'is-on')} onClick=${() => setTab('skin')}>${'换装'} <span class="lo-dtab__en num">SKIN</span></button>
     </div>
     <div class="lo-detail__body" ref=${bodyRef}>
+      <${OperatorVoice} charId=${chess.charId} />
       ${activeTab === 'skin' ? null : html`<${CultivationSection} charId=${chess.charId} ops=${ops} onSet=${onOps} standIn=${notOwned} />
       <${LoadoutGarrisons} chess=${level === 'elite' && golden ? golden : chess} m=${m} />`}
       ${activeTab === 'skill' ? html`<section class="lo-sec">

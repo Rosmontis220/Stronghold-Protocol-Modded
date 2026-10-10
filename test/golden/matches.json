@@ -1158,7 +1158,7 @@
           "title": {"id":"comment_6","name":"挥金如土","picId":"comment_icon_6","text":"消耗资金最多"},
           "trophies": 2,
           "reward": 213,
-          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":2245551,"gold":98,"itemsEquipped":7,"kills":125,"leaks":46,"lpLost":33,"merges":3,"perfectRounds":5,"refreshes":7},
+          "stats": {"activatedLayers":0,"bossDamage":0,"dmgDealt":2239587,"gold":98,"itemsEquipped":7,"kills":125,"leaks":46,"lpLost":33,"merges":3,"perfectRounds":5,"refreshes":7},
           "lineup": [],
           "bonds": ["arcaneShip 0/2","indomShip 0/4","kazimierzShip 0/29","kjeragShip 0/8","miraShip 0/4","preciShip 0/2","raidShip 0/35","sargonShip 0/8","siracusaShip 0/6","steadShip 0/31","swiftShip 0/58"]
         },
