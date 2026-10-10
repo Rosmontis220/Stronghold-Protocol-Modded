@@ -10,6 +10,9 @@ services:
     environment:
       SP_VERIFY: "off"
       NODE_ENV: production
+      # The optional CDN origin for the asset downloads (DEPLOY §9.1): set SP_ASSET_BASE in the deployment's
+      # .env (compose reads it for ${...} substitution); empty keeps every download on this server.
+      SP_ASSET_BASE: "${SP_ASSET_BASE:-}"
     ports:
       - "127.0.0.1:3001:3000"
     volumes:
