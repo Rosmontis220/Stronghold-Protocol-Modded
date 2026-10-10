@@ -257,7 +257,7 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
     const activeBeforePartial = await meta();
     const partial = await partialPage.evaluate(async () => {
       window.probeIndex = await (await fetch('/resource-manifest.json', { cache: 'no-store' })).json();
-      return probeBatch(probeIndex, 0);
+      return window.probeBatch(window.probeIndex, 0);
     });
     assert.equal(partial.type, 'BATCH_DONE');
     assert.equal(partial.final, false);
@@ -270,18 +270,18 @@ test('browser predownload verifies local bytes, reuses files, updates atomically
     await fsp.writeFile(path.join(publicDir, 'assets/a.png'), 'later');
     assert.equal((await boot()).started, true);
     const retainedPartial = await partialPage.evaluate(async () => {
-      const file = probeIndex.files.find((item) => item.url === '/assets/a.png');
+      const file = window.probeIndex.files.find((item) => item.url === '/assets/a.png');
       return (await (await caches.open('sp-resource-objects-v2')).match(
         `${location.origin}/__sp_object__/${file.sha256}${encodeURI(file.url)}`))?.text();
     });
     assert.equal(retainedPartial, 'final');
-    const outOfOrder = await partialPage.evaluate(() => probeBatch(probeIndex, probeIndex.files.length - 1));
+    const outOfOrder = await partialPage.evaluate(() => window.probeBatch(window.probeIndex, window.probeIndex.files.length - 1));
     assert.equal(outOfOrder.type, 'ERROR');
     const completedPartial = await partialPage.evaluate(async (offset) => {
       let next = offset;
       let downloaded = 0;
-      while (next < probeIndex.files.length) {
-        const result = await probeBatch(probeIndex, next);
+      while (next < window.probeIndex.files.length) {
+        const result = await window.probeBatch(window.probeIndex, next);
         if (result.type === 'ERROR') return result;
         downloaded += result.downloaded;
         next = result.done;

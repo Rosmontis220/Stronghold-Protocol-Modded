@@ -63,6 +63,10 @@ export default [
       'public/dev/**',
       '.cache/**',
       'coverage/**',
+      // Gradle build outputs (gitignored, but on disk after a packaging run: the Capacitor bridge
+      // and the copied web client would otherwise be linted as this repository's own source).
+      'android/**/build/**',
+      'android/.gradle/**',
     ],
   },
   {
@@ -71,6 +75,17 @@ export default [
       ecmaVersion: 2024,
       sourceType: 'module',
       globals: { ...globals.node },
+    },
+    rules,
+  },
+  {
+    // The client probes drive a headless page: their `page.evaluate()` callbacks are browser code
+    // (`__SP__`, `document`, `location` …) even though the script itself runs under Node.
+    files: ['scripts/check-offline-client.mjs', 'scripts/check-desktop-client.mjs'],
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: 'module',
+      globals: { ...globals.node, ...globals.browser, __SP__: 'readonly' },
     },
     rules,
   },

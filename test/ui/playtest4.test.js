@@ -75,12 +75,12 @@ describe('2: 机变 cards take two taps (select → confirm), like buying in the
     assert.deepEqual(spTap(null, 'x', true), { armed: null, pick: null });
   });
 
-  test('cardPickable / armedCard: only my turn, before my pick, a free card, nothing in flight — repeatable cards stay selectable', () => {
+  test('cardPickable / armedCard: only my turn, before my pick, a free card, nothing in flight', () => {
     const s = sp();
-    const repeatable = { ...s, repeatable: true };
     assert.equal(cardPickable(s, s.cards[0], me), true);
+    // a card is taken once: the server answers SOLD_OUT when the idx is already in the page's `taken`
+    // (server/match/match/spDraft.js), so the client does not offer it again — there is no repeatable card.
     assert.equal(cardPickable(s, s.cards[2], me), false, 'taken');
-    assert.equal(cardPickable(repeatable, repeatable.cards[2], me), true, 'repeatable card');
     assert.equal(cardPickable(sp({ turnPid: 'p2' }), s.cards[0], me), false, 'not my turn');
     assert.equal(cardPickable(sp({ turnPid: 'p2' }), s.cards[0], { myId: 'me', solo: true }), true, 'solo: always my turn');
     assert.equal(cardPickable(sp({ pickOf: new Map([['me', 1]]) }), s.cards[0], me), false, 'after my pick');
